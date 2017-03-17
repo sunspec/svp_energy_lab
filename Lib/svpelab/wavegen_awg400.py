@@ -48,11 +48,12 @@ def params(info, group_name):
     pname = lambda name: group_name + '.' + GROUP_NAME + '.' + name
     mode = awg400_info['mode']
     info.param_add_value(gname('mode'), mode)
-    info.param_group(gname(GROUP_NAME), label='%s Parameters' % mode,
-                     active=gname('mode'),  active_value=mode, glob=True)
-    info.param(pname('comm'), label='Communications Interface', default='Network', values=['Network'])
-    info.param(pname('ip_addr'), label='IP Address',
-               active=pname('comm'),  active_value=['Network'], default='192.168.0.10')
+    info.param_group(gname(GROUP_NAME), label='%s Parameters' % mode,active=gname('mode'),  active_value=mode, glob=True)
+    info.param(pname('comm'), label='Communications Interface', default='VISA', values=['Network','VISA', 'GPIB'])
+
+    info.param(pname('visa_address'), label='VISA address', active=pname('comm'), active_value=['VISA'],default='GPIB0::10::INSTR')
+
+    info.param(pname('ip_addr'), label='IP Address',active=pname('comm'),  active_value=['Network'], default='192.168.0.10')
 
 GROUP_NAME = 'awg400'
 
@@ -67,6 +68,7 @@ class Wavegen(wavegen.Wavegen):
         wavegen.Wavegen.__init__(self, ts, group_name)
 
         self.params['ip_addr'] = self._param_value('ip_addr')
+        self.params['visa_address'] = self._param_value('visa_address')
 
         self.device = device_awg400.Device(self.params)
 
