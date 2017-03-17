@@ -47,7 +47,7 @@ MINIMUM_SAMPLE_PERIOD = 50
 
 das_modules = {}
 
-def params(info, id=None, label='Data Acquisition System', group_name=None):
+def params(info, id=None, label='Data Acquisition System', group_name=None, active=None, active_value=None):
     if group_name is None:
         group_name = DAS_DEFAULT_ID
     else:
@@ -55,7 +55,7 @@ def params(info, id=None, label='Data Acquisition System', group_name=None):
     if id is not None:
         group_name = group_name + '_' + str(id)
     name = lambda name: group_name + '.' + name
-    info.param_group(group_name, label='%s Parameters' % label, glob=True)
+    info.param_group(group_name, label='%s Parameters' % label, active=active, active_value=active_value, glob=True)
     info.param(name('mode'), label='Mode', default='Manual', values=['Manual'])
     for mode, m in das_modules.iteritems():
         m.params(info, group_name=group_name)

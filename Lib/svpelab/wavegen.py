@@ -37,7 +37,7 @@ import importlib
 
 wavegen_modules = {}
 
-def params(info, id=None, label='Waveform Generator', group_name=None):
+def params(info, id=None, label='Waveform Generator', group_name=None, active=None, active_value=None):
     if group_name is None:
         group_name = WAVEGEN_DEFAULT_ID
     else:
@@ -46,7 +46,7 @@ def params(info, id=None, label='Waveform Generator', group_name=None):
         group_name += '_' + str(id)
     print 'group_name = %s' % group_name
     name = lambda name: group_name + '.' + name
-    info.param_group(group_name, label='%s Parameters' % label, glob=True)
+    info.param_group(group_name, label='%s Parameters' % label, active=active, active_value=active_value, glob=True)
     print 'name = %s' % name('mode')
     info.param(name('mode'), label='Mode', default='Manual', values=['Manual'])
     for mode, m in wavegen_modules.iteritems():

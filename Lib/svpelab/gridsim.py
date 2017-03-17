@@ -43,7 +43,7 @@ import importlib
 
 gridsim_modules = {}
 
-def params(info, id=None, label='Grid Simulator', group_name=None):
+def params(info, id=None, label='Grid Simulator', group_name=None, active=None, active_value=None):
     if group_name is None:
         group_name = GRIDSIM_DEFAULT_ID
     else:
@@ -51,7 +51,7 @@ def params(info, id=None, label='Grid Simulator', group_name=None):
     if id is not None:
         group_name = group_name + '_' + str(id)
     name = lambda name: group_name + '.' + name
-    info.param_group(group_name, label='%s Parameters' % label, glob=True)
+    info.param_group(group_name, label='%s Parameters' % label, active=active, active_value=active_value, glob=True)
     info.param(name('mode'), label='Mode', default='Manual', values=['Manual'])
     info.param(name('auto_config'), label='Configure grid simulator at beginning of test', default='Disabled',
                values=['Enabled', 'Disabled'])

@@ -36,7 +36,7 @@ import importlib
 
 der_modules = {}
 
-def params(info, id=None, label='DER', group_name=None):
+def params(info, id=None, label='DER', group_name=None, active=None, active_value=None):
     if group_name is None:
         group_name = DER_DEFAULT_ID
     else:
@@ -44,7 +44,7 @@ def params(info, id=None, label='DER', group_name=None):
     if id is not None:
         group_name = group_name + '_' + str(id)
     name = lambda name: group_name + '.' + name
-    info.param_group(group_name, label='%s Parameters' % label, glob=True)
+    info.param_group(group_name, label='%s Parameters' % label,  active=active, active_value=active_value, glob=True)
     info.param(name('mode'), label='%s Mode' % label, default='Manual', values=[])
     for mode, m in der_modules.iteritems():
         m.params(info, group_name=group_name)
