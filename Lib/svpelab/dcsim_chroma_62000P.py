@@ -33,58 +33,60 @@ Questions can be directed to support@sunspec.org
 import os
 import time
 import socket
-
 import serial
 import visa
-
-import batt
+import dcsim
 
 chroma_info = {
     'name': os.path.splitext(os.path.basename(__file__))[0],
-    'mode': 'Chroma 62000P/63200'
+    'mode': 'Chroma 62000P'
 }
 
-def batt_info():
+def dcsim_info():
     return chroma_info
 
-def params(info):
-    info.param_add_value('batt.mode', chroma_info['mode'])
+def params(info, group_name=None):
+    gname = lambda name: group_name + '.' + name
+    pname = lambda name: group_name + '.' + GROUP_NAME + '.' + name
+    mode = chroma_info['mode']
+    info.param_add_value(gname('mode'), mode)
+    info.param_group(gname(GROUP_NAME), label='%s Parameters' % mode,
+                     active=gname('mode'),  active_value=mode, glob=True)
 
-    info.param_group('batt.chroma_power', label='Chroma Power Supply Parameters',
-                     active='batt.mode',  active_value=['Chroma 62000P/63200'], glob=True)
-    info.param('batt.chroma_power.v_max', label='Max Voltage', default=300.0)
-    info.param('batt.chroma_power.v', label='Voltage', default=50.0)
-    info.param('batt.chroma_power.i_max', label='Max Current', default=100.0)
-    info.param('batt.chroma_power.i', label='Power Supply Current', default=21.0)
-    info.param('batt.chroma_power.comm', label='Communications Interface', default='Serial',
-               values=['Serial', 'TCP/IP', 'GPIB', 'USB'])
-    info.param('batt.chroma_power.serial_port', label='Serial Port',
-               active='batt.chroma_power.comm',  active_value=['Serial'], default='com7')
-    info.param('batt.chroma_power.ip_addr', label='IP Address',
-               active='batt.chroma_power.comm',  active_value=['TCP/IP'], default='192.168.1.10')
-    info.param('batt.chroma_power.usb_name', label='USB Name',
-               active='batt.chroma_power.comm',  active_value=['USB'],
-               default='USB0::0x1698::0x0837::008000000452::INSTR')
+    # Constant current/voltage modes
+    info.param(pname('v_max'), label='Max Voltage', default=300.0)
+    info.param(pname('v'), label='Voltage', default=50.0)
+    info.param(pname('i_max'), label='Max Current', default=100.0)
+    info.param(pname('i'), label='Power Supply Current', default=21.0)
 
-    info.param_group('batt.chroma_load', label='Chroma Load Parameters',
-                     active='batt.mode',  active_value=['Chroma 62000P/63200'], glob=True)
-    info.param('batt.chroma_load.mode', label='Mode', default='Constant Current',
-               values=['Constant Current', 'Constant Voltage', 'Constant Resistance'])
-    info.param('batt.chroma_load.i_load', label='Current', default=10.0,
-               active='batt.chroma_load.mode',  active_value=['Constant Current'])
-    info.param('batt.chroma_load.comm', label='Communications Interface', default='Serial',
-               values=['Serial', 'TCP/IP', 'GPIB'])
-    info.param('batt.chroma_load.serial_port', label='Serial Port',
-               active='batt.chroma_load.comm',  active_value=['Serial'], default='com7')
-    info.param('batt.chroma_load.ip_addr', label='IP Address',
-               active='batt.chroma_load.comm',  active_value=['TCP/IP'], default='192.168.1.10')
-    info.param('batt.chroma_load.ip_port', label='IP Port',
-               active='batt.chroma_load.comm',  active_value=['TCP/IP'], default=5025)
+    # Comms
+    info.param(pname('comm'), label='Communications Interface', default='USB',
+               values=['USB', 'Serial', 'TCP/IP', 'GPIB'])
+    # USB
+    info.param(pname('usb_name'), label='USB Device String', active=pname('comm'),
+               active_value=['USB'], default='USB0::0x1698::0x0837::008000000452::INSTR')
 
-class Batt(batt.Batt):
+    # Serial
+    info.param(pname('serial_port'), label='Serial Port', active=pname('comm'),
+               active_value=['Serial'], default='com7')
+    # IP
+    info.param(pname('ip_addr'), label='IP Address', active=pname('comm'),
+               active_value=['TCP/IP'], default='192.168.1.10')
+    info.param(pname('ip_port'), label='IP Port', active=pname('comm'),
+               active_value=['TCP/IP'], default=5025)
+    # GPIB
+
+    # parameters for tuning unintentional islanding tests
+    # info.param(pname('volts'), label='Voltage', default=220)
+    # info.param(pname('freq'), label='Frequency', default=50)
+
+
+GROUP_NAME = 'chroma_62000P'
+
+class DCSim(dcsim.DCSim):
 
     """
-    Implementation for Chroma Programmable DC power supply 62050P-100-100 and the Chroma DC electronic load 63206.
+    Implementation for Chroma Programmable DC power supply 62050P-100-100.
 
     Valid parameters:
       mode - 'Chroma 62000P/63200'
@@ -101,45 +103,29 @@ class Batt(batt.Batt):
       ip_addr
       ip_port
     """
-    def __init__(self, ts):
+    def __init__(self, ts, group_name):
         self.buffer_size = 1024
         self.conn = None
         self.conn_load = None
 
-        batt.Batt.__init__(self, ts)
-
-        self.auto_config = ts.param_value('batt.auto_config')
+        dcsim.DCSim.__init__(self, ts, group_name)
 
         # power supply parameters
-        self.v_max_param = ts.param_value('batt.chroma_power.v_max')
-        self.v_param = ts.param_value('batt.chroma_power.v')
-        self.i_max_param = ts.param_value('batt.chroma_power.i_max')
-        self.i_param = ts.param_value('batt.chroma_power.i')
-        self.comm = ts.param_value('batt.chroma_power.comm')
-        self.serial_port = ts.param_value('batt.chroma_power.serial_port')
-        self.ipaddr = ts.param_value('batt.chroma_power.ip_addr')
-        self.ipport = ts.param_value('batt.chroma_power.ip_port')
-        self.usb_name = ts.param_value('batt.chroma_power.usb_name')
+        self.v_max_param = self._param_value('v_max')
+        self.v_param = self._param_value('v')
+        self.i_max_param = self._param_value('i_max')
+        self.i_param = self._param_value('i')
+        self.comm = self._param_value('comm')
+        self.serial_port = self._param_value('serial_port')
+        self.ipaddr = self._param_value('ip_addr')
+        self.ipport = self._param_value('ip_port')
+        self.usb_name = self._param_value('usb_name')
         self.baudrate = 115200
         self.timeout = 5
         self.write_timeout = 2
         self.cmd_str = ''
         self._cmd = None
         self._query = None
-
-        # load bank parameters
-        self.mode_load = ts.param_value('batt.chroma_load.mode')
-        self.i_load = ts.param_value('batt.chroma_load.i_load')
-        self.comm_load = ts.param_value('batt.chroma_load.comm')
-        self.serial_port_load = ts.param_value('batt.chroma_load.serial_port')
-        self.ipaddr_load = ts.param_value('batt.chroma_load.ip_addr')
-        self.ipport_load = ts.param_value('batt.chroma_load.ip_port')
-        self.baudrate_load = 115200
-        self.timeout_load = 5
-        self.write_timeout_load = 5
-        self.cmd_str_load = ''
-        self._cmd_load = None
-        self._query_load = None
 
         # Establish communications with the DC power supply
         if self.comm == 'Serial':
@@ -155,41 +141,20 @@ class Batt(batt.Batt):
             self._cmd = self.cmd_usb
             self._query = self.query_usb
 
-        # Establish communications with the load bank
-        if self.comm_load == 'Serial':
-            self.open_load()  # open communications
-            self._cmd_load = self.cmd_serial_load
-            self._query_load = self.query_serial_load
-        elif self.comm_load == 'TCP/IP':
-            self._cmd_load = self.cmd_tcp_load
-            self._query_load = self.query_tcp_load
+    def _param_value(self, name):
+        return self.ts.param_value(self.group_name + '.' + GROUP_NAME + '.' + name)
 
-        if self.auto_config == 'Enabled':
-            ts.log('Configuring the Battery Simulator.')
-            self.config()
-
-    # Serial commands for power supply and load
+    # Serial commands for power supply
     def cmd_serial(self, cmd_str):
         self.cmd_str = cmd_str
         try:
             if self.conn is None:
-                raise batt.BattError('Communications port to power supply not open')
+                raise dcsim.DCSimError('Communications port to power supply not open')
 
             self.conn.flushInput()
             self.conn.write(cmd_str)
         except Exception, e:
-             raise batt.BattError(str(e))
-
-    def cmd_serial_load(self, cmd_str):
-        self.cmd_str_load = cmd_str
-        try:
-            if self.conn_load is None:
-                raise batt.BattError('Communications port to load not open')
-
-            self.conn_load.flushInput()
-            self.conn_load.write(cmd_str)
-        except Exception, e:
-             raise batt.BattError(str(e))
+             raise dcsim.DCSimError(str(e))
 
     # Serial queries for power supply
     def query_serial(self, cmd_str):
@@ -211,40 +176,15 @@ class Batt(batt.Batt):
                             more_data = False
                             break
                 else:
-                    raise batt.BattError('Timeout waiting for response')
-            except batt.BattError:
+                    raise dcsim.DCSimError('Timeout waiting for response')
+            except dcsim.DCSimError:
                 raise
             except Exception, e:
-                raise batt.BattError('Timeout waiting for response - More data problem')
+                raise dcsim.DCSimError('Timeout waiting for response - More data problem')
 
         return resp
 
-    def query_serial_load(self, cmd_str):
-        resp = ''
-        more_data = True
-        self.cmd_serial_load(cmd_str)
-        while more_data:
-            try:
-                count = self.conn_load.inWaiting()
-                if count < 1:
-                    count = 1
-                data = self.conn_load.read(count)
-                if len(data) > 0:
-                    for d in data:
-                        resp += d
-                        if d == '\n':
-                            more_data = False
-                            break
-                else:
-                    raise batt.BattError('Timeout waiting for response')
-            except batt.BattError:
-                raise
-            except Exception, e:
-                raise batt.BattError('Timeout waiting for response - More data problem')
-
-        return resp
-
-    # TCP commands for power supply and load
+    # TCP commands for power supply
     def cmd_tcp(self, cmd_str):
         try:
             if self.conn is None:
@@ -256,20 +196,7 @@ class Batt(batt.Batt):
             # print 'cmd> %s' % (cmd_str)
             self.conn.send(cmd_str)
         except Exception, e:
-            raise batt.BattError(str(e))
-
-    def cmd_tcp_load(self, cmd_str):
-        try:
-            if self.conn_load is None:
-                self.ts.log('ipaddr = %s  ipport = %s' % (self.ipaddr_load, self.ipport_load))
-                self.conn_load = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                self.conn_load.settimeout(self.timeout_load)
-                self.conn_load.connect((self.ipaddr_load, self.ipport_load))
-
-            # print 'cmd> %s' % (cmd_str)
-            self.conn_load.send(cmd_str)
-        except Exception, e:
-            raise batt.BattError(str(e))
+            raise dcsim.DCSimError(str(e))
 
     # TCP queries for power supply and load
     def query_tcp(self, cmd_str):
@@ -288,27 +215,7 @@ class Batt(batt.Batt):
                             more_data = False
                             break
             except Exception, e:
-                raise batt.BattError('Timeout waiting for response')
-
-        return resp
-
-    def query_tcp_load(self, cmd_str):
-        resp = ''
-        more_data = True
-
-        self._cmd_load(cmd_str)
-
-        while more_data:
-            try:
-                data = self.conn_load.recv(self.buffer_size_load)
-                if len(data) > 0:
-                    for d in data:
-                        resp += d
-                        if d == '\n': #\r
-                            more_data = False
-                            break
-            except Exception, e:
-                raise batt.BattError('Timeout waiting for response')
+                raise dcsim.DCSimError('Timeout waiting for response')
 
         return resp
 
@@ -324,7 +231,7 @@ class Batt(batt.Batt):
             #self.ts.log_debug('cmd_str = %s, resp = %s' % (cmd_str, resp))
 
         except Exception, e:
-            raise batt.BattError('Timeout waiting for response')
+            raise dcsim.DCSimError('Timeout waiting for response')
         return resp
 
     # USB commands for power supply
@@ -338,9 +245,9 @@ class Batt(batt.Batt):
             self.conn.write('*CLS\n')
             self.conn.write(cmd_str)
         except Exception, e:
-            raise batt.BattError(str(e))
+            raise dcsim.DCSimError(str(e))
 
-    # Commands for power supply and load
+    # Commands for power supply
     def cmd(self, cmd_str):
         self.cmd_str = cmd_str
         # self.ts.log_debug('cmd_str = %s' % cmd_str)
@@ -350,68 +257,32 @@ class Batt(batt.Batt):
             #self.ts.log_debug('error resp = %s' % resp)
             if len(resp) > 0:
                 if resp[0] != '0':
-                    raise batt.BattError(resp + ' ' + self.cmd_str)
+                    raise dcsim.DCSimError(resp + ' ' + self.cmd_str)
         except Exception, e:
-            raise batt.BattError(str(e))
+            raise dcsim.DCSimError(str(e))
 
-    def cmd_load(self, cmd_str):
-        self.cmd_str_load = cmd_str
-        # self.ts.log_debug('cmd_str = %s' % cmd_str)
-        try:
-            self._cmd_load(cmd_str)
-        except Exception, e:
-            raise batt.BattError(str(e))
-
-    # Queries for power supply and load
+    # Queries for power supply
     def query(self, cmd_str):
         # self.ts.log_debug('query cmd_str = %s' % cmd_str)
         try:
             resp = self._query(cmd_str).strip()
         except Exception, e:
-            raise batt.BattError(str(e))
-
-        return resp
-
-    def query_load(self, cmd_str):
-        # self.ts.log_debug('query cmd_str = %s' % cmd_str)
-        try:
-            resp = self._query_load(cmd_str).strip()
-        except Exception, e:
-            raise batt.BattError(str(e))
-
+            raise dcsim.DCSimError(str(e))
         return resp
 
     def info(self):
+        """
+        Return information string for the device.
+        """
         return self.query('*IDN?\n')
-
-    def info_load(self):
-        return self.query_load('*IDN?\n')
 
     def config(self):
         """
         Perform any configuration for the simulation based on the previously
         provided parameters.
         """
-        self.ts.log('Battery load model: %s' % self.info_load().strip())
 
-        ### Setup the load bank first
-        self.prepare_load()
-        mode = self.output_mode_load()
-        if mode == 1:
-            self.ts.log('Battery load bank mode is constant current with the high range.')
-        else:
-            self.output_mode_load(mode='CCH')
-            self.ts.log('Battery load bank mode is %d (1 = constant current with the high range)' % mode)
-
-        # set current
-        i = self.i_load
-        i_set = self.current_load()
-        if i != i_set:
-            i_set = self.current_load(current=i)
-        self.ts.log('Battery load bank current settings: i = %s' % i_set)
-        self.ts.log('Battery load bank configured!')
-
-        ### Setup the power supply
+        # Setup the power supply
         self.ts.log('Battery power supply model: %s' % self.info().strip())
 
         # set voltage limits
@@ -460,12 +331,7 @@ class Batt(batt.Batt):
         if outputting == 'ON':
             self.ts.log_warning('Battery power supply output is started!')
 
-        self.output_load(start=True)
-        outputting_load = self.output_load()
-        if outputting_load == 1:
-            self.ts.log_warning('Battery load bank output is on!')
-
-    ### Power Supply Functions ###
+    # Power Supply Functions
     def open(self):
         """
         Open the communications resources associated with the grid simulator.
@@ -477,7 +343,7 @@ class Batt(batt.Batt):
             time.sleep(2)
             #self.cmd('CONFigure:REMote ON\n')
         except Exception, e:
-            raise batt.BattError(str(e))
+            raise dcsim.DCSimError(str(e))
 
     def close(self):
         """
@@ -574,77 +440,3 @@ class Batt(batt.Batt):
             self.cmd('SOUR:VOLT:LIMIT:LOW %0.1f\n' % voltage)
         v = self.query('SOUR:VOLT:LIMIT:LOW?\n')
         return float(v)
-
-    ### Load Bank Functions ###
-    def open_load(self):
-        """
-        Open the communications resources associated with the grid simulator.
-        """
-        try:
-            self.conn_load = serial.Serial(port=self.serial_port_load, baudrate=self.baudrate_load,
-                                           bytesize=8, stopbits=1,
-                                           xonxoff=0, timeout=self.timeout_load,
-                                           writeTimeout=self.write_timeout_load)
-            time.sleep(2)
-
-        except Exception, e:
-            raise batt.BattError(str(e))
-
-    def close_load(self):
-        """
-        Close any open communications resources associated with the grid
-        simulator.
-        """
-        if self.conn_load:
-            if self.comm_load == 'Serial':
-                self.cmd_load('CONFigure:REMote OFF\n')
-            self.conn_load.close()
-
-    def prepare_load(self):
-        if self.conn_load:
-            self.cmd_load('*RST\n')  # Reset
-            self.cmd_load('CONF:REM ON\n')  # Turn on remote control
-            self.cmd_load('CONF:VOLT:PROT 1\n')  # turn on voltage protection
-            self.ts.log('Voltage protection is set to %s' % self.query_load('CONF:VOLT:PROT?\n'))
-
-    def output_load(self, start=None):
-        """
-        Start/stop power supply output
-
-        start: if False stop output, if True start output
-        """
-        if start is not None:
-            if start is True:
-                self.cmd_load('LOAD ON\n')
-            else:
-                self.cmd_load('LOAD OFF\n')
-        output = self.query_load('LOAD?\n')
-        return int(output)
-
-    def output_mode_load(self, mode=None):
-        """
-        Start/stop power supply output
-
-        mode: 0 = CCL (constant current low), 1 = CCH,  2 = CCDL, 3 = CCDL, etc.
-        """
-        if mode is not None:
-            self.cmd_load('MODE %s\n' % mode)
-        mode = self.query_load('MODE?\n')
-        #self.ts.log_debug('mode is %s, %s, %s' % (mode, type(mode), int(mode)))
-        return int(mode)
-
-    def current_load(self, current=None):
-        """
-        Set the value for current if provided. If none provided, obtains the value for current.
-        """
-        if current is not None:
-            self.cmd_load('CURR:STAT:L1 %0.1f\n' % current)
-        i = self.query_load('CURR:STAT:L1?\n')
-        return float(i)
-
-    def current_max_load(self):
-        """
-        Read the value for max current available.
-        """
-        return float(self.query_load('CURR:STAT:L1? MAX\n'))
-

@@ -31,35 +31,35 @@ Questions can be directed to support@sunspec.org
 """
 
 import os
-
-import rlc_loads
+import loadsim
 
 pass_info = {
     'name': os.path.splitext(os.path.basename(__file__))[0],
     'mode': 'Pass'
 }
 
-def rlc_loads_info():
+def load_info():
     return pass_info
 
-def params(info, group_name):
+def params(info, group_name=None):
     gname = lambda name: group_name + '.' + name
     pname = lambda name: group_name + '.' + GROUP_NAME + '.' + name
     mode = pass_info['mode']
     info.param_add_value(gname('mode'), mode)
+    info.param_group(gname(GROUP_NAME), label='%s Parameters' % mode,
+                     active=gname('mode'),  active_value=mode, glob=True)
 
 GROUP_NAME = 'pass'
 
 
-class RLC(rlc_loads.RLC):
+class LoadSim(loadsim.LoadSim):
     """
     Template for RLC load implementations. This class can be used as a base class or
     independent RLC load classes can be created containing the methods contained in this class.
     """
 
     def __init__(self, ts, group_name):
-        rlc_loads.RLC.__init__(self, ts, group_name=None)
-
+        loadsim.LoadSim.__init__(self, ts, group_name)
 
     def resistance(self, r=None):
         if r is not None:
@@ -100,15 +100,15 @@ class RLC(rlc_loads.RLC):
     def tune_current(self, i=None):
         if c is not None:
             self.ts.log('Adjust R, L, and C until the fundamental frequency current through switch S3 is '
-                            'less than %0.2f' % i)
+                        'less than %0.2f' % i)
         else:
             pass
 
     def switch_s3(self, switch_state=None):
         if switch_state is not None:
-            if switch_state == rlc_loads.S3_CLOSED:
+            if switch_state == loadsim.S3_CLOSED:
                 self.ts.log('Closing S3 switch (switch to the utility).')
-            elif switch_state == rlc_loads.S3_OPEN:
+            elif switch_state == loadsim.S3_OPEN:
                 self.ts.log('Opening S3 switch (switch to the utility).')
             else:
                 self.ts.log_warning('Unknown S3 switch state.')

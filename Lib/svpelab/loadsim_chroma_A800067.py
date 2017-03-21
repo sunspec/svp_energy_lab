@@ -31,88 +31,95 @@ Questions can be directed to support@sunspec.org
 """
 
 import os
+import loadsim
+import chroma_A800067 as chroma
 
-import rlc_loads
-
-manual_info = {
+chroma_info = {
     'name': os.path.splitext(os.path.basename(__file__))[0],
-    'mode': 'Manual'
+    'mode': 'Chroma A800067'
 }
 
-def rlc_loads_info():
-    return manual_info
+def loadsim_info():
+    return chroma_info
 
-def params(info, group_name):
+def params(info, group_name=None):
     gname = lambda name: group_name + '.' + name
     pname = lambda name: group_name + '.' + GROUP_NAME + '.' + name
-    mode = manual_info['mode']
+    mode = chroma_info['mode']
     info.param_add_value(gname('mode'), mode)
+    info.param_group(gname(GROUP_NAME), label='%s Parameters' % mode,
+                     active=gname('mode'),  active_value=mode, glob=True)
 
-GROUP_NAME = 'manual'
+    info.param(pname('comm'), label='Communications Interface', default='VISA', values=['VISA'])
+    info.param(pname('visa_device'), label='VISA Device String', active=pname('comm'),
+               active_value=['VISA'], default='GPIB0::0::INSTR')
+    info.param(pname('visa_path'), label='VISA Path', active=pname('comm'),
+               active_value=['VISA'], default='')
+    info.param(pname('volts'), label='Voltage', default=220)
+    info.param(pname('freq'), label='Frequency', default=50)
+
+GROUP_NAME = 'chroma_A800067'
 
 
-class RLC(rlc_loads.RLC):
+class LoadSim(loadsim.LoadSim):
     """
-    Template for RLC load implementations. This class can be used as a base class or
-    independent RLC load classes can be created containing the methods contained in this class.
+    Chroma loadsim class.
     """
-
     def __init__(self, ts, group_name):
-        rlc_loads.RLC.__init__(self, ts, group_name=None)
+        loadsim.LoadSim.__init__(self, ts, group_name)
+        self.visa_device = self._param_value('visa_device')
+        self.visa_path = self._param_value('visa_path')
+        self.volts = self._param_value('volts')
+        self.freq = self._param_value('freq')
 
+        self.rlc = chroma.ChromaRLC(visa_device=self.visa_device, visa_path=self.visa_path, volts=self.volts,
+                                    freq=self.freq)
+        self.rlc.open()
 
-    def resistance(self, r=None):
-        if r is not None:
-            self.ts.confirm('Adjust the resistive load to R = %0.3f Ohms.' % r)
-        else:
-            self.ts.log('Enter the resistive load in Ohms.')
+    def _param_value(self, name):
+        return self.ts.param_value(self.group_name + '.' + GROUP_NAME + '.' + name)
 
-    def inductance(self, i=None):
+    def resistance(self, ph=None, r=None):
+        self.rlc.resistance(ph, r)
+
+    def voltset(self, v):
+        return self.rlc.voltset(v)
+
+    def freqset(self, f):
+        return self.rlc.freqset(f)
+
+    def inductance(self, ph, i=None):
         if i is not None:
-            self.ts.confirm('Adjust the inductive load to L = %0.6f H.' % i)
-        else:
-            self.ts.log('Enter the inductive load in H.')
+            return self.rlc.inductance(ph, i)
 
-    def capacitance(self, c=None):
-        if c is not None:
-            self.ts.confirm('Adjust the capacitive load to C = %0.6f F.' % c)
+    def capacitance(self, ph, i=None):
+        if i is not None:
+            return self.rlc.capacitance(ph, i)
         else:
             self.ts.log('Enter the capacitive load in F.')
 
-    def capacitor_q(self, q=None):
+    """def capacitor_q(self, q=None):
         if q is not None:
-            self.ts.confirm('Adjust the capacitive load of the fundamental freq to %0.3f VAr.' % q)
+            self.ts.log('Adjust the capacitive load of the fundamental freq to %0.3f VAr.' % q)
         else:
             self.ts.log('Enter the capacitor reactive power in VAr.')
 
     def inductor_q(self, q=None):
         if q is not None:
-            self.ts.confirm('Adjust the inductive load of the fundamental freq to %0.3f VAr.' % q)
+            self.ts.log('Adjust the inductive load of the fundamental freq to %0.3f VAr.' % q)
         else:
             self.ts.log('Enter the inductor reactive power in VAr.')
 
     def resistance_p(self, p=None):
         if p is not None:
-            self.ts.confirm('Adjust the resistive load of the fundamental freq to %0.3f W.' % p)
+            self.ts.log('Adjust the resistive load of the fundamental freq to  %0.3f W.' % p)
         else:
             self.ts.log('Enter the resistor power in W.')
 
     def tune_current(self, i=None):
         if c is not None:
-            self.ts.confirm('Adjust R, L, and C until the fundamental frequency current through switch S3 is '
+            self.ts.log('Adjust R, L, and C until the fundamental frequency current through switch S3 is '
                             'less than %0.2f' % i)
         else:
             pass
-
-    def switch_s3(self, switch_state=None):
-        if switch_state is not None:
-            if switch_state == rlc_loads.S3_CLOSED:
-                self.ts.confirm('Close S3 switch (switch to the utility). '
-                                'Verify that the EUT output current is zero before closing.')
-            elif switch_state == rlc_loads.S3_OPEN:
-                self.ts.confirm('Open S3 switch (switch to the utility).')
-            else:
-                self.ts.log_warning('Unknown S3 switch state.')
-        else:
-            self.ts.log_warning('No switch state given for the RLC Load S3 switch.')
-
+    """

@@ -31,22 +31,48 @@ Questions can be directed to support@sunspec.org
 """
 
 import os
-
-import batt
+import battsim
 
 manual_info = {
     'name': os.path.splitext(os.path.basename(__file__))[0],
     'mode': 'Manual'
 }
 
-def batt_info():
+
+def battsim_info():
     return manual_info
 
-def params(info):
-    info.param_add_value('batt.mode', manual_info['mode'])
+
+def params(info, group_name):
+    gname = lambda name: group_name + '.' + name
+    pname = lambda name: group_name + '.' + GROUP_NAME + '.' + name
+    mode = manual_info['mode']
+    info.param_add_value(gname('mode'), mode)
+    info.param_group(gname(GROUP_NAME), label='%s Parameters' % mode,
+                     active=gname('mode'),  active_value=mode, glob=True)
 
 
-class Batt(batt.Batt):
+GROUP_NAME = 'manual'
 
-    def __init__(self, ts):
-        batt.Batt.__init__(self, ts)
+
+class BattSim(battsim.BattSim):
+
+    def __init__(self, ts, group_name):
+        battsim.BattSim.__init__(self, ts, group_name)
+
+    def _param_value(self, name):
+        return self.ts.param_value(self.group_name + '.' + GROUP_NAME + '.' + name)
+
+    def info(self):
+        """
+        Return information string for the device.
+        """
+        return 'Manual battery simulator'
+
+    def config(self):
+        """
+        Perform any configuration for the simulation based on the previously
+        provided parameters.
+        """
+        self.ts.confirm('Configure battery or battery simulator.')
+

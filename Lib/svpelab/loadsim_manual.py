@@ -38,19 +38,81 @@ manual_info = {
     'mode': 'Manual'
 }
 
-def loadsim_info():
+def loads_info():
     return manual_info
 
-def params(info, group_name):
+def params(info, group_name=None):
     gname = lambda name: group_name + '.' + name
     pname = lambda name: group_name + '.' + GROUP_NAME + '.' + name
     mode = manual_info['mode']
     info.param_add_value(gname('mode'), mode)
+    info.param_group(gname(GROUP_NAME), label='%s Parameters' % mode,
+                     active=gname('mode'),  active_value=mode, glob=True)
 
 GROUP_NAME = 'manual'
 
+
 class LoadSim(loadsim.LoadSim):
+    """
+    Template for RLC load implementations. This class can be used as a base class or
+    independent RLC load classes can be created containing the methods contained in this class.
+    """
 
     def __init__(self, ts, group_name):
         loadsim.LoadSim.__init__(self, ts, group_name)
+
+    def resistance(self, r=None):
+        if r is not None:
+            self.ts.confirm('Adjust the resistive load to R = %0.3f Ohms.' % r)
+        else:
+            self.ts.log('Enter the resistive load in Ohms.')
+
+    def inductance(self, i=None):
+        if i is not None:
+            self.ts.confirm('Adjust the inductive load to L = %0.6f H.' % i)
+        else:
+            self.ts.log('Enter the inductive load in H.')
+
+    def capacitance(self, c=None):
+        if c is not None:
+            self.ts.confirm('Adjust the capacitive load to C = %0.6f F.' % c)
+        else:
+            self.ts.log('Enter the capacitive load in F.')
+
+    def capacitor_q(self, q=None):
+        if q is not None:
+            self.ts.confirm('Adjust the capacitive load of the fundamental freq to %0.3f VAr.' % q)
+        else:
+            self.ts.log('Enter the capacitor reactive power in VAr.')
+
+    def inductor_q(self, q=None):
+        if q is not None:
+            self.ts.confirm('Adjust the inductive load of the fundamental freq to %0.3f VAr.' % q)
+        else:
+            self.ts.log('Enter the inductor reactive power in VAr.')
+
+    def resistance_p(self, p=None):
+        if p is not None:
+            self.ts.confirm('Adjust the resistive load of the fundamental freq to %0.3f W.' % p)
+        else:
+            self.ts.log('Enter the resistor power in W.')
+
+    def tune_current(self, i=None):
+        if c is not None:
+            self.ts.confirm('Adjust R, L, and C until the fundamental frequency current through switch S3 is '
+                            'less than %0.2f' % i)
+        else:
+            pass
+
+    def switch_s3(self, switch_state=None):
+        if switch_state is not None:
+            if switch_state == loadsim.S3_CLOSED:
+                self.ts.confirm('Close S3 switch (switch to the utility). '
+                                'Verify that the EUT output current is zero before closing.')
+            elif switch_state == loadsim.S3_OPEN:
+                self.ts.confirm('Open S3 switch (switch to the utility).')
+            else:
+                self.ts.log_warning('Unknown S3 switch state.')
+        else:
+            self.ts.log_warning('No switch state given for the RLC Load S3 switch.')
 
