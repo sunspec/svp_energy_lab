@@ -51,7 +51,6 @@ def params(info, group_name):
     info.param_group(gname(GROUP_NAME), label='%s Parameters' % mode,
                      active=gname('mode'),  active_value=mode, glob=True)
 
-
 GROUP_NAME = 'manual'
 
 

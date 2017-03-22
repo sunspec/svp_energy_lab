@@ -38,7 +38,7 @@ manual_info = {
     'mode': 'Manual'
 }
 
-def loads_info():
+def loadsim_info():
     return manual_info
 
 def params(info, group_name=None):

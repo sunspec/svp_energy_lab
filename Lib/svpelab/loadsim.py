@@ -75,7 +75,7 @@ def loadsim_init(ts, id=None, group_name=None):
     return sim
 
 
-class LoadError(Exception):
+class LoadSimError(Exception):
     """
     Exception to wrap all loadsim generated exceptions.
     """
