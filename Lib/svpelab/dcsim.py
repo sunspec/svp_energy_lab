@@ -52,7 +52,7 @@ def params(info, id=None, label='DC Simulator', group_name=None, active=None, ac
         group_name = group_name + '_' + str(id)
     name = lambda name: group_name + '.' + name
     info.param_group(group_name, label='%s Parameters' % label, active=active, active_value=active_value, glob=True)
-    info.param(name('mode'), label='Mode', default='Manual', values=['Manual'])
+    info.param(name('mode'), label='Mode', default='Disabled', values=['Disabled'])
     info.param(name('auto_config'), label='Configure dc simulator at beginning of test', default='Disabled',
                values=['Enabled', 'Disabled'])
     for mode, m in dcsim_modules.iteritems():
@@ -75,11 +75,13 @@ def dcsim_init(ts, id=None, group_name=None):
     if id is not None:
         group_name = group_name + '_' + str(id)
     mode = ts.param_value(group_name + '.' + 'mode')
-    sim_module = dcsim_modules.get(mode)
-    if sim_module is not None:
-        sim = sim_module.DCSim(ts, group_name)
-    else:
-        raise DCSimError('Unknown dc simulation mode: %s' % mode)
+    sim = None
+    if mode != 'Disabled':
+        sim_module = dcsim_modules.get(mode)
+        if sim_module is not None:
+            sim = sim_module.DCSim(ts, group_name)
+        else:
+            raise DCSimError('Unknown dc simulation mode: %s' % mode)
 
     return sim
 

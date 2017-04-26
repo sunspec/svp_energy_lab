@@ -43,3 +43,33 @@ class Device(object):
 
     def close(self):
         pass
+
+    def start(self):
+        """
+        Start sequence execution
+        :return:
+        """
+        pass
+
+    def stop(self):
+        """
+        Start sequence execution
+        :return:
+        """
+        pass
+
+    def chan_enable(self, chans):
+        """
+        Enable channels
+        :param chans: list of channels to enable
+        :return:
+        """
+        pass
+
+    def chan_disable(self, chans):
+        """
+        Disable channels
+        :param chans: list of channels to disable
+        :return:
+        """
+        pass

@@ -56,10 +56,10 @@ def params(info, group_name):
                      active=gname('mode'),  active_value=mode, glob=True)
 
     # DC Load
-    loadsim.params(info, group_name=group_name)
+    loadsim.params(info, group_name=group_name, active=gname('mode'), active_value=mode)
 
     # DC Power Supply
-    dcsim.params(info, group_name=group_name)
+    dcsim.params(info, group_name=group_name, active=gname('mode'), active_value=mode)
 
 GROUP_NAME = 'dc_load'
 

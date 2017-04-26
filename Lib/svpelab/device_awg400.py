@@ -114,6 +114,7 @@ class Device(object):
                 raise DeviceError('AWG400 communication error: %s' % str(e))
 
     def query(self, cmd_str):
+        resp = ''
         if self.params['comm'] == 'Network':
             try:
                 resp = self.vx.ask(cmd_str)
@@ -127,6 +128,45 @@ class Device(object):
 
     def info(self):
         return self.query('*IDN?')
+
+    def load_config(self, params):
+        """
+        Enable channels
+        :param params: dict containing following possible elements:
+          'sequence_filename': <sequence file name>
+        :return:
+        """
+        pass
+
+    def start(self):
+        """
+        Start sequence execution
+        :return:
+        """
+        pass
+
+    def stop(self):
+        """
+        Start sequence execution
+        :return:
+        """
+        pass
+
+    def chan_enable(self, chans):
+        """
+        Enable channels
+        :param chans: list of channels to enable
+        :return:
+        """
+        pass
+
+    def chan_disable(self, chans):
+        """
+        Disable channels
+        :param chans: list of channels to disable
+        :return:
+        """
+        pass
 
 
 if __name__ == "__main__":

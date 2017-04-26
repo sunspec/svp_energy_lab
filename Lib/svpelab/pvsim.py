@@ -46,7 +46,7 @@ def params(info, id=None, label='PV Simulator', group_name=None, active=None, ac
         group_name = group_name + '_' + str(id)
     name = lambda name: group_name + '.' + name
     info.param_group(group_name, label='%s Parameters' % label, active=active, active_value=active_value, glob=True)
-    info.param(name('mode'), label='Mode', default='Manual', values=['Manual'])
+    info.param(name('mode'), label='Mode', default='Disabled', values=['Disabled'])
     for mode, m in pvsim_modules.iteritems():
         m.params(info, group_name=group_name)
 
@@ -67,11 +67,13 @@ def pvsim_init(ts, id=None, group_name=None):
     if id is not None:
         group_name = group_name + '_' + str(id)
     mode = ts.param_value(group_name + '.' + 'mode')
-    sim_module = pvsim_modules.get(mode)
-    if sim_module is not None:
-        sim = sim_module.PVSim(ts, group_name)
-    else:
-        raise PVSimError('Unknown PV simulation mode: %s' % mode)
+    sim = None
+    if mode != 'Disabled':
+        sim_module = pvsim_modules.get(mode)
+        if sim_module is not None:
+            sim = sim_module.PVSim(ts, group_name)
+        else:
+            raise PVSimError('Unknown PV simulation mode: %s' % mode)
 
     return sim
 

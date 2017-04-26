@@ -106,7 +106,12 @@ class Dataset():
         f.close()
 
     def from_csv(self, filename):
-        pass
+        f = open(filename)
+        labels = None
+        while labels is None:
+            line = f.readline().strip()
+            if len(line) > 0 and line[0] != '#':
+                labels = line.split(',')
 
 
 if __name__ == "__main__":

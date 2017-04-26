@@ -30,8 +30,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 Questions can be directed to support@sunspec.org
 """
 
+import os
 import time
 import traceback
+import glob
+import waveform
 
 data_points = [
     'time',
@@ -248,6 +251,30 @@ dsm_points_map = {
     '10': dsm_points_10
 }
 
+wfm_points_label = {
+    'Time': 'Test',
+    'dc_voltage': 'DC_V',
+    'dc_current': 'DC_I',
+    'ac_voltage': 'AC_V_1',
+    'ac_current': 'AC_I_1',
+    'ac_freq': 'Freq',
+    'ametek_trigger': 'Ext'
+}
+
+wfm_channels = ['AC_V_1', 'AC_V_2', 'AC_V_3', 'AC_I_1', 'AC_I_2', 'AC_I_3', 'Ext']
+
+wfm_dsm_channels = {'AC_V_1': 'AC_Voltage_10',
+                    'AC_V_2': None,
+                    'AC_V_3': None,
+                    'AC_I_1': 'AC_Current_10',
+                    'AC_I_2': None,
+                    'AC_I_3': None,
+                    'Ext': 'Ametek_Trigger'}
+
+
+class DeviceError(Exception):
+    pass
+
 
 class Device(object):
 
@@ -262,8 +289,10 @@ class Device(object):
         self.dsm_method = self.params.get('dsm_method')
         self.dsm_id = self.params.get('dsm_id')
         self.comp = self.params.get('comp')
+        self.file_path = self.params.get('file_path')
         self.data_file = self.params.get('data_file')
         self.points_file = self.params.get('points_file')
+        self.wfm_trigger_file = 'waveform trigger.txt'
 
         self.points_map = dsm_points_map.get(str(self.dsm_id))
         self.points = []
@@ -274,6 +303,20 @@ class Device(object):
 
         self.read_error_count = 0
         self.read_last_error = ''
+
+        # waveform settings
+        self.wfm_sample_rate = None
+        self.wfm_pre_trigger = None
+        self.wfm_post_trigger = None
+        self.wfm_trigger_level = None
+        self.wfm_trigger_cond = None
+        self.wfm_trigger_channel = None
+        self.wfm_timeout = None
+        self.wfm_channels = None
+        self.wfm_dsm_trigger_channel = None
+        self.wfm_dsm_channels = None
+        self.wfm_capture_name = None
+        self.wfm_capture_name_path = None
 
         try:
             if self.points_file is None:
@@ -347,6 +390,135 @@ class Device(object):
                    'dc': (rec['dc_voltage'], rec['dc_current'], rec['dc_watts'])}
 
         return datarec
+
+    def waveform_config(self, params):
+        self.wfm_sample_rate = params.get('sample_rate')
+        self.wfm_pre_trigger = params.get('pre_trigger')
+        self.wfm_post_trigger = params.get('post_trigger')
+        self.wfm_trigger_level = params.get('trigger_level')
+        self.wfm_trigger_cond = params.get('trigger_cond')
+        self.wfm_trigger_channel = params.get('trigger_channel')
+        self.wfm_timeout = params.get('timeout')
+        self.wfm_channels = params.get('channels')
+        self.wfm_dsm_trigger_channel = wfm_dsm_channels.get(self.wfm_trigger_channel)
+        self.wfm_dsm_channels = []
+
+        for c in self.wfm_channels:
+            dsm_chan = wfm_dsm_channels[c]
+            if dsm_chan is not None:
+                self.wfm_dsm_channels.append(dsm_chan)
+        self.params['ts'].log('Channels to record: %s' % str(self.wfm_channels))
+
+
+    def waveform_capture(self, enable=True):
+        """
+        Enable/disable waveform capture.
+        """
+        if enable:
+            self.wfm_capture_name = None
+            # remove old trigger file results
+            files = glob.glob(os.path.join(self.file_path, '* %s' % self.wfm_trigger_file))
+            # self.params['ts'].log(str(self.params))
+            # self.params['ts'].log(files)
+            for f in files:
+                os.remove(f)
+
+            # if self.waveform_status() is True:
+             #    raise DeviceError('Waveform capture already in progress')
+            '''
+            File format:
+                sample rate
+                pre-trigger time in seconds
+                post-trigger time in seconds
+                level
+                window
+                timeout in seconds
+                condition ['Rising Edge', 'Falling Edge']
+                trigger channel
+                channel
+                channel
+                ...
+            '''
+            config_str = '%0.1fe3\n%f\n%f\n%f\n10e-3\n%d\n%s\n%s\n' % (
+                self.wfm_sample_rate/1000, self.wfm_pre_trigger, self.wfm_post_trigger, self.wfm_trigger_level,
+                self.wfm_timeout, self.wfm_trigger_cond, self.wfm_dsm_trigger_channel)
+            for c in self.wfm_dsm_channels:
+                config_str += '%s\n' % c
+
+            # create capture file
+            f = open(os.path.join(self.file_path, self.wfm_trigger_file), 'w')
+            f.write(config_str)
+            f.close()
+
+            wait_time = 15
+            for i in range(wait_time + 1):
+                if not os.path.exists(os.path.join(self.file_path, self.wfm_trigger_file)):
+                    break
+                if i >= wait_time:
+                    raise DeviceError('Waveform start capture timeout')
+                time.sleep(1)
+
+            files = glob.glob(os.path.join(self.file_path, '* %s' % self.wfm_trigger_file))
+            if len(files) == 0:
+                raise DeviceError('No waveform trigger result file')
+            elif len(files) > 1:
+                raise DeviceError('Unexpected multiple waveform trigger result files')
+            self.wfm_capture_name = '%s.wfm' % (os.path.basename(files[0])[:19])
+            self.wfm_capture_name_path = os.path.join(self.file_path, self.wfm_capture_name)
+            # self.params['ts'].log(self.wfm_capture_name)
+
+    def waveform_status(self):
+        # mm-dd-yyyy hh_mm_ss waveform trigger.txt
+        # mm-dd-yyyy hh_mm_ss.wfm
+        # return INACTIVE, ACTIVE, COMPLETE
+        stat = 'ACTIVE'
+        if self.wfm_capture_name is not None:
+            # self.params['ts'].log('Searching for %s' % self.wfm_capture_name_path)
+            if os.path.exists(self.wfm_capture_name_path):
+                size = os.path.getsize(self.wfm_capture_name_path)
+                time.sleep(.1)
+                if size == os.path.getsize(self.wfm_capture_name_path):
+                    stat = 'COMPLETE'
+        else:
+            stat = 'INACTIVE'
+        return stat
+
+    def waveform_force_trigger(self):
+        pass
+
+    def waveform_load(self):
+        wf = waveform.Waveform()
+        f = open(self.wfm_capture_name_path, 'r')
+        ids = f.readline().split('\t')
+        if ids[0] != 'Time':
+            raise DeviceError('Unexpected time channel name in waveform capture: %s' % ids[0])
+        wf.channels.append('Time')
+        chan_count = len(ids)
+        chans = []
+        chans.append([])  # for time
+        for i in range(1, chan_count):
+            wfm_chan_id = ids[i].strip().lower()
+            chan_id = [chan_id for chan_id, dsm_chan_id in self.points_map.iteritems() if dsm_chan_id == wfm_chan_id]
+            if chan_id is None:
+                raise DeviceError('Unknown DSM channel name in waveform capture: %s', wfm_chan_id)
+            chan_label = wfm_points_label[chan_id[0]]
+            wf.channels.append(chan_label)
+            chans.append([])
+
+        line = 0
+        for data in f:
+            line += 1
+            values = data.split('\t')
+            if len(values) != chan_count:
+                raise DeviceError('Channel data error in waveform capture line %s' % (line))
+            for i in range(chan_count):
+                chans[i].append(float(values[i]))
+
+        for i in range(chan_count):
+            wf.channel_data.append(chans[i])
+
+        return wf
+
 
 if __name__ == "__main__":
 

@@ -126,6 +126,9 @@ class Device(object):
 
         self.vx = vxi11.Instrument(self.params['ip_addr'])
 
+        # clear any error conditions
+        self.cmd('*CLS')
+
     def open(self):
         pass
 
@@ -137,13 +140,11 @@ class Device(object):
     def cmd(self, cmd_str):
         try:
             self.vx.write(cmd_str)
-            '''
-            resp = self._query('SYSTem:ERRor?\r')
+            resp = self.query('STAT:ERRor?')
 
             if len(resp) > 0:
                 if resp[0] != '0':
-                    raise das.DASError(resp)
-            '''
+                    raise DeviceError(resp)
         except Exception, e:
             raise DeviceError('PX8000 communication error: %s' % str(e))
 
@@ -167,6 +168,158 @@ class Device(object):
 
         return rec
 
+    def capture(self, enable=None):
+        """
+        Enable/disable waveform capture.
+        """
+        if enable is not None:
+            if enable is True:
+                self.cmd('STAR')
+            else:
+                self.cmd('STOP')
+
+    def trigger(self, value=None):
+        """
+        Create trigger event with provided value.
+        """
+        pass
+
+    COND_RUN = 0x1000
+    COND_TRG = 0x0004
+    COND_CAP = 0x0001
+
+    def status(self):
+        """
+        Returns dict with following entries:
+            'trigger_wait' - waiting for trigger - True/False
+            'capturing' - waveform capture is active - True/False
+        """
+        cond = int(d.query('STAT:COND?'))
+        result = {'trigger_wait': (cond & COND_TRG),
+                  'capturing': (cond & COND_CAP),
+                  'cond': cond}
+        return result
+
+    def waveform(self):
+        """
+        Return waveform (Waveform) created from last waveform capture.
+        """
+        pass
+
+    def trigger_config(self, params):
+        """
+        slope - (rise, fall, both)
+        level - (V, I, P)
+        chan - (chan num)
+        action - (memory save)
+        position - (trigger % in capture)
+        """
+
+        """
+        samples/sec
+        secs pre/post
+
+        rise/fall
+        level (V, A)
+        """
+
+        pass
+
 if __name__ == "__main__":
 
-    pass
+    import time
+    import ftplib
+
+    COND_RUN = 0x1000
+    COND_TRG = 0x0004
+    COND_CAP = 0x0001
+
+    COND_RUNNING = (COND_RUN | COND_CAP)
+
+    params = {}
+    params['ip_addr'] = '192.168.0.100'
+    params['channels'] = [None, None, None, None, None]
+
+    ftp = ftplib.FTP('192.168.0.100')
+    ftp.login()
+    ftp.cwd('SD-1')
+    try:
+        ftp.delete('SVP_WAVEFORM.CSV')
+    except:
+        pass
+
+    d = Device(params=params)
+    print d.info()
+
+    # initialize temp directory
+    d.cmd('FILE:DRIV SD')
+    path = d.query('FILE:PATH?')
+    if path != ':FILE:PATH "Path = SD"':
+        print 'Drive not found: %s' % 'SD'
+    try:
+        d.cmd('FILE:DEL "SVP_WAVEFORM";*WAI')
+        print 'deleted SVP temp directory'
+    except:
+        pass
+    '''
+    print path
+    if path == ':FILE:PATH "Path = SD/SVPTEMP"':
+        d.cmd('FILE:DRIV SD')
+        try:
+            d.cmd('FILE:DEL "SVPTEMP";*WAI')
+        except:
+            pass
+        print 'deleted SVP temp directory'
+    d.cmd('FILE:MDIR "SVPTEMP";*WAI')
+    d.cmd('FILE:CDIR "SVPTEMP"')
+    path = d.query('FILE:PATH?')
+    if path != ':FILE:PATH "Path = SD/SVPTEMP"':
+        print 'Error creating SVP temp directory: %s' % path
+    '''
+
+    # capture waveform
+    # POS 50?
+    d.cmd('TRIG:MODE SING;HYST LOW;LEV 6.00000E-03;SLOP FALL;SOUR P2')
+    print d.query('TRIG:MODE?')
+    print d.query('TRIG:SIMP?')
+    print d.query('ACQ?')
+    d.cmd('ACQ:CLOC INT; COUN INF; MODE NORM; RLEN 250000')
+    print d.query('ACQ?')
+    d.cmd('TIM:SOUR INT; TDIV 500.0E-03')
+    print d.query('TIM?')
+    d.cmd(':STAR')
+    running = True
+    while running:
+        cond = int(d.query('STAT:COND?'))
+        if cond & COND_RUNNING == COND_RUNNING:
+            print 'still waiting (%s) ...\r' % cond,
+            time.sleep(1)
+        else:
+            running = False
+            d.cmd(':STOP')
+
+    # save waveform
+    d.cmd('FILE:SAVE:ANAM OFF;NAME "svp_waveform"')
+    print 'saving'
+    d.cmd('FILE:SAVE:ASC:EXEC')
+
+    # transfer waveform
+
+    '''
+    print d.query('waveform:length?')
+    print d.query('waveform:format?')
+    print d.query('waveform:trigger?')
+    print d.query('WAV:FORM?')
+    print d.query('WAV:SRAT?')
+    print d.query('status:condition?')
+    d.cmd('FILE:DRIV USB,0')
+    d.cmd('FILE:CDIR "SVPWAV"')
+    d.cmd('FILE:DEL "SVPWAV"')
+    print d.query('FILE:PATH?')
+    d.cmd('FILE:DRIV USB,0')
+    print d.query('FILE:PATH?')
+    d.cmd('FILE:DEL "SVPWAV"')
+    '''
+    # d.cmd('FILE:MDIR "SVPWAV"')
+
+

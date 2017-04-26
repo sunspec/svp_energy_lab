@@ -760,6 +760,7 @@ class DER(der.DER):
             if 'freq_watt' in self.inv.models:
                 if params is not None:
                     curve = params.get('curve')
+                    act_crv = params.get('ActCrv')
                     if curve is not None:
                         self.freq_watt_curve(id=act_crv, params=curve)  ## do first b/c read() in freq_watt_curve()
                     ena = params.get('Ena')
@@ -768,7 +769,7 @@ class DER(der.DER):
                             self.inv.freq_watt.ModEna = 1
                         else:
                             self.inv.freq_watt.ModEna = 0
-                    act_crv = params.get('ActCrv')
+                    # act_crv = params.get('ActCrv')  # reread in case freq_watt_curve wrote data
                     if act_crv is not None:
                         self.inv.freq_watt.ActCrv = act_crv
                     else:

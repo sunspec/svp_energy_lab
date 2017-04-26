@@ -48,7 +48,7 @@ def params(info, id=None, label='Waveform Generator', group_name=None, active=No
     name = lambda name: group_name + '.' + name
     info.param_group(group_name, label='%s Parameters' % label, active=active, active_value=active_value, glob=True)
     print 'name = %s' % name('mode')
-    info.param(name('mode'), label='Mode', default='Manual', values=['Manual'])
+    info.param(name('mode'), label='Mode', default='Disabled', values=['Disabled'])
     for mode, m in wavegen_modules.iteritems():
         m.params(info, group_name=group_name)
 
@@ -65,13 +65,15 @@ def wavegen_init(ts, id=None, group_name=None):
     if id is not None:
         group_name = group_name + '_' + str(id)
     mode = ts.param_value(group_name + '.' + 'mode')
-    wavegen_module = wavegen_modules.get(mode)
-    if wavegen_module is not None:
-        sm = wavegen_module.Wavegen(ts, group_name)
-    else:
-        raise WavegenError('Unknown wavegen controller mode: %s' % mode)
+    sim = None
+    if mode != 'Disabled':
+        wavegen_module = wavegen_modules.get(mode)
+        if wavegen_module is not None:
+            sim = wavegen_module.Wavegen(ts, group_name)
+        else:
+            raise WavegenError('Unknown wavegen controller mode: %s' % mode)
 
-    return sm
+    return sim
 
 
 class WavegenError(Exception):
@@ -117,7 +119,46 @@ class Wavegen(object):
         if self.device is None:
             raise WavegenError('Wavegen device not initialized')
         self.device.close()
-        
+
+    def load_config(self, params):
+        """
+        Enable channels
+        :param params: dict containing following possible elements:
+          'sequence_filename': <sequence file name>
+        :return:
+        """
+        self.device.load_config(params=params)
+
+    def start(self):
+        """
+        Start sequence execution
+        :return:
+        """
+        self.device.start()
+
+    def stop(self):
+        """
+        Start sequence execution
+        :return:
+        """
+        self.device.stop()
+
+    def chan_enable(self, chans):
+        """
+        Enable channels
+        :param chans: list of channels to enable
+        :return:
+        """
+        self.device.chan_enable(chans=chans)
+
+    def chan_disable(self, chans):
+        """
+        Disable channels
+        :param chans: list of channels to disable
+        :return:
+        """
+        self.device.chan_enable(chans=chans)
+
 def wavegen_scan():
     global wavegen_modules
     # scan all files in current directory that match wavegen_*.py

@@ -80,8 +80,11 @@ class DAS(das.DAS):
         self.params['dsm_method'] = self._param_value('dsm_method')
         self.params['dsm_id'] = self._param_value('node')
         self.params['comp'] = self._param_value('comp')
+        self.params['file_path'] = PATH
         self.params['data_file'] = DATA_FILE
         self.params['points_file'] = POINTS_FILE
+        self.params['wfm_trigger_file'] = WFM_TRIGGER_FILE
+        self.params['ts'] = ts
         self.device = device_sandia_dsm.Device(self.params)
 
     def _param_value(self, name):

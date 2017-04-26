@@ -30,14 +30,30 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 Questions can be directed to support@sunspec.org
 """
 
+import os
 import time
 
 class Device(object):
 
     def __init__(self, params=None):
-        pass
+        self.ts = params['ts']
+        self.points = params['points']
+        self.data_file = params['data_file']
+        self.file_= None
+        self.use_timestamp = params['use_timestamp']
+
+        self.ts.log('points = %s' % str(self.points))
+        if self.data_file:
+            self.file = open(self.data_file)
+            self.ts.log('line 1 = %s' % self.file.readline())
+            self.ts.log('line 2 = %s' % self.file.readline())
+            self.ts.log('line 3 = %s' % self.file.readline())
+            self.ts.log('line 4 = %s' %  self.file.readline())
+            self.ts.log('line 5 = %s' % self.file.readline())
 
     def info(self):
+        if self.ts:
+            self.ts.log('data_file = %s' % (self.data_file))
         return 'DAS Simulator - 1.0'
 
     def open(self):
@@ -47,6 +63,12 @@ class Device(object):
         pass
 
     def data_read(self):
+        if self.file:
+            line = self.file.readline()
+            if line == '':
+                self.file.seek(0)
+                line = self.file.readline()
+
         datarec = {'time': time.time(),
                    'ac_1': (220.1, 10.1, 2100.1, 2200, .011, .991, 60.1),
                    'ac_2': (220.2, 10.2, 2100.2, 2200, .012, .992, 60.2),

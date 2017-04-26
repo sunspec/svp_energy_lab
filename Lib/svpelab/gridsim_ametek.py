@@ -120,8 +120,8 @@ class GridSim(gridsim.GridSim):
             self._cmd = self.cmd_tcp
             self._query = self.query_tcp
 
-        # self.cmd('*CLS\n')
-        # self.self.cmd('*RST\n')  # Reset
+        self.cmd('*CLS\n')
+        # self.cmd('*RST\n')  # Reset the entire system
         self.profile_stop()
 
         if self.auto_config == 'Enabled':
@@ -349,50 +349,61 @@ class GridSim(gridsim.GridSim):
         freq = self.query('freq?\n')
         return freq
 
-    def profile_load(self, profile_name, v_step=100, f_step=100, t_step=None):
-        if profile_name is None:
-            raise gridsim.GridSimError('Profile not specified.')
-
-        if profile_name == 'Manual':  # Manual reserved for not running a profile.
-            self.ts.log_warning('Manual reserved for not running a profile')
-            return
-
+    def profile_load(self, profile_name=None, v_step=100, f_step=100, t_step=None, profile=None):
         v_nom = self.v_nom_param
         freq_nom = self.freq_param
 
-        # for simple transient steps in voltage or frequency, use v_step, f_step, and t_step
-        if profile_name is 'Transient_Step':
-            if t_step is None:
-                raise gridsim.GridSimError('Transient profile did not have a duration.')
-            else:
-                # (time offset in seconds, % nominal voltage, % nominal frequency)
-                profile = [(0, v_step, f_step),(t_step, v_step, f_step),(t_step, 100, 100)]
+        if profile is None:
+            if profile_name is None:
+                raise gridsim.GridSimError('Profile not specified.')
 
-        else:
-            # get the profile from grid_profiles
-            profile = grid_profiles.profiles.get(profile_name)
-            if profile is None:
-                raise gridsim.GridSimError('Profile Not Found: %s' % profile_name)
+            if profile_name == 'Manual':  # Manual reserved for not running a profile.
+                self.ts.log_warning('Manual reserved for not running a profile')
+                return
+
+            # for simple transient steps in voltage or frequency, use v_step, f_step, and t_step
+            if profile_name is 'Transient_Step':
+                if t_step is None:
+                    raise gridsim.GridSimError('Transient profile did not have a duration.')
+                else:
+                    # (time offset in seconds, % nominal voltage, % nominal frequency)
+                    profile = [(0, v_step, f_step), (t_step, v_step, f_step), (t_step, 100, 100)]
+
+            else:
+                # get the profile from grid_profiles
+                profile = grid_profiles.profiles.get(profile_name)
+                if profile is None:
+                    raise gridsim.GridSimError('Profile Not Found: %s' % profile_name)
 
         dwell_list = ''
-        v_list = ''
+        v1_list = ''
+        v2_list = ''
+        v3_list = ''
         v_slew_list = ''
         freq_list = ''
         freq_slew_list = ''
         func_list = ''
         rep_list = ''
         for i in range(1, len(profile)):
-            v = float(profile[i - 1][1])
-            freq = float(profile[i - 1][2])
+            v1 = float(profile[i - 1][1])
+            v2 = float(profile[i - 1][2])
+            v3 = float(profile[i - 1][3])
+            freq = float(profile[i - 1][4])
             t_delta = float(profile[i][0]) - float(profile[i - 1][0])
-            v_delta = abs(float(profile[i][1]) - v)
-            freq_delta = abs(float(profile[i][2]) - freq)
+            v_delta = max(abs(float(profile[i][1]) - v1), abs(float(profile[i][2]) - v2),
+                          abs(float(profile[i][3]) - v3))
+            freq_delta = abs(float(profile[i][4]) - freq)
+
             v_slew = 'MAX'
             freq_slew = 'MAX'
+            # if t_delta == 0:
+            #     t_delta = 0.001
             if t_delta > 0:
                 if i > 1:
                     dwell_list += ','
-                    v_list += ','
+                    v1_list += ','
+                    v2_list += ','
+                    v3_list += ','
                     v_slew_list += ','
                     freq_list += ','
                     freq_slew_list += ','
@@ -400,12 +411,16 @@ class GridSim(gridsim.GridSim):
                     rep_list += ','
                 if v_delta > 0:
                     v_slew = '%0.3f' % (((v_delta/t_delta)/100.) * float(v_nom))
-                    v = float(profile[i][1])  # look at next voltage
+                    v1 = float(profile[i][1])  # look at next voltage
+                    v2 = float(profile[i][2])
+                    v3 = float(profile[i][3])
                 if freq_delta > 0:
                     freq_slew = '%0.3f' % (((freq_delta/t_delta)/100.) * float(freq_nom))
-                    freq = float(profile[i][2])  # look at next frequency
+                    freq = float(profile[i][4])  # look at next frequency
                 dwell_list += '%0.3f' % t_delta
-                v_list += '%0.3f' % ((v/100.) * float(v_nom))
+                v1_list += '%0.3f' % ((v1/100.) * float(v_nom))
+                v2_list += '%0.3f' % ((v2/100.) * float(v_nom))
+                v3_list += '%0.3f' % ((v3/100.) * float(v_nom))
                 v_slew_list += v_slew
                 freq_list += '%0.3f' % ((freq/100.) * float(freq_nom))
                 freq_slew_list += freq_slew
@@ -424,13 +439,13 @@ class GridSim(gridsim.GridSim):
         cmd_list.append(':list:dwel %s\n' % dwell_list)
         cmd_list.append(':list:freq %s\n' % freq_list)
         cmd_list.append(':list:freq:slew %s\n' % freq_slew_list)
-        cmd_list.append(':inst:nsel 1;:list:volt %s\n' % v_list)
+        cmd_list.append(':inst:nsel 1;:list:volt %s\n' % v1_list)
         cmd_list.append(':list:volt:slew %s\n' % v_slew_list)
         cmd_list.append(':list:func %s\n' % func_list)
-        cmd_list.append(':inst:nsel 2;:list:volt %s\n' % v_list)
+        cmd_list.append(':inst:nsel 2;:list:volt %s\n' % v2_list)
         cmd_list.append(':list:volt:slew %s\n' % v_slew_list)
         cmd_list.append(':list:func %s\n' % func_list)
-        cmd_list.append(':inst:nsel 3;:list:volt %s\n' % v_list)
+        cmd_list.append(':inst:nsel 3;:list:volt %s\n' % v3_list)
         cmd_list.append(':list:volt:slew %s\n' % v_slew_list)
         cmd_list.append(':list:func %s\n' % func_list)
         cmd_list.append(':list:rep %s\n' % rep_list)
@@ -439,6 +454,8 @@ class GridSim(gridsim.GridSim):
         cmd_list.append(':init\n')
 
         self.profile = cmd_list
+
+        self.ts.log(cmd_list)
 
     def profile_start(self):
         """

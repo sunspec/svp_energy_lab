@@ -52,7 +52,7 @@ def params(info, id=None, label='Grid Simulator', group_name=None, active=None, 
         group_name = group_name + '_' + str(id)
     name = lambda name: group_name + '.' + name
     info.param_group(group_name, label='%s Parameters' % label, active=active, active_value=active_value, glob=True)
-    info.param(name('mode'), label='Mode', default='Manual', values=['Manual'])
+    info.param(name('mode'), label='Mode', default='Disabled', values=['Disabled'])
     info.param(name('auto_config'), label='Configure grid simulator at beginning of test', default='Disabled',
                values=['Enabled', 'Disabled'])
     for mode, m in gridsim_modules.iteritems():
@@ -75,11 +75,13 @@ def gridsim_init(ts, id=None, group_name=None):
     if id is not None:
         group_name = group_name + '_' + str(id)
     mode = ts.param_value(group_name + '.' + 'mode')
-    sim_module = gridsim_modules.get(mode)
-    if sim_module is not None:
-        sim = sim_module.GridSim(ts, group_name)
-    else:
-        raise GridSimError('Unknown grid simulation mode: %s' % mode)
+    sim = None
+    if mode != 'Disabled':
+        sim_module = gridsim_modules.get(mode)
+        if sim_module is not None:
+            sim = sim_module.GridSim(ts, group_name)
+        else:
+            raise GridSimError('Unknown grid simulation mode: %s' % mode)
 
     return sim
 
@@ -159,7 +161,7 @@ class GridSim(object):
             freq = 0.0
         return freq
 
-    def profile_load(self, profile_name, v_step=100, f_step=100, t_step=None):
+    def profile_load(self, profile_name=None, v_step=100, f_step=100, t_step=None, profile=None):
         """
         Load the profile either in list format or from a file.
 
@@ -235,6 +237,7 @@ class GridSim(object):
         else:
             voltage = (0.0, 0.0, 0.0)
         return voltage
+
 
 def gridsim_scan():
     global gridsim_modules

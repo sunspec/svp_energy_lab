@@ -52,7 +52,7 @@ def params(info, id=None, label='Switch Controller', group_name=None, active=Non
     name = lambda name: group_name + '.' + name
     info.param_group(group_name, label='%s Parameters' % label, active=active, active_value=active_value, glob=True)
     print 'name = %s' % name('mode')
-    info.param(name('mode'), label='Mode', default='Manual', values=['Manual'])
+    info.param(name('mode'), label='Mode', default='Disabled', values=['Disabled'])
     for mode, m in switch_modules.iteritems():
         m.params(info, group_name=group_name)
 
@@ -69,11 +69,13 @@ def switch_init(ts, id=None, group_name=None):
     if id is not None:
         group_name = group_name + '_' + str(id)
     mode = ts.param_value(group_name + '.' + 'mode')
-    switch_module = switch_modules.get(mode)
-    if switch_module is not None:
-        sm = switch_module.Switch(ts, group_name)
-    else:
-        raise SwitchError('Unknown switch controller mode: %s' % mode)
+    sim = None
+    if mode != 'Disabled':
+        switch_module = switch_modules.get(mode)
+        if switch_module is not None:
+            sm = switch_module.Switch(ts, group_name)
+        else:
+            raise SwitchError('Unknown switch controller mode: %s' % mode)
 
     return sm
 

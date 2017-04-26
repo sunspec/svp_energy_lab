@@ -482,7 +482,7 @@ class Instrument(object):
         self.client_id = client_id
         self.term_char = term_char
         self.lock_timeout = 10
-        self.timeout = 10
+        self.timeout = 30
         self.abort_port = 0
         self.link = None
         self.max_recv_size = 0

@@ -37,6 +37,10 @@ import importlib
 
 import dataset
 
+WFM_STATUS_INACTIVE = 'active'
+WFM_STATUS_ACTIVE = 'inactive'
+WFM_STATUS_COMPLETE = 'complete'
+
 points_default = {
     'ac': ('voltage', 'current', 'watts', 'va', 'vars', 'pf', 'freq'),
     'dc': ('voltage', 'current', 'watts'),
@@ -56,7 +60,7 @@ def params(info, id=None, label='Data Acquisition System', group_name=None, acti
         group_name = group_name + '_' + str(id)
     name = lambda name: group_name + '.' + name
     info.param_group(group_name, label='%s Parameters' % label, active=active, active_value=active_value, glob=True)
-    info.param(name('mode'), label='Mode', default='Manual', values=['Manual'])
+    info.param(name('mode'), label='Mode', default='Disabled', values=['Disabled'])
     for mode, m in das_modules.iteritems():
         m.params(info, group_name=group_name)
 
@@ -73,11 +77,13 @@ def das_init(ts, id=None, points=None, group_name=None):
     if id is not None:
         group_name = group_name + '_' + str(id)
     mode = ts.param_value(group_name + '.' + 'mode')
-    sim_module = das_modules.get(mode)
-    if sim_module is not None:
-        sim = sim_module.DAS(ts, group_name, points=points)
-    else:
-        raise DASError('Unknown data acquisition system mode: %s' % mode)
+    sim = None
+    if mode != 'Disabled':
+        sim_module = das_modules.get(mode)
+        if sim_module is not None:
+            sim = sim_module.DAS(ts, group_name, points=points)
+        else:
+            raise DASError('Unknown data acquisition system mode: %s' % mode)
 
     return sim
 
@@ -117,6 +123,14 @@ class DAS(object):
         if sc_points is not None:
             for p in sc_points:
                 self.sc[p] = 0
+
+        # determine SVP Files directory path
+        script_path = os.path.realpath(__file__)
+        result_dir = self.ts._results_dir
+        for i in range(len(script_path)):
+            if script_path[i] != result_dir[i]:
+                break
+        self.files_dir = os.path.join(script_path[:i], 'Files')
 
     def _data_expand(self, rec):
         data = {}
@@ -235,6 +249,34 @@ class DAS(object):
             self._last_datarec = self.device_data_read()
             self._ds.append(self._last_datarec)
         return self._last_datarec
+
+    def waveform_config(self, params):
+        """
+        Configure waveform capture.
+
+        params: Dictionary with following entries:
+            'sample_rate' - Sample rate (samples/sec)
+            'pre_trigger' - Pre-trigger time (sec)
+            'post_trigger' - Post-trigger time (sec)
+            'trigger_level' - Trigger level
+            'trigger_cond' - Trigger condition - ['Rising_Edge', 'Falling_Edge']
+            'trigger_channel' - Trigger channel - ['AC_V_1', 'AC_V_2', 'AC_V_3', 'AC_I_1', 'AC_I_2', 'AC_I_3', 'Ext']
+            'timeout' - Timeout (sec)
+            'channels' - Channels to capture - ['AC_V_1', 'AC_V_2', 'AC_V_3', 'AC_I_1', 'AC_I_2', 'AC_I_3', 'Ext']
+        """
+        return self.device.waveform_config(params=params)
+
+    def waveform_capture(self, enable=True):
+        return self.device.waveform_capture(enable=enable)
+
+    def waveform_status(self):
+        return self.device.waveform_status()
+
+    def waveform_force_trigger(self):
+        return self.device.waveform_force_trigger()
+
+    def waveform_load(self):
+        return self.device.waveform_load()
 
 def das_scan():
     global das_modules

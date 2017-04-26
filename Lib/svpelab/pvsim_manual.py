@@ -61,7 +61,7 @@ class PVSim(pvsim.PVSim):
             raise pvsim.PVSimError('Aborted PV simulation')
 
     def power_set(self, power):
-        if self.ts.confirm('Please change the power to %0.1f W.' % power) is False:
+        if self.ts.confirm('Please change the power to %0.1f%% power.' % power) is False:
             raise pvsim.PVSimError('Aborted PV simulation')
 
     def power_on(self):

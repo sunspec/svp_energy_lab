@@ -44,7 +44,7 @@ hil_modules = {}
 
 def params(info):
     info.param_group('hil', label='HIL Parameters', glob=True)
-    info.param('hil.mode', label='HIL Environment', default='Unused', values=[])
+    info.param('hil.mode', label='HIL Environment', default='Disabled', values=['Disabled'])
     for mode, m in hil_modules.iteritems():
         m.params(info)
 
@@ -58,11 +58,13 @@ def hil_init(ts):
     present if used.
     """
     mode = ts.param_value('hil.mode')
-    hil_module = hil_modules.get(mode)
-    if hil_module is not None:
-        sim = hil_module.HIL(ts)
-    else:
-        raise HILError('Unknown grid simulation mode: %s' % mode)
+    sim = None
+    if mode != 'Disabled':
+        hil_module = hil_modules.get(mode)
+        if hil_module is not None:
+            sim = hil_module.HIL(ts)
+        else:
+            raise HILError('Unknown grid simulation mode: %s' % mode)
 
     return sim
 
