@@ -37,123 +37,126 @@ class DatasetError(Exception):
     """
     pass
 
+"""
+    Data AC/DC point names have three parts:
 
-class Dataset():
-    def __init__(self, points, recs=None):
-        self.points = points
-        if recs is not None:
-            self.recs = recs
-        else:
-            self.recs = []
+    - category (AC/DC)
+    - type (V, I, VRMS, IRMS, P, Q, S, PF, FREQ)
+    - id (optional)
+
+    Example names:
+    AC_V
+    AC_I
+
+    AC_V_1
+    AC_I_1
+    AC_VRMS_1
+
+    DC_V
+    DC_I
+
+    A dataset consists of a set of time series points organized as parallel arrays and some
+    additional optional properties.
+
+    Optional roperties:
+    Start time of dataset
+    Sample rate of dataset (samples/sec)
+    Trigger sample (record index into dataset)
+
+"""
+class Dataset(object):
+    def __init__(self, points=None, data=None, start_time=None, sample_rate=None, trigger_sample=None, params=None):
+        self.start_time = start_time              # start time
+        self.sample_rate = sample_rate            # samples/second
+        self.trigger_sample = trigger_sample      # trigger sample
+        self.points = points                      # point names
+        self.data = data                          # data
+
+        if points is None:
+            self.points = []
+        if data is None:
+            self.clear()
 
     def append(self, data):
-        self.recs.append(data)
+        dlen = len(data)
+        if len(data) != len(self.data):
+            raise DatasetError('Append record point mismatch, dataset contains %s points,'
+                               ' appended data contains %s points' % (len(self.data), dlen))
+        for i in range(dlen):
+            try:
+                v = float(data[i])
+            except ValueError:
+                v = data[i]
+            self.data[i].append(v)
 
-    def clear(self, data):
-        self.recs = []
+    def extend(self, data):
+        dlen = len(data)
+        if len(data) != len(self.data):
+            raise DatasetError('Extend record point mismatch, dataset contains %s points,'
+                               ' appended data contains %s points' % (len(self.data), dlen))
+        for i in range(dlen):
+            self.data[i].extend(data[i])
+
+    def clear(self):
+        self.data = []
+        for i in range(len(self.points)):
+            self.data.append([])
 
     def to_csv(self, filename):
-        time = None
-        cols = []
-        chans = []
-        if len(self.recs) > 0:
-            rec = self.recs[0]
-            if type(rec) is not dict:
-                raise DatasetError('Invalid dataset record format')
-            # if time present, add time columns
-            time = rec.get('time')
-            if time is not None:
-                time = float(time)
-                rtime = 0
-                cols.extend(['time', 'rtime'])
-            # sort keys alphabetically
-            types=sorted(rec.keys(), key=lambda x:x.lower())
-            for t in types:
-                if type(t) is str and len(t) >= 2:
-                    ctype = t
-                    id = ''
-                    index = t.find('_')
-                    if index != -1:
-                        ctype = t[:index]
-                        id = t[index:]
-                    if ctype in self.points:
-                        points = self.points[ctype]
-                        # save key and value length
-                        count = len(rec.get(t))
-                        chans.append((t, count))
-                        for i in range(count):
-                            cols.append('%s_%s%s' % (ctype, points[i], id))
+        cols = range(len(self.data))
+        if len(cols) > 0:
+            f = open(filename, 'w')
+            f.write('%s\n' % ', '.join(map(str, self.points)))
+            for i in xrange(len(self.data[0])):
+                d = []
+                for j in cols:
+                    d.append(self.data[j][i])
+                f.write('%s\n' % ', '.join(map(str, d)))
+            f.close()
 
-        f = open(filename, 'w')
-        f.write('%s\n' % ', '.join(map(str, cols)))
-        for rec in self.recs:
-            p = []
-            if time is not None:
-                t = rec.get('time')
-                if t is not None:
-                    rtime = float(t) - time
-                    p.extend([t, rtime])
-                else:
-                    p.extend(['', ''])
-            for chan in chans:
-                values = rec.get(chan[0])
-                for i in range(chan[1]):
-                    value = ''
-                    if values is not None and len(values) > i:
-                        value = values[i]
-                    p.append(value)
-            f.write('%s\n' % ', '.join(map(str, p)))
-        f.close()
-
-    def from_csv(self, filename):
-        f = open(filename)
-        labels = None
-        while labels is None:
+    def from_csv(self, filename, sep=','):
+        self.clear()
+        f = open(filename, 'r')
+        ids = None
+        while ids is None:
             line = f.readline().strip()
             if len(line) > 0 and line[0] != '#':
-                labels = line.split(',')
+                ids = [e.strip() for e in line.split(sep)]
+        self.points = ids
+        for i in range(len(self.points)):
+            self.data.append([])
+        for line in f:
+            data = [float(e.strip()) for e in line.split(sep)]
+            if len(data) > 0:
+                self.append(data)
+        f.close()
 
 
 if __name__ == "__main__":
 
-    points = {
-        'ac': ('voltage', 'current', 'watts', 'va', 'vars', 'pf', 'freq'),
-        'dc': ('voltage', 'current', 'watts')
-    }
+    rms_points = ['TIME',
+                  'AC_VRMS_1', 'AC_IRMS_1', 'AC_P_1', 'AC_S_1', 'AC_Q_1', 'AC_PF_1', 'AC_FREQ_1',
+                  'AC_VRMS_2', 'AC_IRMS_2', 'AC_P_2', 'AC_S_2', 'AC_Q_2', 'AC_PF_2', 'AC_FREQ_2',
+                  'AC_VRMS_3', 'AC_IRMS_3', 'AC_P_3', 'AC_S_3', 'AC_Q_3', 'AC_PF_3', 'AC_FREQ_3',
+                  'DC_V', 'DC_I', 'DC_P']
 
-    recs =   [{'ac_1': (220.1, 10.1, 2100.1, 2200, 0.011, 0.991, 60.1),
-               'ac_3': (220.3, 10.3, 2100.3, 2200, 0.013, 0.993, 60.3),
-               'ac_2': (220.2, 10.2, 2100.2, 2200, 0.012, 0.992, 60.2),
-               'dc': (440, 5, 2200), 'time': 1482505585.423},
-              {'ac_1': (220.1, 10.1, 2100.1, 2200, 0.011, 0.991, 60.1),
-               'ac_3': (220.3, 10.3, 2100.3, 2200, 0.013, 0.993, 60.3),
-               'ac_2': (220.2, 10.2, 2100.2, 2200, 0.012, 0.992, 60.2),
-               'dc': (440, 5, 2200), 'time': 1482505585.923},
-              {'ac_1': (220.1, 10.1, 2100.1, 2200, 0.011, 0.991, 60.1),
-               'ac_3': (220.3, 10.3, 2100.3, 2200, 0.013, 0.993, 60.3),
-               'ac_2': (220.2, 10.2, 2100.2, 2200, 0.012, 0.992, 60.2),
-               'dc': (440, 5, 2200), 'time': 1482505586.423},
-              {'ac_1': (220.1, 10.1, 2100.1, 2200, 0.011, 0.991, 60.1),
-               'ac_3': (220.3, 10.3, 2100.3, 2200, 0.013, 0.993, 60.3),
-               'ac_2': (220.2, 10.2, 2100.2, 2200, 0.012, 0.992, 60.2),
-               'dc': (440, 5, 2200), 'time': 1482505586.923},
-              {'ac_1': (220.1, 10.1, 2100.1, 2200, 0.011, 0.991, 60.1),
-               'ac_3': (220.3, 10.3, 2100.3, 2200, 0.013, 0.993, 60.3),
-               'ac_2': (220.2, 10.2, 2100.2, 2200, 0.012, 0.992, 60.2),
-               'dc': (440, 5, 2200), 'time': 1482505587.423},
-              {'ac_1': (220.1, 10.1, 2100.1, 2200, 0.011, 0.991, 60.1),
-               'ac_3': (220.3, 10.3, 2100.3, 2200, 0.013, 0.993, 60.3),
-               'ac_2': (220.2, 10.2, 2100.2, 2200, 0.012, 0.992, 60.2),
-               'dc': (440, 5, 2200), 'time': 1482505587.923},
-              {'ac_1': (220.1, 10.1, 2100.1, 2200, 0.011, 0.991, 60.1),
-               'ac_3': (220.3, 10.3, 2100.3, 2200, 0.013, 0.993, 60.3),
-               'ac_2': (220.2, 10.2, 2100.2, 2200, 0.012, 0.992, 60.2),
-               'dc': (440, 5, 2200), 'time': 1482505588.423},
-              {'ac_1': (220.1, 10.1, 2100.1, 2200, 0.011, 0.991, 60.1),
-               'ac_3': (220.3, 10.3, 2100.3, 2200, 0.013, 0.993, 60.3),
-               'ac_2': (220.2, 10.2, 2100.2, 2200, 0.012, 0.992, 60.2),
-               'dc': (440, 5, 2200), 'time': 1482505588.923}]
+    rms_data = [[0.0,
+                 220.1, 10.1, 2100.1, 2200, 0.011, 0.991, 60.1,
+                 220.2, 10.2, 2100.2, 2200, 0.012, 0.992, 60.2,
+                 220.3, 10.3, 2100.3, 2200, 0.013, 0.993, 60.3,
+                 440, 5, 2200],
+                [1.0,
+                 220.1, 10.1, 2100.1, 2200, 0.011, 0.991, 60.1,
+                 220.2, 10.2, 2100.2, 2200, 0.012, 0.992, 60.2,
+                 220.3, 10.3, 2100.3, 2200, 0.013, 0.993, 60.3,
+                 440, 5, 2200],
+                [2.0,
+                 220.1, 10.1, 2100.1, 2200, 0.011, 0.991, 60.1,
+                 220.2, 10.2, 2100.2, 2200, 0.012, 0.992, 60.2,
+                 220.3, 10.3, 2100.3, 2200, 0.013, 0.993, 60.3,
+                440, 5, 2200]]
 
-
-    ds = Dataset(points, recs=recs)
+    ds = Dataset(points=rms_points)
+    for i in range(len(rms_data)):
+        ds.append(rms_data[i])
     ds.to_csv('xyz')

@@ -77,6 +77,9 @@ class Device(object):
     def close(self):
         self.device = None
 
+    def data_capture(self, enable=True):
+        pass
+
     def data_read(self):
 
         # Changed to the bulk read option to speed up acquisition time

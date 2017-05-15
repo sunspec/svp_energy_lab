@@ -35,208 +35,193 @@ import time
 import traceback
 import glob
 import waveform
+import dataset
 
 data_points = [
+    'TIME',
+    'DC_V',
+    'DC_I',
+    'AC_VRMS',
+    'AC_IRMS',
+    'DC_P',
+    'AC_S',
+    'AC_P',
+    'AC_Q',
+    'AC_FREQ',
+    'AC_PF',
+    'TRIG',
+    'TRIG_GRID'
+]
+
+# Data channels for Node 1
+dsm_points_1 = [
     'time',
-    'dc_voltage',
-    'dc_current',
-    'ac_voltage',
-    'ac_current',
-    'dc_watts',
-    'ac_va',
-    'ac_watts',
-    'ac_vars',
-    'ac_freq',
-    'ac_pf',
-    'trigger',
+    'dc_voltage_1',
+    'dc_current_1',
+    'ac_voltage_1',
+    'ac_current_1',
+    'dc1_watts',
+    'ac1_va',
+    'ac1_watts',
+    'ac1_vars',
+    'ac1_freq',
+    'ac_1_pf',
+    'pythontrigger',
     'ametek_trigger'
 ]
 
-data_points_label = {
-    'time': 'Test Time (s)',
-    'dc_voltage': 'DC Voltage (V)',
-    'dc_current': 'DC Current (A)',
-    'ac_voltage': 'AC Voltage (V)',
-    'ac_current': 'AC Current (A)',
-    'dc_watts': 'DC Active Power (W)',
-    'ac_va': 'AC Apparent Power (VA)',
-    'ac_watts': 'AC Active Power (W)',
-    'ac_vars': 'AC Reactive Power (Var)',
-    'ac_freq': 'Frequency (Hz)',
-    'ac_pf': 'AC Power Factor',
-    'trigger': 'Communication Trigger',
-    'ametek_trigger': 'Grid Transient Trigger'
-}
-
-# Data channels for Node 1
-dsm_points_1 = {
-    'time': 'time',
-    'dc_voltage': 'dc_voltage_1',
-    'dc_current': 'dc_current_1',
-    'ac_voltage': 'ac_voltage_1',
-    'ac_current': 'ac_current_1',
-    'dc_watts': 'dc1_watts',
-    'ac_va': 'ac1_va',
-    'ac_watts': 'ac1_watts',
-    'ac_vars': 'ac1_vars',
-    'ac_freq': 'ac1_freq',
-    'ac_pf': 'ac_1_pf',
-    'trigger': 'pythontrigger',
-    'ametek_trigger': 'ametek_trigger'
-}
-
 # Data channels for Node 2
-dsm_points_2 = {
-    'time': 'time',
-    'dc_voltage': 'dc_voltage_2',
-    'dc_current': 'dc_current_2',
-    'ac_voltage': 'ac_voltage_2',
-    'ac_current': 'ac_current_2',
-    'dc_watts': 'dc2_watts',
-    'ac_va': 'ac2_va',
-    'ac_watts': 'ac2_watts',
-    'ac_vars': 'ac2_vars',
-    'ac_freq': 'ac1_freq',
-    'ac_pf': 'ac_2_pf',
-    'trigger': 'pythontrigger',
-    'ametek_trigger': 'ametek_trigger'
-}
+dsm_points_2 = [
+    'time',
+    'dc_voltage_2',
+    'dc_current_2',
+    'ac_voltage_2',
+    'ac_current_2',
+    'dc2_watts',
+    'ac2_va',
+    'ac2_watts',
+    'ac2_vars',
+    'ac1_freq',
+    'ac_2_pf',
+    'pythontrigger',
+    'ametek_trigger'
+]
 
 # Data channels for Node 3
-dsm_points_3 = {
-    'time': 'time',
-    'dc_voltage': 'dc_voltage_3',
-    'dc_current': 'dc_current_3',
-    'ac_voltage': 'ac_voltage_3',
-    'ac_current': 'ac_current_3',
-    'dc_watts': 'dc3_watts',
-    'ac_va': 'ac3_va',
-    'ac_watts': 'ac3_watts',
-    'ac_vars': 'ac3_vars',
-    'ac_freq': 'ac1_freq',
-    'ac_pf': 'ac_3_pf',
-    'trigger': 'pythontrigger',
-    'ametek_trigger': 'ametek_trigger'
-}
+dsm_points_3 = [
+    'time',
+    'dc_voltage_3',
+    'dc_current_3',
+    'ac_voltage_3',
+    'ac_current_3',
+    'dc3_watts',
+    'ac3_va',
+    'ac3_watts',
+    'ac3_vars',
+    'ac1_freq',
+    'ac_3_pf',
+    'pythontrigger',
+    'ametek_trigger'
+]
 
 # Data channels for Node 4
-dsm_points_4 = {
-    'time': 'time',
-    'dc_voltage': 'dc_voltage_4',
-    'dc_current': 'dc_current_4',
-    'ac_voltage': 'ac_voltage_4',
-    'ac_current': 'ac_current_4',
-    'dc_watts': 'dc4_watts',
-    'ac_va': 'ac4_va',
-    'ac_watts': 'ac4_watts',
-    'ac_vars': 'ac4_vars',
-    'ac_freq': 'ac1_freq',
-    'ac_pf': 'ac_4_pf',
-    'trigger': 'pythontrigger',
-    'ametek_trigger': 'ametek_trigger'
-}
+dsm_points_4 = [
+    'time',
+    'dc_voltage_4',
+    'dc_current_4',
+    'ac_voltage_4',
+    'ac_current_4',
+    'dc4_watts',
+    'ac4_va',
+    'ac4_watts',
+    'ac4_vars',
+    'ac1_freq',
+    'ac_4_pf',
+    'pythontrigger',
+    'ametek_trigger'
+]
 
 # Data channels for Node 5
-dsm_points_5 = {
-    'time': 'time',
-    'dc_voltage': 'dc_voltage_5',
-    'dc_current': 'dc_current_5',
-    'ac_voltage': 'ac_voltage_5',
-    'ac_current': 'ac_current_5',
-    'dc_watts': 'dc5_watts',
-    'ac_va': 'ac5_va',
-    'ac_watts': 'ac5_watts',
-    'ac_vars': 'ac5_vars',
-    'ac_freq': 'ac5_freq',
-    'ac_pf': 'ac_5_pf',
-    'trigger': 'pythontrigger',
-    'ametek_trigger': 'ametek_trigger'
-}
+dsm_points_5 = [
+    'time',
+    'dc_voltage_5',
+    'dc_current_5',
+    'ac_voltage_5',
+    'ac_current_5',
+    'dc5_watts',
+    'ac5_va',
+    'ac5_watts',
+    'ac5_vars',
+    'ac1_freq',
+    'ac_5_pf',
+    'pythontrigger',
+    'ametek_trigger'
+]
 
 # Data channels for Node 6
-dsm_points_6 = {
-    'time': 'time',
-    'dc_voltage': 'dc_voltage_6',
-    'dc_current': 'dc_current_6',
-    'ac_voltage': 'ac_voltage_6',
-    'ac_current': 'ac_current_6',
-    'dc_watts': 'dc6_watts',
-    'ac_va': 'ac6_va',
-    'ac_watts': 'ac6_watts',
-    'ac_vars': 'ac6_vars',
-    'ac_freq': 'ac6_freq',
-    'ac_pf': 'ac_6_pf',
-    'trigger': 'pythontrigger',
-    'ametek_trigger': 'ametek_trigger'
-}
+dsm_points_6 = [
+    'time',
+    'dc_voltage_6',
+    'dc_current_6',
+    'ac_voltage_6',
+    'ac_current_6',
+    'dc6_watts',
+    'ac6_va',
+    'ac6_watts',
+    'ac6_vars',
+    'ac1_freq',
+    'ac_6_pf',
+    'pythontrigger',
+    'ametek_trigger'
+]
 
 # Data channels for Node 7
-dsm_points_7 = {
-    'time': 'time',
-    'dc_voltage': 'dc_voltage_7',
-    'dc_current': 'dc_current_7',
-    'ac_voltage': 'ac_voltage_7',
-    'ac_current': 'ac_current_7',
-    'dc_watts': 'dc7_watts',
-    'ac_va': 'ac7_va',
-    'ac_watts': 'ac7_watts',
-    'ac_vars': 'ac7_vars',
-    'ac_freq': 'ac_6_freq',
-    'ac_pf': 'ac_7_pf',
-    'trigger': 'pythontrigger',
-    'ametek_trigger': 'ametek_trigger'
-}
+dsm_points_7 = [
+    'time',
+    'dc_voltage_7',
+    'dc_current_7',
+    'ac_voltage_7',
+    'ac_current_7',
+    'dc7_watts',
+    'ac7_va',
+    'ac7_watts',
+    'ac7_vars',
+    'ac1_freq',
+    'ac_7_pf',
+    'pythontrigger',
+    'ametek_trigger'
+]
 
 # Data channels for Node 8
-dsm_points_8 = {
-    'time': 'time',
-    'dc_voltage': 'dc_voltage_8',
-    'dc_current': 'dc_current_8',
-    'ac_voltage': 'ac_voltage_8',
-    'ac_current': 'ac_current_8',
-    'dc_watts': 'dc8_watts',
-    'ac_va': 'ac8_va',
-    'ac_watts': 'ac8_watts',
-    'ac_vars': 'ac8_vars',
-    'ac_freq': 'ac6_freq',
-    'ac_pf': 'ac_8_pf',
-    'trigger': 'pythontrigger',
-    'ametek_trigger': 'ametek_trigger'
-}
+dsm_points_8 = [
+    'time',
+    'dc_voltage_8',
+    'dc_current_8',
+    'ac_voltage_8',
+    'ac_current_8',
+    'dc8_watts',
+    'ac8_va',
+    'ac8_watts',
+    'ac8_vars',
+    'ac1_freq',
+    'ac_8_pf',
+    'pythontrigger',
+    'ametek_trigger'
+]
 
 # Data channels for Node 9
-dsm_points_9 = {
-    'time': 'time',
-    'dc_voltage': 'dc_voltage_9',
-    'dc_current': 'dc_current_9',
-    'ac_voltage': 'ac_voltage_9',
-    'ac_current': 'ac_current_9',
-    'dc_watts': 'dc9_watts',
-    'ac_va': 'ac9_va',
-    'ac_watts': 'ac9_watts',
-    'ac_vars': 'ac9_vars',
-    'ac_freq': 'ac6_freq',
-    'ac_pf': 'ac_9_pf',
-    'trigger': 'pythontrigger',
-    'ametek_trigger': 'ametek_trigger'
-}
+dsm_points_9 = [
+    'time',
+    'dc_voltage_9',
+    'dc_current_9',
+    'ac_voltage_9',
+    'ac_current_9',
+    'dc9_watts',
+    'ac9_va',
+    'ac9_watts',
+    'ac9_vars',
+    'ac1_freq',
+    'ac_9_pf',
+    'pythontrigger',
+    'ametek_trigger'
+]
 
 # Data channels for Node 10
-dsm_points_10 = {
-    'time': 'time',
-    'dc_voltage': 'dc_voltage_10',
-    'dc_current': 'dc_current_10',
-    'ac_voltage': 'ac_voltage_10',
-    'ac_current': 'ac_current_10',
-    'dc_watts': 'dc10_watts',
-    'ac_va': 'ac10_va',
-    'ac_watts': 'ac10_watts',
-    'ac_vars': 'ac10_vars',
-    'ac_freq': 'ac6_freq',
-    'ac_pf': 'ac_10_pf',
-    'trigger': 'pythontrigger',
-    'ametek_trigger': 'ametek_trigger'
-}
+dsm_points_10 = [
+    'time',
+    'dc_voltage_10',
+    'dc_current_10',
+    'ac_voltage_10',
+    'ac_current_10',
+    'dc10_watts',
+    'ac10_va',
+    'ac10_watts',
+    'ac10_vars',
+    'ac6_freq',
+    'ac_10_pf',
+    'pythontrigger',
+    'ametek_trigger'
+]
 
 dsm_points_map = {
     '1': dsm_points_1,
@@ -252,24 +237,30 @@ dsm_points_map = {
 }
 
 wfm_points_label = {
-    'Time': 'Test',
+    'Time': 'TIME',
     'dc_voltage': 'DC_V',
     'dc_current': 'DC_I',
     'ac_voltage': 'AC_V_1',
     'ac_current': 'AC_I_1',
-    'ac_freq': 'Freq',
-    'ametek_trigger': 'Ext'
+    'ac_freq': 'FREQ',
+    'ametek_trigger': 'EXT'
 }
 
-wfm_channels = ['AC_V_1', 'AC_V_2', 'AC_V_3', 'AC_I_1', 'AC_I_2', 'AC_I_3', 'Ext']
+wfm_channels = ['AC_V_1', 'AC_V_2', 'AC_V_3', 'AC_I_1', 'AC_I_2', 'AC_I_3', 'EXT']
 
-wfm_dsm_channels = {'AC_V_1': 'AC_Voltage_10',
-                    'AC_V_2': None,
-                    'AC_V_3': None,
-                    'AC_I_1': 'AC_Current_10',
-                    'AC_I_2': None,
-                    'AC_I_3': None,
-                    'Ext': 'Ametek_Trigger'}
+wfm_dsm_channels = {'AC_V_1': 'AC_Voltage',
+                    'AC_V_2': 'AC_Voltage',
+                    'AC_V_3': 'AC_Voltage',
+                    'AC_I_1': 'AC_Current',
+                    'AC_I_2': 'AC_Current',
+                    'AC_I_3': 'AC_Current',
+                    'EXT': 'Ametek_Trigger'}
+
+PATH = 'C:\\python_dsm\\'
+POINTS_FILE = 'channels.txt'
+DATA_FILE = 'data.txt'
+TRIGGER_FILE = 'trigger.txt'
+WFM_TRIGGER_FILE = 'waveform trigger.txt'
 
 
 class DeviceError(Exception):
@@ -278,11 +269,9 @@ class DeviceError(Exception):
 
 class Device(object):
 
-    def extract_points(self, points_str):
-        x = points_str.replace(' ', '_').replace('][', ' ').strip('[]').split()
-        for p in x:
-            if p.find(',') != -1:
-                return p.split(',')
+    def extract_points(self, points_str, op):
+        x = map(op, points_str[points_str.rfind('[')+1:points_str.rfind(']')].strip().split(','))
+        return x
 
     def __init__(self, params):
         self.params = params
@@ -290,12 +279,13 @@ class Device(object):
         self.dsm_id = self.params.get('dsm_id')
         self.comp = self.params.get('comp')
         self.file_path = self.params.get('file_path')
-        self.data_file = self.params.get('data_file')
-        self.points_file = self.params.get('points_file')
-        self.wfm_trigger_file = 'waveform trigger.txt'
+        self.data_file = os.path.join(self.file_path, DATA_FILE)
+        self.points_file = os.path.join(self.file_path, POINTS_FILE)
+        self.wfm_trigger_file = os.path.join(self.file_path, WFM_TRIGGER_FILE)
 
+        self.data_points = list(data_points)
         self.points_map = dsm_points_map.get(str(self.dsm_id))
-        self.points = []
+        self.points = None
         self.point_indexes = []
 
         self.rec = {}
@@ -318,6 +308,8 @@ class Device(object):
         self.wfm_capture_name = None
         self.wfm_capture_name_path = None
 
+        self.ts = self.params.get('ts')
+
         try:
             if self.points_file is None:
                 raise Exception('Point file not specified')
@@ -328,20 +320,33 @@ class Device(object):
             channels = f.read()
             f.close()
 
-            self.points = self.extract_points(channels)
-
-            for p in data_points:
-                point_name = self.points_map.get(p)
+            self.points = self.extract_points(channels, str)
+            print self.points
+            for p in self.points_map:
                 try:
-                    index = self.points.index(point_name)
+                    index = self.points.index(p)
                 except ValueError:
                     index = -1
                 self.point_indexes.append(index)
         except Exception, e:
-            raise (traceback.format_exc())
+            raise DeviceError(traceback.format_exc())
+    '''
+        try:
+            self.x = map(op, points_str[points_str.rfind('[')+1:points_str.rfind(']')].strip().split(','))
+        except Exception, e:
+            self.x = None
+
+    def extract_points(self, points_str, op):
+        try:
+            x = map(op, points_str[points_str.rfind('[')+1:points_str.rfind(']')].strip().split(','))
+            self.x = x  # repeat last data point.
+        except Exception, e:
+            x = self.x
+        return x
+    '''
 
     def info(self):
-        return 'Sandia DSM - 1.0'
+        return 'Sandia DSM - 1.2'
 
     def open(self):
         pass
@@ -349,47 +354,40 @@ class Device(object):
     def close(self):
         pass
 
+    def data_capture(self, enable=True):
+        pass
+
     def data_read(self):
-        '''
-        datarec = {'time': time.time(),
-                   'ac_1': (220.1, 10.1, 2100.1, 2200, .011, .991, 60.1),
-                   'ac_2': (220.2, 10.2, 2100.2, 2200, .012, .992, 60.2),
-                   'ac_3': (220.3, 10.3, 2100.3, 2200, .013, .993, 60.3),
-                   'dc': (440, 5, 2200)}
-        return datarec
-        '''
-        rec = {}
+        retries = 10
+        rec = []
+        data = None
         try:
-            try:
-                f = open(self.data_file)
-                data = f.read()
-                f.close()
-            except Exception, e:
-                data = None
+            while data is None and retries > 0:
+                try:
+                    f = open(self.data_file)
+                    data = f.read()
+                    f.close()
+                except Exception, e:
+                    retries -= 1
 
             if data is not None:
-                points = self.extract_points(data)
+                points = self.extract_points(data, float)
+                print zip(self.points, points)
                 if points is not None:
                     if len(points) == len(self.points):
-                        for i in xrange(len(data_points)):
-                            index = self.point_indexes[i]
+                        for index in self.point_indexes:
                             if index >= 0:
-                                rec[data_points[i]] = points[index]
+                                p = points[index]
                             else:
-                                rec[data_points[i]] = None
+                                p = float('NaN')
+                            rec.append(p)
                     else:
                         raise Exception('Error reading points: point count mismatch %d %d' % (len(points),
                                                                                               len(self.points)))
-
         except Exception, e:
             raise Exception(traceback.format_exc())
 
-        datarec = {'time': time.time(),
-                   'ac_1': (rec['ac_voltage'], rec['ac_current'], rec['ac_watts'], rec['ac_va'],
-                            rec['ac_vars'], rec['ac_pf'], rec['ac_freq']),
-                   'dc': (rec['dc_voltage'], rec['dc_current'], rec['dc_watts'])}
-
-        return datarec
+        return rec
 
     def waveform_config(self, params):
         self.wfm_sample_rate = params.get('sample_rate')
@@ -400,24 +398,26 @@ class Device(object):
         self.wfm_trigger_channel = params.get('trigger_channel')
         self.wfm_timeout = params.get('timeout')
         self.wfm_channels = params.get('channels')
-        self.wfm_dsm_trigger_channel = wfm_dsm_channels.get(self.wfm_trigger_channel)
+        self.wfm_dsm_trigger_channel = '%s_%s' % (wfm_dsm_channels.get(self.wfm_trigger_channel), self.dsm_id)
         self.wfm_dsm_channels = []
 
         for c in self.wfm_channels:
             dsm_chan = wfm_dsm_channels[c]
             if dsm_chan is not None:
-                self.wfm_dsm_channels.append(dsm_chan)
-        self.params['ts'].log('Channels to record: %s' % str(self.wfm_channels))
+                self.wfm_dsm_channels.append('%s_%s' % (dsm_chan, self.dsm_id))
+        print('Channels to record: %s' % str(self.wfm_channels))
 
 
-    def waveform_capture(self, enable=True):
+    def waveform_capture(self, enable=True, sleep=None):
         """
         Enable/disable waveform capture.
         """
         if enable:
+            if sleep is None:
+                raise DeviceError('Must supply a sleep function on waveform capture enable')
             self.wfm_capture_name = None
             # remove old trigger file results
-            files = glob.glob(os.path.join(self.file_path, '* %s' % self.wfm_trigger_file))
+            files = glob.glob(os.path.join(self.file_path, '* %s' % WFM_TRIGGER_FILE))
             # self.params['ts'].log(str(self.params))
             # self.params['ts'].log(files)
             for f in files:
@@ -446,19 +446,22 @@ class Device(object):
                 config_str += '%s\n' % c
 
             # create capture file
-            f = open(os.path.join(self.file_path, self.wfm_trigger_file), 'w')
+            f = open(self.wfm_trigger_file, 'w')
             f.write(config_str)
             f.close()
 
-            wait_time = 15
+            wait_time = 30
             for i in range(wait_time + 1):
-                if not os.path.exists(os.path.join(self.file_path, self.wfm_trigger_file)):
+                print ('looking for %s' % self.wfm_trigger_file)
+                if not os.path.exists(self.wfm_trigger_file):
                     break
                 if i >= wait_time:
                     raise DeviceError('Waveform start capture timeout')
-                time.sleep(1)
+                sleep(1)
 
-            files = glob.glob(os.path.join(self.file_path, '* %s' % self.wfm_trigger_file))
+            filename = os.path.join(self.file_path, '* %s' % WFM_TRIGGER_FILE)
+            print ('looking for %s' % filename)
+            files = glob.glob(filename)
             if len(files) == 0:
                 raise DeviceError('No waveform trigger result file')
             elif len(files) > 1:
@@ -486,42 +489,71 @@ class Device(object):
     def waveform_force_trigger(self):
         pass
 
-    def waveform_load(self):
-        wf = waveform.Waveform()
+    def waveform_capture_dataset(self):
+        ds = dataset.Dataset()
         f = open(self.wfm_capture_name_path, 'r')
         ids = f.readline().split('\t')
         if ids[0] != 'Time':
-            raise DeviceError('Unexpected time channel name in waveform capture: %s' % ids[0])
-        wf.channels.append('Time')
-        chan_count = len(ids)
-        chans = []
-        chans.append([])  # for time
-        for i in range(1, chan_count):
-            wfm_chan_id = ids[i].strip().lower()
-            chan_id = [chan_id for chan_id, dsm_chan_id in self.points_map.iteritems() if dsm_chan_id == wfm_chan_id]
-            if chan_id is None:
-                raise DeviceError('Unknown DSM channel name in waveform capture: %s', wfm_chan_id)
-            chan_label = wfm_points_label[chan_id[0]]
-            wf.channels.append(chan_label)
-            chans.append([])
+            raise DeviceError('Unexpected time point name in waveform capture: %s' % ids[0])
+        ds.points.append('TIME')
+        point_count = len(ids)
+        points = []
+        points.append([])  # for time
+        for i in range(1, point_count):
+            id = ids[i].strip().lower()
+            i = id.rfind('_')
+            if id[i+1:] == str(self.dsm_id):
+                id = id[:i]
+            label = wfm_points_label.get(id)
+            if label is None:
+                raise DeviceError('Unknown DSM point name in waveform capture: %s', id)
+            ds.points.append(label)
+            points.append([])
 
         line = 0
         for data in f:
             line += 1
             values = data.split('\t')
-            if len(values) != chan_count:
-                raise DeviceError('Channel data error in waveform capture line %s' % (line))
-            for i in range(chan_count):
-                chans[i].append(float(values[i]))
+            if len(values) != point_count:
+                raise DeviceError('Point data error in waveform capture line %s' % (line))
+            for i in range(point_count):
+                points[i].append(float(values[i]))
 
-        for i in range(chan_count):
-            wf.channel_data.append(chans[i])
+        for i in range(point_count):
+            ds.data.append(points[i])
 
-        return wf
-
+        return ds
 
 if __name__ == "__main__":
 
-    pass
+    params = {}
+    params['dsm_method'] = 'Sandia LabView DSM'
+    params['file_path'] = 'c:\\users\\bob\\pycharmprojects\\loadsim\\files\\python_dsm'
+    params['dsm_id'] = 10
+    params['sample_interval'] = 1000
+
+    d = Device(params)
+    print d.data_points
+    print d.data_read()
+
+    wfm = {}
+    wfm['sample_rate'] = 6000
+    wfm['pre_trigger'] = 5
+    wfm['post_trigger'] = 10
+    wfm['trigger_level'] = 1
+    wfm['trigger_cond'] = 'Rising Edge'
+    wfm['trigger_channel'] = 'AC_V_1'
+    wfm['timeout'] = 10
+    wfm['channels'] = ['AC_V_1', 'AC_I_1']
+
+    d.waveform_config(params=wfm)
+    d.waveform_capture(sleep=time.sleep)
+    ds = d.waveform_capture_dataset()
+    print ds.points
+    ds.to_csv('c:\\users\\bob\\pycharmprojects\\loadsim\\files\\python_dsm\\wave.csv')
+
+
+
+
 
 

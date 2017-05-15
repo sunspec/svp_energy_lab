@@ -50,9 +50,9 @@ class DAS(das.DAS):
     independent data acquisition classes can be created containing the methods contained in this class.
     """
 
-    def __init__(self, ts, group_name, points=None):
+    def __init__(self, ts, group_name, points=None, sc_points=None):
 
-        das.DAS.__init__(self, ts, group_name, points=points)
+        das.DAS.__init__(self, ts, group_name, points=points, sc_points=sc_points)
         self.params['visa_address'] = self._param_value('visa_address')
         self.params['comm'] = self._param_value('comm')
         self.params['timeout'] = self._param_value('ip_timeout')

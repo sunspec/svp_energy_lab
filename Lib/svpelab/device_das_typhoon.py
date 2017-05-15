@@ -55,6 +55,9 @@ class Device(object):
     def close(self):
         pass
 
+    def data_capture(self, enable=True):
+        pass
+
     def data_read(self):
 
         v1 = float(cp.read_analog_signal(name='V( Vrms1 )'))

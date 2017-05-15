@@ -62,8 +62,8 @@ GROUP_NAME = 'sandia_ni_pcie'
 
 class DAS(das.DAS):
 
-    def __init__(self, ts, group_name, points=None):
-        das.DAS.__init__(self, ts, group_name, points=points)
+    def __init__(self, ts, group_name, points=None, sc_points=None):
+        das.DAS.__init__(self, ts, group_name, points=points, sc_points=sc_points)
         self.sample_interval = self._param_value('sample_interval')
 
         self.params['node'] = self._param_value('node')
@@ -72,8 +72,6 @@ class DAS(das.DAS):
 
         self.device = device_das_sandia_ni_pcie.Device(self.params, ts)
 
-        if self.sample_interval < 50:
-            raise das.DASError('Parameter error: sample interval must be at least 50 ms')
 
     def _param_value(self, name):
         return self.ts.param_value(self.group_name + '.' + GROUP_NAME + '.' + name)

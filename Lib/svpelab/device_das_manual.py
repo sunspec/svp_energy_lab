@@ -33,7 +33,7 @@ Questions can be directed to support@sunspec.org
 class Device(object):
 
     def __init__(self, params=None):
-        pass
+        self.data_points = []
 
     def info(self):
         return 'DAS Manual - 1.0'
@@ -44,5 +44,8 @@ class Device(object):
     def close(self):
         pass
 
+    def data_capture(self, enable=True):
+        pass
+
     def data_read(self):
-        return {}
+        return []

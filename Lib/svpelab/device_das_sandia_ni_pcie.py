@@ -306,6 +306,9 @@ class Device(object):
     def close(self):
         pass
 
+    def data_capture(self, enable=True):
+        pass
+
     def data_read(self):
 
         analog_input = Task()
@@ -412,8 +415,9 @@ class Device(object):
         #     waveform_analysis.harmonic_analysis(self.time_vector, ac_voltage_vector, ac_current_vector,
         #                                         self.sample_rate, self.ts)
 
-        avg_P, S, Q1, N, PF1 = waveform_analysis.harmonic_analysis(self.time_vector, ac_voltage_vector, ac_current_vector,
-                                                               self.sample_rate, self.ts)
+        avg_P, S, Q1, N, PF1 = waveform_analysis.harmonic_analysis(self.time_vector, ac_voltage_vector,
+                                                                   ac_current_vector,
+                                                                   self.sample_rate, self.ts)
 
         datarec = {'time': time.time(),
                    'ac_1': (ac_voltage,  # voltage

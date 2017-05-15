@@ -32,6 +32,7 @@ Questions can be directed to support@sunspec.org
 
 import os
 
+import script
 import device_sandia_dsm
 import das
 
@@ -61,31 +62,33 @@ def params(info, group_name=None):
     info.param(pname('node'), label='Node at Sandia - Used to ID DAQ channel', default=10,
                desc='Selection of the EUT which will be used for the test (Sandia specific).')
     info.param(pname('sample_interval'), label='Sample Interval (ms)', default=1000)
+    info.param(pname('file_path'), label='File Path', default='C:\\python_dsm', ptype=script.PTYPE_DIR)
 
 GROUP_NAME = 'sandia'
-
-PATH = 'C:\\python_dsm\\'
-POINTS_FILE = 'C:\\python_dsm\\channels.txt'
-DATA_FILE = 'C:\\python_dsm\\data.txt'
-TRIGGER_FILE = 'C:\\python_dsm\\trigger.txt'
-WFM_TRIGGER_FILE = 'C:\\python_dsm\\waveform trigger.txt'
 
 
 class DAS(das.DAS):
 
-    def __init__(self, ts, group_name, points=None):
-        das.DAS.__init__(self, ts, group_name, points=points)
+    def __init__(self, ts, group_name, points=None, sc_points=None):
+        das.DAS.__init__(self, ts, group_name, points=points, sc_points=sc_points)
         self.sample_interval = self._param_value('sample_interval')
 
         self.params['dsm_method'] = self._param_value('dsm_method')
         self.params['dsm_id'] = self._param_value('node')
         self.params['comp'] = self._param_value('comp')
-        self.params['file_path'] = PATH
-        self.params['data_file'] = DATA_FILE
-        self.params['points_file'] = POINTS_FILE
-        self.params['wfm_trigger_file'] = WFM_TRIGGER_FILE
         self.params['ts'] = ts
+
+        # if not absolute path, use SVP 'Files' directory
+        file_path = self._param_value('file_path')
+        if not os.path.isabs(file_path):
+            os.path.join(self.files_dir, file_path)
+        self.params['file_path'] = file_path
+
         self.device = device_sandia_dsm.Device(self.params)
+        self.data_points = self.device.data_points
+
+        # initialize soft channel points
+        self._init_sc_points()
 
     def _param_value(self, name):
         return self.ts.param_value(self.group_name + '.' + GROUP_NAME + '.' + name)
@@ -93,6 +96,3 @@ class DAS(das.DAS):
 if __name__ == "__main__":
 
     pass
-
-
-

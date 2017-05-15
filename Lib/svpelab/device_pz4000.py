@@ -3,16 +3,16 @@ import time
 
 # map data points to query points
 query_points = {
-    'ac_voltage': 'URMS',
-    'ac_current': 'IRMS',
-    'ac_watts': 'P',
-    'ac_va': 'S',
-    'ac_vars': 'Q',
-    'ac_pf': 'LAMBDA',
-    'ac_freq': 'FU',
-    'dc_voltage': 'UDC',
-    'dc_current': 'IDC',
-    'dc_watts': 'P'
+    'AC_VRMS': 'URMS',
+    'AC_IRMS': 'IRMS',
+    'AC_P': 'P',
+    'AC_S': 'S',
+    'AC_Q': 'Q',
+    'AC_PF': 'LAMBDA',
+    'AC_FREQ': 'FU',
+    'DC_V': 'UDC',
+    'DC_I': 'IDC',
+    'DC_P': 'P'
 }
 
 class DeviceError(Exception):
@@ -24,10 +24,9 @@ class DeviceError(Exception):
 class Device(object):
 
     def __init__(self, params):
-
         self.params = params
         self.channels = params.get('channels')
-        self.query_info = []
+        self.data_points = ['TIME']
         # Resource Manager for VISA
         self.rm = None
         # Connection to instrument for VISA-GPIB
@@ -37,7 +36,6 @@ class Device(object):
         query_chan_str = ''
         item = 0
         for i in range(1,5):
-            query_info = None
             chan = self.channels[i]
             if chan is not None:
                 chan_type = chan.get('type')
@@ -47,20 +45,17 @@ class Device(object):
                     raise DeviceError('No channel type specified')
                 if points is None:
                     raise DeviceError('No points specified')
-                chan_str = chan_type
-                if chan_label:
-                    chan_str += '_%s' % (chan_label)
-                query_info = (chan_str, item, item + len(points))
                 for p in points:
                     item += 1
-                    chan_str = query_points.get('%s_%s' % (chan_type, p))
+                    point_str = '%s_%s' % (chan_type, p)
+                    chan_str = query_points.get(point_str)
                     query_chan_str += ':NUMERIC:NORMAL:ITEM%d %s,%d;' % (item, chan_str, i)
-                self.query_info.append(query_info)
+                    if chan_label:
+                        point_str = '%s_%s' % (point_str, chan_label)
+                    self.data_points.append(point_str)
         query_chan_str += '\n:NUMERIC:NORMAL:VALUE?'
 
         self.query_str = ':NUMERIC:FORMAT ASCII\nNUMERIC:NORMAL:NUMBER %d\n' % (item) + query_chan_str
-        # print self.query_str
-        # print self.query_info
 
         self.open()
 
@@ -121,14 +116,13 @@ class Device(object):
     def info(self):
         return self.query('*IDN?')
 
-    def data_read(self):
-        rec = {'time': time.time()}
-        data = self.query(self.query_str).split(',')
-        # extract points for each channel
-        for info in self.query_info:
-            rec[info[0]] = tuple(data[info[1]:info[2]])
+    def data_capture(self, enable=True):
+        pass
 
-        return rec
+    def data_read(self):
+        data = [float(i) for i in self.query(self.query_str).split(',')]
+        data.insert(0, time.time())
+        return data
 
 if __name__ == "__main__":
 

@@ -35,28 +35,20 @@ import time
 SEPARATOR = ','
 TERMINATOR = '\n'
 
-modes = {'1P2W': '0',
-         '1P3W': '1',
-         '3P3W': '2',
-         '3P4W': '3',
-         '0': '1P2W',
-         '1': '1P3W',
-         '2': '3P3W',
-         '3': '3P4W'}
-
 # map data points to query points
 query_points = {
-    'ac_voltage': 'V',
-    'ac_current': 'I',
-    'ac_watts': 'W',
-    'ac_va': 'VA',
-    'ac_vars': 'VAR',
-    'ac_pf': 'PF',
-    'ac_freq': 'FREQ',
-    'dc_voltage': 'VDC',
-    'dc_current': 'IDC',
-    'dc_watts': 'WDC'
+    'AC_VRMS': 'V',
+    'AC_IRMS': 'I',
+    'AC_P': 'W',
+    'AC_S': 'VA',
+    'AC_Q': 'VAR',
+    'AC_PF': 'PF',
+    'AC_FREQ': 'FREQ',
+    'DC_V': 'VDC',
+    'DC_I': 'IDC',
+    'DC_P': 'WDC'
 }
+
 
 class DeviceError(Exception):
     pass
@@ -72,11 +64,12 @@ class Device(object):
         self.visa_device = params.get('visa_device')
         self.visa_path = params.get('visa_path', '')
         self.channels = params.get('channels')
-        self.query_info = []
+        self.query_str = []
+        self.data_points = ['TIME']
+        self.ts = params.get('ts')
 
         # create query strings for configured channels
         for i in range(1,5):
-            query_info = None
             chan = self.channels[i]
             if chan is not None:
                 chan_type = chan.get('type')
@@ -86,13 +79,11 @@ class Device(object):
                     raise DeviceError('No channel type specified')
                 if points is None:
                     raise DeviceError('No points specified')
-                chan_str = chan_type
-                if chan_label:
-                    chan_str += '_%s' % (chan_label)
                 query_str = 'CHAN %d; MEAS?' % (i)
                 first = True
                 for p in points:
-                    p_str = query_points.get('%s_%s' % (chan_type, p))
+                    point_str = '%s_%s' % (chan_type, p)
+                    p_str = query_points.get(point_str)
                     if p_str is None:
                         raise DeviceError('Unknown point type: %s' % (p))
                     if not first:
@@ -100,10 +91,12 @@ class Device(object):
                     else:
                         first = False
                     query_str += ' %s' % (p_str)
-                query_info = (chan_str, query_str)
-                self.query_info.append(query_info)
+                    if chan_label:
+                        point_str = '%s_%s' % (point_str, chan_label)
+                    self.data_points.append(point_str)
 
-        print self.query_info
+                self.query_str.append(query_str)
+
         self.open()  # open communications, not the relay
 
         # turn off header in response
@@ -116,26 +109,33 @@ class Device(object):
         """
         return self._query('*IDN?')
 
+    def data_capture(self, enable=True):
+        pass
+
     def data_read(self):
         """
         Read current measurement values.
         :return: a dictionary with the current measurement values.
         """
-        '''
-        for phase in range(len(self.phase_channels)):
-            if phase is not None:
-                data['ac_%s' % (phase + 1)] = self._query('CHAN %s; MEAS? V, I, W, VA, VAR, PF, FREQ' %
-                                                          (self.phase_channels[phase])).split(',')
+        data = [time.time()]
+        for qs in self.query_str:
+            data.extend([float(i) for i in self._query(qs).split(',')])
+        return data
 
-        if self.dc_chan is not None:
-            data['dc'] = self._query('CHAN %s; MEAS? VDC, IDC, WDC' % (self.dc_chan)).split(',')
-        '''
-        rec = {'time': time.time()}
-        # extract points for each channel
-        for info in self.query_info:
-            rec[info[0]] = tuple(float(i) for i in self._query(info[1]).split(','))
+    def waveform_config(self, params):
+        raise DeviceError('Device does not support waveform operations')
 
-        return rec
+    def waveform_capture(self, enable=True):
+        raise DeviceError('Device does not support waveform operations')
+
+    def waveform_status(self):
+        raise DeviceError('Device does not support waveform operations')
+
+    def waveform_force_trigger(self):
+        raise DeviceError('Device does not support waveform operations')
+
+    def waveform_capture_dataset(self):
+        raise DeviceError('Device does not support waveform operations')
 
     def open(self):
         """
@@ -199,8 +199,19 @@ if __name__ == "__main__":
 
     dpm = Device(params={'visa_device': 'GPIB0::12::INSTR',
                          'visa_path': 'C:/Program Files (x86)/IVI Foundation/VISA/WinNT/agvisa/agbin/visa32.dll',
-                         'mode': '3P4W',
-                         'dc_chan': '4'})
+                         'channels': [None,
+                                      {'type': 'AC',
+                                       'points': ('VRMS', 'IRMS', 'P', 'S', 'Q', 'PF', 'FREQ'),
+                                       'label': '1'},
+                                      {'type': 'AC',
+                                       'points': ('VRMS', 'IRMS', 'P', 'S', 'Q', 'PF', 'FREQ'),
+                                       'label': '2'},
+                                      {'type': 'AC',
+                                       'points': ('VRMS', 'IRMS', 'P', 'S', 'Q', 'PF', 'FREQ'),
+                                       'label': '3'},
+                                      {'type': 'DC',
+                                       'points': ('V', 'I', 'P'),
+                                       'label': ''}]
+    })
+    print dpm.data_points
 
-    print dpm.info()
-    print dpm.data_read()

@@ -53,6 +53,10 @@ GROUP_NAME = 'manual'
 
 class DAS(das.DAS):
 
-    def __init__(self, ts, group_name, points=None):
-        das.DAS.__init__(self, ts, group_name, points=points)
+    def __init__(self, ts, group_name, points=None, sc_points=None):
+        das.DAS.__init__(self, ts, group_name, points=points, sc_points=sc_points)
         self.device = device_das_manual.Device()
+        self.data_points = self.device.data_points
+
+        # initialize soft channel points
+        self._init_sc_points()

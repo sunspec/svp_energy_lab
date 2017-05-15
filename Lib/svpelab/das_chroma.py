@@ -75,8 +75,8 @@ GROUP_NAME = 'chroma'
 
 
 class DAS(das.DAS):
-    def __init__(self, ts, group_name, points=None):
-        das.DAS.__init__(self, ts, group_name, points=points)
+    def __init__(self, ts, group_name, points=None, sc_points=None):
+        das.DAS.__init__(self, ts, group_name, points=points, sc_points=sc_points)
         self.params['visa_device'] = self._param_value('visa_device')
         visa_path = self._param_value('visa_path')
         if visa_path != 'None':
@@ -86,20 +86,20 @@ class DAS(das.DAS):
         # create channel info for each channel from parameters
         channels = [None]
         for i in range(1, 5):
-            chan = None
             chan_type = self._param_value('chan_%d' % (i))
             chan_label = self._param_value('chan_%d_label' % (i))
             if chan_label == 'None':
                 chan_label = ''
-            if chan_type == 'AC':
-                chan = {'type': 'ac', 'points': self.points['ac'], 'label':  chan_label}
-            elif chan_type == 'DC':
-                chan = {'type': 'dc', 'points': self.points['dc'], 'label':  chan_label}
+            chan = {'type': chan_type, 'points': self.points.get(chan_type), 'label': chan_label}
             channels.append(chan)
 
         self.params['channels'] = channels
 
         self.device = device_chroma_dpm.Device(self.params)
+        self.data_points = self.device.data_points
+
+        # initialize soft channel points
+        self._init_sc_points()
 
     def _param_value(self, name):
         return self.ts.param_value(self.group_name + '.' + GROUP_NAME + '.' + name)

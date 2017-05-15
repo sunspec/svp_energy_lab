@@ -32,28 +32,36 @@ Questions can be directed to support@sunspec.org
 
 import os
 import time
+import dataset
+
+
+class DeviceError(Exception):
+    """
+    Exception to wrap all das generated exceptions.
+    """
+    pass
+
 
 class Device(object):
 
     def __init__(self, params=None):
         self.ts = params['ts']
         self.points = params['points']
+        self.data_points = []
         self.data_file = params['data_file']
+        self.at_end = params['at_end']
         self.file_= None
         self.use_timestamp = params['use_timestamp']
+        self.ds = dataset.Dataset()
+        self.index = 0
 
-        self.ts.log('points = %s' % str(self.points))
         if self.data_file:
-            self.file = open(self.data_file)
-            self.ts.log('line 1 = %s' % self.file.readline())
-            self.ts.log('line 2 = %s' % self.file.readline())
-            self.ts.log('line 3 = %s' % self.file.readline())
-            self.ts.log('line 4 = %s' %  self.file.readline())
-            self.ts.log('line 5 = %s' % self.file.readline())
+            self.ds.from_csv(self.data_file)
+            self.data_points = list(self.ds.points)
+        else:
+            raise DeviceError('No data file specified')
 
     def info(self):
-        if self.ts:
-            self.ts.log('data_file = %s' % (self.data_file))
         return 'DAS Simulator - 1.0'
 
     def open(self):
@@ -62,19 +70,47 @@ class Device(object):
     def close(self):
         pass
 
-    def data_read(self):
-        if self.file:
-            line = self.file.readline()
-            if line == '':
-                self.file.seek(0)
-                line = self.file.readline()
+    def data_capture(self, enable=True):
+        pass
 
-        datarec = {'time': time.time(),
-                   'ac_1': (220.1, 10.1, 2100.1, 2200, .011, .991, 60.1),
-                   'ac_2': (220.2, 10.2, 2100.2, 2200, .012, .992, 60.2),
-                   'ac_3': (220.3, 10.3, 2100.3, 2200, .013, .993, 60.3),
-                   'dc': (440, 5, 2200)}
-        return datarec
+    def data_read(self):
+        data = []
+        if len(self.ds.points) > 0:
+            count = len(self.ds.data[0])
+            if count > 0:
+                if self.index >= count:
+                    if self.at_end == 'Loop to start':
+                        self.index = 0
+                    elif self.at_end == 'Repeat last record':
+                        self.index = count - 1
+                    else:
+                        raise DeviceError('End of data reached')
+
+            for i in range(len(self.ds.points)):
+                data.append(self.ds.data[i][self.index])
+
+        return data
+
+    def waveform_config(self, params):
+        pass
+
+    def waveform_capture(self, enable=True, sleep=None):
+        """
+        Enable/disable waveform capture.
+        """
+        pass
+
+    def waveform_status(self):
+        # mm-dd-yyyy hh_mm_ss waveform trigger.txt
+        # mm-dd-yyyy hh_mm_ss.wfm
+        # return INACTIVE, ACTIVE, COMPLETE
+        return 'COMPLETE'
+
+    def waveform_force_trigger(self):
+        pass
+
+    def waveform_capture_dataset(self):
+        return self.ds
 
 if __name__ == "__main__":
 

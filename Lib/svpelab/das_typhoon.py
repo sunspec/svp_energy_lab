@@ -57,8 +57,8 @@ GROUP_NAME = 'typhoon'
 
 class DAS(das.DAS):
 
-    def __init__(self, ts, group_name, points=None):
-        das.DAS.__init__(self, ts, group_name, points=points)
+    def __init__(self, ts, group_name, points=None, sc_points=None):
+        das.DAS.__init__(self, ts, group_name, points=points, sc_points=sc_points)
         self.device = device_das_typhoon.Device()
         self.sample_interval = self._param_value('sample_interval')
 
