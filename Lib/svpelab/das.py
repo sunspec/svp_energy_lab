@@ -298,11 +298,13 @@ class DAS(object):
         """
         return self.device.waveform_config(params=params)
 
-    def waveform_capture(self, enable=True):
+    def waveform_capture(self, enable=True, sleep=None):
         """
         Enable/disable data capture.
         """
-        return self.device.waveform_capture(enable=enable)
+        if sleep is None:
+            sleep = self.ts.sleep
+        return self.device.waveform_capture(enable=enable, sleep=sleep)
 
     def waveform_status(self):
         """

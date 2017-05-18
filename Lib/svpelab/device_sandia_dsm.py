@@ -262,6 +262,7 @@ DATA_FILE = 'data.txt'
 TRIGGER_FILE = 'trigger.txt'
 WFM_TRIGGER_FILE = 'waveform trigger.txt'
 
+event_map = {'Rising_Edge': 'Rising Edge', 'Falling_Edge': 'Falling Edge'}
 
 class DeviceError(Exception):
     pass
@@ -390,6 +391,19 @@ class Device(object):
         return rec
 
     def waveform_config(self, params):
+        """
+        Configure waveform capture.
+
+        params: Dictionary with following entries:
+            'sample_rate' - Sample rate (samples/sec)
+            'pre_trigger' - Pre-trigger time (sec)
+            'post_trigger' - Post-trigger time (sec)
+            'trigger_level' - Trigger level
+            'trigger_cond' - Trigger condition - ['Rising_Edge', 'Falling_Edge']
+            'trigger_channel' - Trigger channel - ['AC_V_1', 'AC_V_2', 'AC_V_3', 'AC_I_1', 'AC_I_2', 'AC_I_3', 'EXT']
+            'timeout' - Timeout (sec)
+            'channels' - Channels to capture - ['AC_V_1', 'AC_V_2', 'AC_V_3', 'AC_I_1', 'AC_I_2', 'AC_I_3', 'EXT']
+        """
         self.wfm_sample_rate = params.get('sample_rate')
         self.wfm_pre_trigger = params.get('pre_trigger')
         self.wfm_post_trigger = params.get('post_trigger')
@@ -441,7 +455,7 @@ class Device(object):
             '''
             config_str = '%0.1fe3\n%f\n%f\n%f\n10e-3\n%d\n%s\n%s\n' % (
                 self.wfm_sample_rate/1000, self.wfm_pre_trigger, self.wfm_post_trigger, self.wfm_trigger_level,
-                self.wfm_timeout, self.wfm_trigger_cond, self.wfm_dsm_trigger_channel)
+                self.wfm_timeout, event_map[self.wfm_trigger_cond], self.wfm_dsm_trigger_channel)
             for c in self.wfm_dsm_channels:
                 config_str += '%s\n' % c
 
@@ -450,8 +464,8 @@ class Device(object):
             f.write(config_str)
             f.close()
 
-            wait_time = 30
-            for i in range(wait_time + 1):
+            wait_time = self.wfm_timeout
+            for i in range(int(wait_time) + 1):
                 print ('looking for %s' % self.wfm_trigger_file)
                 if not os.path.exists(self.wfm_trigger_file):
                     break
@@ -492,28 +506,32 @@ class Device(object):
     def waveform_capture_dataset(self):
         ds = dataset.Dataset()
         f = open(self.wfm_capture_name_path, 'r')
-        ids = f.readline().split('\t')
+        ids = f.readline().strip().split('\t')
+        print (str(ids))
         if ids[0] != 'Time':
             raise DeviceError('Unexpected time point name in waveform capture: %s' % ids[0])
         ds.points.append('TIME')
-        point_count = len(ids)
+        count = len(ids)
         points = []
+        point_count = 1
         points.append([])  # for time
-        for i in range(1, point_count):
-            id = ids[i].strip().lower()
-            i = id.rfind('_')
-            if id[i+1:] == str(self.dsm_id):
-                id = id[:i]
-            label = wfm_points_label.get(id)
-            if label is None:
-                raise DeviceError('Unknown DSM point name in waveform capture: %s', id)
-            ds.points.append(label)
-            points.append([])
+        for i in range(1, count):
+            if ids[i]:
+                id = ids[i].strip().lower()
+                i = id.rfind('_')
+                if id[i+1:] == str(self.dsm_id):
+                    id = id[:i]
+                label = wfm_points_label.get(id)
+                if label is None:
+                    raise DeviceError('Unknown DSM point name in waveform capture: %s', id)
+                ds.points.append(label)
+                points.append([])
+                point_count += 1
 
         line = 0
         for data in f:
             line += 1
-            values = data.split('\t')
+            values = data.strip().split('\t')
             if len(values) != point_count:
                 raise DeviceError('Point data error in waveform capture line %s' % (line))
             for i in range(point_count):

@@ -104,19 +104,20 @@ class Device(object):
             if chan is not None:
                 chan_type = chan.get('type')
                 points = chan.get('points')
-                chan_label = chan.get('label')
-                if chan_type is None:
-                    raise DeviceError('No channel type specified')
-                if points is None:
-                    raise DeviceError('No points specified')
-                for p in points:
-                    item += 1
-                    point_str = '%s_%s' % (chan_type, p)
-                    chan_str = query_points.get(point_str)
-                    query_chan_str += ':NUMERIC:NORMAL:ITEM%d %s,%d;' % (item, chan_str, i)
-                    if chan_label:
-                        point_str = '%s_%s' % (point_str, chan_label)
-                    self.data_points.append(point_str)
+                if points is not None:
+                    chan_label = chan.get('label')
+                    if chan_type is None:
+                        raise DeviceError('No channel type specified')
+                    if points is None:
+                        raise DeviceError('No points specified')
+                    for p in points:
+                        item += 1
+                        point_str = '%s_%s' % (chan_type, p)
+                        chan_str = query_points.get(point_str)
+                        query_chan_str += ':NUMERIC:NORMAL:ITEM%d %s,%d;' % (item, chan_str, i)
+                        if chan_label:
+                            point_str = '%s_%s' % (point_str, chan_label)
+                        self.data_points.append(point_str)
         query_chan_str += '\n:NUMERIC:NORMAL:VALUE?'
 
         self.query_str = ':NUMERIC:FORMAT ASCII\nNUMERIC:NORMAL:NUMBER %d\n' % (item) + query_chan_str

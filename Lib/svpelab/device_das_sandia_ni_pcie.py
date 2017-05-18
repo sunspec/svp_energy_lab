@@ -33,8 +33,12 @@ Questions can be directed to support@sunspec.org
 """
 
 
+import os
 import time
-# import math
+import traceback
+import glob
+import waveform
+import dataset
 
 # Wrap driver import statements in try-except clauses to avoid SVP initialization errors
 try:
@@ -53,6 +57,21 @@ except Exception, e:
     print('Error: waveform_analysis file not found!')  # This will appear in the SVP log file.
     # raise  # programmers can raise this error to expose the error to the SVP user
 
+data_points = [
+    'TIME',
+    'DC_V',
+    'DC_I',
+    'AC_VRMS',
+    'AC_IRMS',
+    'DC_P',
+    'AC_S',
+    'AC_P',
+    'AC_Q',
+    'AC_FREQ',
+    'AC_PF',
+    'TRIG',
+    'TRIG_GRID'
+]
 
 # data_points = [
 #     'time',
@@ -189,6 +208,26 @@ dsm_points_map = {
     '10': dsm_points_10
 }
 
+wfm_points_label = {
+    'Time': 'TIME',
+    'dc_voltage': 'DC_V',
+    'dc_current': 'DC_I',
+    'ac_voltage': 'AC_V_1',
+    'ac_current': 'AC_I_1',
+    'ac_freq': 'FREQ',
+    'ametek_trigger': 'EXT'
+}
+
+wfm_channels = ['AC_V_1', 'AC_V_2', 'AC_V_3', 'AC_I_1', 'AC_I_2', 'AC_I_3', 'EXT']
+
+wfm_dsm_channels = {'AC_V_1': 'AC_Voltage',
+                    'AC_V_2': 'AC_Voltage',
+                    'AC_V_3': 'AC_Voltage',
+                    'AC_I_1': 'AC_Current',
+                    'AC_I_2': 'AC_Current',
+                    'AC_I_3': 'AC_Current',
+                    'EXT': 'Ametek_Trigger'}
+
 DSM_CHANNELS = {
 'DC_Voltage_1': {'physChan': 'Dev1/ai0', 'v_max': 10, 'v_min': -10, 'expression': '(-0.200215) + (502.538477)*x + (-2.620777)*x**2'},
 'DC_Current_1': {'physChan': 'Dev1/ai1', 'v_max': 10, 'v_min': -10, 'expression': '(-0.028190) + (3.996167)*x + (0.000333)*x**2'},
@@ -249,15 +288,13 @@ class Device(object):
     def __init__(self, params=None, ts=None):
         self.ts = ts
         self.device = None
-
         self.node = params.get('node')
         self.sample_rate = params.get('sample_rate')
         self.n_cycles = params.get('n_cycles')
         self.n_samples = int((self.sample_rate/60.)*self.n_cycles)
 
-        ts.log('sample rate: %s, cycles: %s, n_samples: %s' % (self.sample_rate, self.n_cycles, self.n_samples))
-
         # Get analog channels to acquire
+        self.data_points = list(data_points)
         self.points_map = dsm_points_map.get(str(self.node))
 
         # Create list of analog channels to capture
@@ -270,32 +307,62 @@ class Device(object):
         self.time_vector = np.linspace(0., self.n_samples/self.sample_rate, self.n_samples)
 
         self.n_channels = len(self.analog_channels)
-        channels_to_delete = []
         self.physical_channels = ''
-        for i in range(len(self.analog_channels)):
-            chan = DSM_CHANNELS[self.analog_channels[i]]['physChan']
+        self.dev_numbers = []
 
-            # PCIe cards will not support simultaneous capture if all channels are not on the same card
-            # Skip all the channels that are not on the same device as ac_current
-            # self.ts.log('physical_channels[0:4] = %s, chan[0:4] = %s' % (physical_channels[0:4], chan[0:4]))
-            if i > 0 and self.physical_channels[0:4] != chan[0:4]:
-                self.ts.log_warning('Removing Channel %s (%s) from capture because it is not on the same device '
-                                    'as the other channels being captured.' % (chan, self.analog_channels[i]))
-                self.n_channels -= 1
-                channels_to_delete.append(i)
-            else:
-                self.physical_channels += chan
-                if i != len(self.analog_channels)-1:
-                    self.physical_channels += ','
-
-        for j in range(len(channels_to_delete)):
-            del self.analog_channels[channels_to_delete[j]]
-
+        for k in range(len(self.analog_channels)):
+            chan = DSM_CHANNELS[wfm_dsm_channels[self.analog_channels[k]]]['physChan']
+            self.physical_channels += chan
+            self.dev_numbers.append(chan[3])
+            if k != len(self.analog_channels)-1:
+                self.physical_channels += ','
         self.ts.log_debug('The following channels will be captured: %s, on physical channels: %s.' %
                           (self.analog_channels, self.physical_channels))
 
+        # find the unique NI devices
+        self.sorted_unique, self.unique_counts = np.unique(self.dev_numbers, return_index=False, return_counts=True)
+
+        self.read = int32()
+        self.analog_input = []
+        self.physical_channels = []
+        self.chan_decoder = []
+        for k in range(len(self.unique_counts)):
+            self.analog_input.append(Task())
+            self.physical_channels.append('')
+            self.chan_decoder.append([])
+
+        self.raw_data = []
+        self.n_channels = []
+        for k in self.unique_counts:
+            self.n_channels.append(k)
+            self.raw_data.append(np.zeros((self.n_samples*k,), dtype=numpy.float64))
+
+        unique_dev_num = -1  # count for the unique devs
+        for dev in self.sorted_unique:
+            unique_dev_num += 1
+            for k in range(len(self.analog_channels)):  # for each channel
+                chan = DSM_CHANNELS[wfm_dsm_channels[self.analog_channels[k]]]['physChan']
+                if dev == chan[3]:  # if this device matches, put it in this task
+                    self.physical_channels[unique_dev_num] += chan + ','
+                    self.chan_decoder[unique_dev_num].append(self.analog_channels[k])
+        for dev in range(len(self.sorted_unique)):  # clean up last comma
+            self.physical_channels[dev] = self.physical_channels[dev][:-1]  # Remove the last comma.
+
         # Create empty container for data capture
-        self.raw_data = np.zeros((self.n_samples*self.n_channels,), dtype=numpy.float64)
+        self.ac_voltage_vector = None
+        self.ac_current_vector = None
+        self.ametek_trigger = None
+
+        # waveform settings
+        self.wfm_sample_rate = None
+        self.wfm_pre_trigger = None
+        self.wfm_post_trigger = None
+        self.wfm_trigger_level = None
+        self.wfm_trigger_cond = None
+        self.wfm_trigger_channel = None
+        self.wfm_timeout = None
+        self.wfm_channels = None
+        self.wfm_capture_name = None
 
     def info(self):
         return 'DAS Hardware: Sandia NI PCIe Cards'
@@ -306,52 +373,85 @@ class Device(object):
     def close(self):
         pass
 
-    def data_capture(self, enable=True):
-        pass
-
     def data_read(self):
+        # Virtual channels are created. Each one of the virtual channels in question here is used to acquire
+        # from an analog voltage signal(s).
+        for k in range(len(self.sorted_unique)):
+            self.analog_input[k].CreateAIVoltageChan(self.physical_channels[k],  # The physical name of the channel
+                                                     "",  # The name to associate with this channel
+                                                     DAQmx_Val_Cfg_Default,  # Differential wiring
+                                                     -10.0,  # Min voltage
+                                                     10.0,  # Max voltage
+                                                     DAQmx_Val_Volts,  # Units
+                                                     None)  # reserved
 
-        analog_input = Task()
-        read = int32()
-
-        # DAQmx Configure Code
-        # analog_input.CreateAIVoltageChan("Dev1/ai0", "", DAQmx_Val_Cfg_Default, -10.0, 10.0, DAQmx_Val_Volts, None)
-        analog_input.CreateAIVoltageChan(self.physical_channels,  # The physical name of the channel
-                                         "",  # The name to associate with this channel
-                                         DAQmx_Val_Cfg_Default,  # Differential wiring
-                                         -1.0,  # Min voltage
-                                         1.0,  # Max voltage
-                                         DAQmx_Val_Volts,  # Units
-                                         None)  # reserved
         try:
-            analog_input.CfgSampClkTiming("",  # const char source[],
-                                          self.sample_rate,   # float64 rate,
-                                          DAQmx_Val_Rising,   #  int32 activeEdge,
-                                          DAQmx_Val_FiniteSamps,   # int32 sampleMode,
-                                          self.n_samples)  # uInt64 sampsPerChanToAcquire
+            status = DAQmxConnectTerms('/Dev%s/20MHzTimebase' % self.dev_numbers[0],
+                                       '/Dev%s/RTSI7' % self.dev_numbers[len(self.sorted_unique)-1],
+                                       DAQmx_Val_DoNotInvertPolarity)
         except Exception, e:
-            self.ts.log_error('Cannot read multiple cards that do not support this capability. %s' % e)
+            print('Error: Task does not support DAQmxConnectTerms: %s' % e)
 
-        # DAQmx Start Code
-        try:
-            analog_input.StartTask()
-        except Exception, e:
-            self.ts.log_error('Cannot read DAQ cards when LabVIEW is running. Please stop LabVIEW Acquisition. %s' % e)
-            raise
+        for k in range(len(self.sorted_unique)):
+            if k == 0:  # Master
+                self.analog_input[k].CfgSampClkTiming('',  # const char source[],
+                                                 self.sample_rate,   # float64 rate,
+                                                 DAQmx_Val_Rising,   #  int32 activeEdge,
+                                                 DAQmx_Val_FiniteSamps,   # int32 sampleMode,
+                                                 self.n_samples)  # uInt64 sampsPerChanToAcquire
+
+            else:  # Slave
+                print('Configuring Slave %s Sample Clock Timing.' % k)
+                # DAQmxCfgSampClkTiming(taskHandle,"",rate,DAQmx_Val_Rising,DAQmx_Val_ContSamps,sampsPerChan)
+                self.analog_input[k].CfgSampClkTiming('',   # const char source[], The source terminal of the Sample Clock.
+                                                 self.sample_rate,   # float64 rate, The sampling rate in samples per second per channel.
+                                                 DAQmx_Val_Rising,   #  int32 activeEdge,
+                                                 DAQmx_Val_FiniteSamps,   # int32 sampleMode,
+                                                 self.n_samples)  # uInt64 sampsPerChanToAcquire
+
+                try:
+                    print('Configuring Slave %s Clock Time Base.' % k)
+                    self.analog_input[k].SetSampClkTimebaseSrc('/Dev3/RTSI7')
+                except Exception, e:
+                    print('Task does not support SetSampClkTimebaseSrc: %s' % e)
+
+                try:
+                    print('Configuring Slave %s Clock Time Rate.' % k)
+                    self.analog_input[k].SetSampClkTimebaseRate(20e6)
+                except Exception, e:
+                    print('Task does not support SetSampClkTimebaseRate: %s' % e)
+
+                print('Configuring Slave %s Trigger.' % k)
+                self.analog_input[k].CfgDigEdgeStartTrig('/Dev%s/ai/StartTrigger' % self.dev_numbers[0],
+                                                         DAQmx_Val_Rising)
+
+        for k in range(len(self.sorted_unique)-1, -1, -1):
+            # Start Master last so slave(s) will wait for trigger from master over RSTI bus
+            print('Starting Task: %s.' % k)
+            self.analog_input[k].StartTask()
 
         # DAQmx Read Code
         # fillMode options
         # 1. DAQmx_Val_GroupByChannel 		Group by channel (non-interleaved)
         # 2. DAQmx_Val_GroupByScanNumber 	Group by scan number (interleaved)
-        analog_input.ReadAnalogF64(self.n_samples,  # int32 numSampsPerChan,
-                                   10.0,   # float64 timeout,
-                                   DAQmx_Val_GroupByChannel,    # bool32 fillMode,
-                                   self.raw_data,    # float64 readArray[],
-                                   self.n_samples*self.n_channels,    # uInt32 arraySizeInSamps,
-                                   byref(read),    # int32 *sampsPerChanRead,
-                                   None)   # bool32 *reserved);
+        for k in range(len(self.sorted_unique)):
+            # DAQmxReadAnalogF64(task2,sampsPerChanRead1,timeout,DAQmx_Val_GroupByScanNumber,
+            # buffer2,bufferSize,&sampsPerChanRead2,NULL);
+            self.analog_input[k].ReadAnalogF64(self.n_samples,  # int32 numSampsPerChan,
+                                          5.0,   # float64 timeout,
+                                          DAQmx_Val_GroupByChannel,    # bool32 fillMode,
+                                          self.raw_data[k],    # float64 readArray[],
+                                          self.n_samples*self.n_channels[k],    # uInt32 arraySizeInSamps,
+                                          byref(self.read),    # int32 *sampsPerChanRead,
+                                          None)   # bool32 *reserved);
+
+            print "Acquired %d points" % self.read.value
+            print('raw_data length: %s' % len(self.raw_data[k]))
+
         try:
-            analog_input.StopTask()
+            for k in range(len(self.sorted_unique)-1, -1, -1):
+                self.analog_input[k].StopTask()
+                self.analog_input[k].TaskControl(DAQmx_Val_Task_Unreserve)
         except Exception, e:
             self.ts.log_error('Error with DAQmx in StopTask. Returning nones... %s' % e)
             datarec = {'time': time.time(),
@@ -374,71 +474,255 @@ class Device(object):
                               None)}
             return datarec
 
-
-        # print "Acquired %d points" % read.value
-        # print('self.raw_data length: %s' % len(self.raw_data))
+        dev_idx = -1
+        data = {}
+        for k in range(len(self.analog_channels)):
+            # print('Getting data for %s' % analog_channels[k])
+            for j in range(len(self.chan_decoder)):
+                # print('Looking in data set: %s' % chan_decoder[j])
+                if any(self.analog_channels[k] in s for s in self.chan_decoder[j]):
+                    dev_idx = j
+                    chan_idx = self.chan_decoder[j].index(self.analog_channels[k])
+                    break
+            scaled_data = dsm_expression(channel_name=self.analog_channels[k],
+                                         dsm_value=self.raw_data[dev_idx][chan_idx*self.n_samples:(chan_idx+1)*self.n_samples])
+            data[self.analog_channels[k]] = scaled_data
 
         dc_voltage = None
         dc_current = None
         ac_voltage = None
         ac_current = None
-        ac_voltage_vector = None
-        ac_current_vector = None
 
-        for i in range(self.n_channels):
-            # self.ts.log(self.analog_channels[i])
-            # self.ts.log(self.raw_data[i*self.n_samples:(i+1)*self.n_samples])
-            scaled_data = dsm_expression(channel_name=self.analog_channels[i],
-                                         dsm_value=self.raw_data[i*self.n_samples:(i+1)*self.n_samples])
+        for k in range(len(self.analog_channels)):
+            if self.analog_channels[k][0:10] == 'DC_Voltage':
+                dc_voltage = np.mean(data[self.analog_channels[k]])
+            if self.analog_channels[k][0:10] == 'DC_Current':
+                dc_current = np.mean(data[self.analog_channels[k]])
+            if self.analog_channels[k][0:10] == 'AC_Voltage':
+                self.ac_voltage_vector = data[self.analog_channels[k]]
+                ac_voltage = waveform_analysis.calculateRMS(data[self.analog_channels[k]])
+            if self.analog_channels[k][0:10] == 'AC_Current':
+                self.ac_current_vector = data[self.analog_channels[k]]
+                ac_current = waveform_analysis.calculateRMS(data[self.analog_channels[k]])
+            if self.analog_channels[k] == 'Ametek_Trigger':
+                self.ametek_trigger = data[self.analog_channels[k]]
 
-            if self.analog_channels[i][0:10] == 'DC_Voltage':
-                dc_voltage = np.mean(scaled_data)
-            if self.analog_channels[i][0:10] == 'DC_Current':
-                dc_current = np.mean(scaled_data)
-            if self.analog_channels[i][0:10] == 'AC_Voltage':
-                ac_voltage_vector = scaled_data
-                ac_voltage = waveform_analysis.calculateRMS(scaled_data)
-            if self.analog_channels[i][0:10] == 'AC_Current':
-                ac_current_vector = scaled_data
-                ac_current = waveform_analysis.calculateRMS(scaled_data)
-            if self.analog_channels[i] == 'Ametek_Trigger':
-                ametek_trigger = scaled_data
-
-        if ac_voltage_vector is not None:
-            freq, _ = waveform_analysis.freq_from_crossings(self.time_vector, ac_voltage_vector, self.sample_rate)
-        elif ac_current_vector is not None:
-            freq, _ = waveform_analysis.freq_from_crossings(self.time_vector, ac_current_vector, self.sample_rate)
+        if self.ac_voltage_vector is not None:
+            freq, _ = waveform_analysis.freq_from_crossings(self.time_vector, self.ac_voltage_vector, self.sample_rate)
+        elif self.ac_current_vector is not None:
+            freq, _ = waveform_analysis.freq_from_crossings(self.time_vector, self.ac_current_vector, self.sample_rate)
         else:
             freq = None
 
-        # avg_P, P1, PH, N, Q1, DI, DV, DH, S, S1, SN, SH, PF1, PF, har_poll, THD_V, THD_I = \
-        #     waveform_analysis.harmonic_analysis(self.time_vector, ac_voltage_vector, ac_current_vector,
-        #                                         self.sample_rate, self.ts)
-
-        avg_P, S, Q1, N, PF1 = waveform_analysis.harmonic_analysis(self.time_vector, ac_voltage_vector,
-                                                                   ac_current_vector,
+        avg_P, S, Q1, N, PF1 = waveform_analysis.harmonic_analysis(self.time_vector, self.ac_voltage_vector,
+                                                                   self.ac_current_vector,
                                                                    self.sample_rate, self.ts)
-
-        datarec = {'time': time.time(),
-                   'ac_1': (ac_voltage,  # voltage
-                            ac_current,  # current
-                            avg_P,       # power
-                            S,           # VA
-                            Q1,          # vars
-                            PF1,         # PF
-                            freq),       # freq
-                   'ac_2': (None,        # voltage
-                            None,        # current
-                            None,        # power
-                            None,        # VA
-                            N,           # vars (Nonactive Power)
-                            None,        # PF
-                            None),       # freq
-                   'dc': (dc_voltage,
-                          dc_current,
-                          dc_voltage*dc_current)}
+        datarec = {'TIME': time.time(),
+                   'AC_VRMS_1': ac_voltage,
+                   'AC_IRMS_1': ac_current,
+                   'AC_P_1': avg_P,
+                   'AC_S_1': S,
+                   'AC_Q_1': Q1,
+                   'AC_PF_1': PF1,
+                   'AC_FREQ_1': freq,
+                   'AC_VRMS_2': None,
+                   'AC_IRMS_2': None,
+                   'AC_P_2': None,
+                   'AC_S_2': None,
+                   'AC_Q_2': None,
+                   'AC_PF_2': None,
+                   'AC_FREQ_2': None,
+                   'AC_VRMS_3': None,
+                   'AC_IRMS_3': None,
+                   'AC_P_3': None,
+                   'AC_S_3': None,
+                   'AC_Q_3': None,
+                   'AC_PF_3': None,
+                   'AC_FREQ_3': None,
+                   'DC_V': dc_voltage,
+                   'DC_I': dc_current,
+                   'DC_P': dc_voltage*dc_current}
 
         return datarec
+
+
+    def waveform_config(self, params):
+        """
+        Configure waveform capture.
+
+        params: Dictionary with following entries:
+            'sample_rate' - Sample rate (samples/sec)
+            'pre_trigger' - Pre-trigger time (sec)
+            'post_trigger' - Post-trigger time (sec)
+            'trigger_level' - Trigger level
+            'trigger_cond' - Trigger condition - ['Rising_Edge', 'Falling_Edge']
+            'trigger_channel' - Trigger channel - ['AC_V_1', 'AC_V_2', 'AC_V_3', 'AC_I_1', 'AC_I_2', 'AC_I_3', 'EXT']
+            'timeout' - Timeout (sec)
+            'channels' - Channels to capture - ['AC_V_1', 'AC_V_2', 'AC_V_3', 'AC_I_1', 'AC_I_2', 'AC_I_3', 'EXT']
+        """
+        self.wfm_sample_rate = params.get('sample_rate')
+        self.wfm_pre_trigger = params.get('pre_trigger')
+        self.wfm_post_trigger = params.get('post_trigger')
+        self.wfm_trigger_level = params.get('trigger_level')
+        self.wfm_trigger_cond = params.get('trigger_cond')
+        self.wfm_trigger_channel = params.get('trigger_channel')
+        self.wfm_timeout = params.get('timeout')
+        self.wfm_channels = params.get('channels')
+
+        for c in self.wfm_channels:
+            dsm_chan = wfm_dsm_channels[c]
+            if dsm_chan is not None:
+                self.wfm_dsm_channels.append('%s_%s' % (dsm_chan, self.dsm_id))
+        self.ts.log_debug('Channels to record: %s' % str(self.wfm_channels))
+
+    def waveform_capture(self, enable=True, sleep=None):
+        """
+        Enable/disable waveform capture.
+        """
+        if enable:
+            for k in range(len(self.sorted_unique)):
+                self.analog_input[k].CreateAIVoltageChan(self.physical_channels[k],  # The physical name of the channel
+                                                         "",  # The name to associate with this channel
+                                                         DAQmx_Val_Cfg_Default,  # Differential wiring
+                                                         -10.0,  # Min voltage
+                                                         10.0,  # Max voltage
+                                                         DAQmx_Val_Volts,  # Units
+                                                         None)  # reserved
+
+            try:
+                status = DAQmxConnectTerms('/Dev%s/20MHzTimebase' % self.dev_numbers[0],
+                                           '/Dev%s/RTSI7' % self.dev_numbers[len(self.sorted_unique)-1],
+                                           DAQmx_Val_DoNotInvertPolarity)
+            except Exception, e:
+                print('Error: Task does not support DAQmxConnectTerms: %s' % e)
+
+            for k in range(len(self.sorted_unique)):
+                if k == 0:  # Master
+                    self.analog_input[k].CfgSampClkTiming('',  # const char source[],
+                                                     self.sample_rate,   # float64 rate,
+                                                     DAQmx_Val_Rising,   #  int32 activeEdge,
+                                                     DAQmx_Val_FiniteSamps,   # int32 sampleMode,
+                                                     self.n_samples)  # uInt64 sampsPerChanToAcquire
+
+                    trig_chan = DSM_CHANNELS[wfm_dsm_channels[self.wfm_trigger_channel]]['physChan']
+
+                    # approximate scaling/calibration using linear approximation with zero crossing
+                    # (Shouldn't matter for analog triggers)
+                    linear_slope_approx = dsm_expression(channel_name=trig_chan, dsm_value=100)/100.
+                    trig_level = self.wfm_trigger_level/linear_slope_approx
+
+                    if self.wfm_trigger_cond == 'Rising_Edge':
+                        self.analog_input[k].CfgAnlgEdgeStartTrig(trig_chan,  # name of analog signal channel
+                                                             DAQmx_Val_RisingSlope,  # or DAQmx_Val_FallingSlope
+                                                             trig_level)  # threshold at which to start acquiring
+                    elif self.wfm_trigger_cond == 'Falling_Edge':
+                        self.analog_input[k].CfgAnlgEdgeStartTrig(trig_chan,  # name of analog signal channel
+                                                             DAQmx_Val_FallingSlope,  # or DAQmx_Val_RisingSlope
+                                                             trig_level)  # threshold at which to start acquiring
+                    else:
+                        # use this case for the force trigger
+                        pass
+
+                else:  # Slave
+                    print('Configuring Slave %s Sample Clock Timing.' % k)
+                    # DAQmxCfgSampClkTiming(taskHandle,"",rate,DAQmx_Val_Rising,DAQmx_Val_ContSamps,sampsPerChan)
+                    self.analog_input[k].CfgSampClkTiming('',   # const char source[], The source terminal of the Sample Clock.
+                                                     self.sample_rate,   # float64 rate, The sampling rate in samples per second per channel.
+                                                     DAQmx_Val_Rising,   #  int32 activeEdge,
+                                                     DAQmx_Val_FiniteSamps,   # int32 sampleMode,
+                                                     self.n_samples)  # uInt64 sampsPerChanToAcquire
+
+                    try:
+                        print('Configuring Slave %s Clock Time Base.' % k)
+                        self.analog_input[k].SetSampClkTimebaseSrc('/Dev3/RTSI7')
+                    except Exception, e:
+                        print('Task does not support SetSampClkTimebaseSrc: %s' % e)
+
+                    try:
+                        print('Configuring Slave %s Clock Time Rate.' % k)
+                        self.analog_input[k].SetSampClkTimebaseRate(20e6)
+                    except Exception, e:
+                        print('Task does not support SetSampClkTimebaseRate: %s' % e)
+
+                    print('Configuring Slave %s Trigger.' % k)
+                    self.analog_input[k].CfgDigEdgeStartTrig('/Dev%s/ai/StartTrigger' % self.dev_numbers[0],
+                                                             DAQmx_Val_Rising)
+
+            for k in range(len(self.sorted_unique)-1, -1, -1):
+                # Start Master last so slave(s) will wait for trigger from master over RSTI bus
+                print('Starting Task: %s.' % k)
+                self.analog_input[k].StartTask()
+
+            for k in range(len(self.sorted_unique)):
+                self.analog_input[k].ReadAnalogF64(self.n_samples,  # int32 numSampsPerChan,
+                                              5.0,   # float64 timeout,
+                                              DAQmx_Val_GroupByChannel,    # bool32 fillMode,
+                                              self.raw_data[k],    # float64 readArray[],
+                                              self.n_samples*self.n_channels[k],    # uInt32 arraySizeInSamps,
+                                              byref(self.read),    # int32 *sampsPerChanRead,
+                                              None)   # bool32 *reserved);
+
+    def waveform_status(self):
+        # return INACTIVE, ACTIVE, COMPLETE
+
+        trig_type = self.analog_input[k].GetStartTrigType()
+
+        if int(trig_type) == 10099 and self.raw_data is None:
+            # DAQmx_Val_AnlgEdge 	10099 	Trigger when an analog signal signal crosses a threshold.
+            # DAQmx_Val_DigEdge 	10150 	Trigger on the rising or falling edge of a digital signal.
+            # DAQmx_Val_DigPattern 	10398 	Trigger when digital physical channels match a digital pattern.
+            # DAQmx_Val_AnlgWin 	10103 	Trigger when an analog signal enters or leaves a range of values.
+            # DAQmx_Val_None 	10230 	Disable triggering for the task.
+            stat = 'ACTIVE'
+
+        elif self.raw_data is not None:
+            stat = 'COMPLETE'
+
+            # once complete, close the Task
+            try:
+                for k in range(len(self.sorted_unique)-1, -1, -1):
+                    self.analog_input[k].StopTask()
+                    self.analog_input[k].TaskControl(DAQmx_Val_Task_Unreserve)
+            except Exception, e:
+                self.ts.log_error('Error with DAQmx in StopTask. Returning nones... %s' % e)
+
+        else:
+            stat = 'INACTIVE'
+
+        return stat
+
+    def waveform_force_trigger(self):
+        """
+        Create trigger event with provided value.
+        """
+        trig_condition = self.wfm_trigger_cond
+        self.wfm_trigger_cond = None
+        self.waveform_capture()
+        self.wfm_trigger_cond = trig_condition
+
+    def waveform_capture_dataset(self):
+        ds = dataset.Dataset()
+        ds.points.append('TIME')
+        ds.data.append(self.time_vector)
+
+        dev_idx = -1
+        data = {}
+        for k in range(len(self.analog_channels)):
+            # print('Getting data for %s' % analog_channels[k])
+            for j in range(len(self.chan_decoder)):
+                # print('Looking in data set: %s' % chan_decoder[j])
+                if any(self.analog_channels[k] in s for s in self.chan_decoder[j]):
+                    dev_idx = j
+                    chan_idx = self.chan_decoder[j].index(self.analog_channels[k])
+                    break
+            scaled_data = dsm_expression(channel_name=self.analog_channels[k],
+                                         dsm_value=self.raw_data[dev_idx][chan_idx*self.n_samples:(chan_idx+1)*self.n_samples])
+            data[self.analog_channels[k]] = scaled_data
+
+            ds.points.append(dsm_points_map.get(self.analog_channels[k]))
+            ds.data.append(data[self.analog_channels[k]])  # first row for first signal and so on
+
+        return ds
 
 
 def dsm_expression(channel_name, dsm_value):
@@ -471,76 +755,207 @@ def IC2_relay(new_state='close'):
 
 if __name__ == "__main__":
 
-    analog_channels = ['AC_Voltage_4', 'AC_Current_4']
-    n_channels = len(analog_channels)
-    analog_input = Task()
+    # consider moving to SuperTask in acq4
+    # https://github.com/acq4/acq4/blob/develop/acq4/drivers/nidaq/SuperTask.py
+
+    # analog_channels = ['AC_Voltage_10', 'AC_Current_10', 'AC_Voltage_5', 'Ametek_Trigger']
+    analog_channels = ['AC_Voltage_4', 'AC_Current_4', 'DC_Voltage_4', 'DC_Current_4']
+    # analog_channels = ['AC_Voltage_10', 'AC_Current_10']
     read = int32()
-    n_points = 2000  # number of samples per channel
-    sample_rate = 60000.
+    n_points = 1000  # number of samples per channel
+    sample_rate = 10000.
 
-    raw_data = np.zeros((n_points*n_channels,), dtype=numpy.float64)
-
-    physical_channels = ''
+    dev_numbers = []
     for i in range(len(analog_channels)):
         chan = DSM_CHANNELS[analog_channels[i]]['physChan']
-        physical_channels += chan
-        if i != len(analog_channels)-1:
-            physical_channels += ','
+        dev_numbers.append(chan[3])
+
+    sorted_unique, unique_counts = np.unique(dev_numbers, return_index=False, return_counts=True)  # find the unique NI devices
+    analog_input = []
+    physical_channels = []
+    chan_decoder = []
+    for i in range(len(unique_counts)):
+        analog_input.append(Task())
+        physical_channels.append('')
+        chan_decoder.append([])
+
+    raw_data = []
+    n_channels = []
+    for i in unique_counts:
+        n_channels.append(i)
+        raw_data.append(np.zeros((n_points*i,), dtype=numpy.float64))
+    print(n_channels)
+    print('raw_data length: %s' % len(raw_data[0]))
+
+    # print('sorted_unique: %s' % sorted_unique)
+
+    unique_dev_num = -1  # count for the unique devs
+    for dev in sorted_unique:
+        unique_dev_num += 1
+        for i in range(len(analog_channels)):  # for each channel
+            chan = DSM_CHANNELS[analog_channels[int(i)]]['physChan']
+            if dev == chan[3]:  # if this device matches, put it in this task
+                physical_channels[unique_dev_num] += chan + ','
+                # print(analog_channels[i])
+                # print(unique_dev_num)
+                chan_decoder[unique_dev_num].append(analog_channels[i])
+                # print(chan_decoder)
+    for dev in range(len(sorted_unique)):  # clean up last comma
+        physical_channels[dev] = physical_channels[dev][:-1]  # Remove the last comma.
+
     print('Capturing Waveforms on Channels: %s' % physical_channels)
+    print('Waveforms Channels are: %s' % chan_decoder)
 
-    # DAQmx Configure Code
-    # analog_input.CreateAIVoltageChan("Dev1/ai0", "", DAQmx_Val_Cfg_Default, -10.0, 10.0, DAQmx_Val_Volts, None)
-    analog_input.CreateAIVoltageChan(physical_channels,  # The physical name of the channel
-                                     "",  # The name to associate with this channel
-                                     DAQmx_Val_Cfg_Default,  # Differential wiring
-                                     -1.0,  # Min voltage
-                                     1.0,  # Max voltage
-                                     DAQmx_Val_Volts,  # Units
-                                     None)  # reserved
+    # Step 1, virtual channels are created. Each one of the virtual channels in question here is used to acquire
+    # from an analog voltage signal(s).
+    for i in range(len(sorted_unique)):
+        analog_input[i].CreateAIVoltageChan(physical_channels[i],  # The physical name of the channel
+                                            "",  # The name to associate with this channel
+                                            DAQmx_Val_Cfg_Default,  # Differential wiring
+                                            -10.0,  # Min voltage
+                                            10.0,  # Max voltage
+                                            DAQmx_Val_Volts,  # Units
+                                            None)  # reserved
 
-    analog_input.CfgSampClkTiming("",  # const char source[],
-                                  sample_rate,   # float64 rate,
-                                  DAQmx_Val_Rising,   #  int32 activeEdge,
-                                  DAQmx_Val_FiniteSamps,   # int32 sampleMode,
-                                  n_points)  # uInt64 sampsPerChanToAcquire
+    '''
+    PCI Synchronization Using the Reference Clock:
+    The RTSI bus offers the ability to share signals between independent devices in the system. Traditionally,
+    synchronizing data acquisition devices required sharing a common timebase clock source among the devices.
+    M Series devices have an internal timebase of 80 MHz, which is too high a frequency to pass accurately to other
+    devices through the RTSI bus. Typically, 10 MHz is a more stable clock frequency to route between devices and is
+    used as a standard for synchronization in PXI systems with the 10 MHz PXI clock built into the backplane of the
+    chassis. Therefore, M Series devices generate a 10 MHz reference clock to be used for synchronization purposes
+    by dividing down their 80 MHz onboard oscillator. To synchronize acquisitions or generations across several
+    PCI M Series boards, one board acts as the master and exports its 10 MHz reference clock to all of the other
+    slave boards. The NI-STC 2 ASIC on each M Series has PLL circuitry that compares an external reference clock to
+    its built in voltage-controlled crystal oscillator clock (VCXO) to output a clock that is synchronized to this
+    reference. Thus each device in the system can input a 10 MHz reference clock and synchronize its own 80 MHz
+    and 20 MHz timebases to it. With this technology, all devices are synchronized to the same 10 MHz master
+    clock, but can use their individual faster 80 and 20 MHz timebases generated onboard. Note that due to the
+    way signals are divided down, the 100 kHz timebase will not be in phase with the input to the PLL.
+    '''
+    try:
+        # int32 DAQmxConnectTerms (const char sourceTerminal[], const char destinationTerminal[],
+        # int32 signalModifiers)
+        print('Connecting Master Timebase to RSTI Channel.')
+        # DAQmxDisconnectTerms('/Dev%s/20MHzTimebase' % dev_numbers[1],
+        #                            '/Dev%s/RTSI7' % dev_numbers[0])
+        status = DAQmxConnectTerms('/Dev%s/20MHzTimebase' % dev_numbers[0],
+                                   '/Dev%s/RTSI7' % dev_numbers[len(sorted_unique)-1],
+                                   DAQmx_Val_DoNotInvertPolarity)
+        print('DAQmxConnectTerms status: %s' % status)
 
-    # DAQmx Start Code
-    analog_input.StartTask()
+    except Exception, e:
+        print('Error: Task does not support DAQmxConnectTerms: %s' % e)
+
+    for i in range(len(sorted_unique)):
+        if i == 0:  # Master
+            '''
+            When routing its 10 MHz reference clock out for other devices to synchronize to, the master device can set
+            the source of its reference clock to "OnboardClock". This option will take the 10 MHz reference clock of
+            the master device, which has been routed out to RTSI, back to the source of its own PLL. The master device
+            then sees the same delays that the slave devices phase locking to the 10 MHz reference clock over RTSI
+            will see.
+            '''
+            print('Configuring Master %s Sample Clock Timing.' % i)
+            analog_input[i].CfgSampClkTiming('',  # const char source[],
+                                             sample_rate,   # float64 rate,
+                                             DAQmx_Val_Rising,   #  int32 activeEdge,
+                                             DAQmx_Val_FiniteSamps,   # int32 sampleMode,
+                                             n_points)  # uInt64 sampsPerChanToAcquire
+
+            # trigger on analog channel
+            # http://zone.ni.com/reference/en-XX/help/370471AE-01/daqmxcfunc/daqmxcfganlgedgestarttrig/
+            # analog_input[i].CfgAnlgEdgeStartTrig('Dev1/ai22',  # name of analog signal channel
+            #                                      DAQmx_Val_RisingSlope,  # or DAQmx_Val_FallingSlope
+            #                                      0)  # threshold at which to start acquiring
+
+        else:  # Slave
+            print('Configuring Slave %s Sample Clock Timing.' % i)
+            # DAQmxCfgSampClkTiming(taskHandle,"",rate,DAQmx_Val_Rising,DAQmx_Val_ContSamps,sampsPerChan)
+            analog_input[i].CfgSampClkTiming('',   # const char source[], The source terminal of the Sample Clock.
+                                             sample_rate,   # float64 rate, The sampling rate in samples per second per channel.
+                                             DAQmx_Val_Rising,   #  int32 activeEdge,
+                                             DAQmx_Val_FiniteSamps,   # int32 sampleMode,
+                                             n_points)  # uInt64 sampsPerChanToAcquire
+
+            try:
+                print('Configuring Slave %s Clock Time Base.' % i)
+                analog_input[i].SetSampClkTimebaseSrc('/Dev3/RTSI7')
+            except Exception, e:
+                print('Task does not support SetSampClkTimebaseSrc: %s' % e)
+
+            try:
+                print('Configuring Slave %s Clock Time Rate.' % i)
+                analog_input[i].SetSampClkTimebaseRate(20e6)
+            except Exception, e:
+                print('Task does not support SetSampClkTimebaseRate: %s' % e)
+
+            # Used digital trigger to trigger slave when master begins capture.
+            # Get Terminal Name with Device Prefix VI is used to programmatically extract the Start Trigger signal
+            # of the master device and route it to be used to start the slave device. This step is the second phase
+            # of the synchronization - making sure that they start at the same time.
+            # analog_input[i].CfgDigEdgeStartTrig('RTSI6', DAQmx_Val_Rising)
+            print('Configuring Slave %s Trigger.' % i)
+            analog_input[i].CfgDigEdgeStartTrig('/Dev%s/ai/StartTrigger' % dev_numbers[0], DAQmx_Val_Rising)
+
+    for i in range(len(sorted_unique)-1, -1, -1):
+        # Start Master last so slave(s) will wait for trigger from master over RSTI bus
+        print('Starting Task: %s.' % i)
+        analog_input[i].StartTask()
 
     # DAQmx Read Code
     # fillMode options
     # 1. DAQmx_Val_GroupByChannel 		Group by channel (non-interleaved)
     # 2. DAQmx_Val_GroupByScanNumber 	Group by scan number (interleaved)
-    analog_input.ReadAnalogF64(n_points,  # int32 numSampsPerChan,
-                               10.0,   # float64 timeout,
-                               DAQmx_Val_GroupByChannel,    # bool32 fillMode,
-                               raw_data,    # float64 readArray[],
-                               n_points*n_channels,    # uInt32 arraySizeInSamps,
-                               byref(read),    # int32 *sampsPerChanRead,
-                               None)   # bool32 *reserved);
+    for i in range(len(sorted_unique)):
+        # DAQmxReadAnalogF64(task2,sampsPerChanRead1,timeout,DAQmx_Val_GroupByScanNumber,
+        # buffer2,bufferSize,&sampsPerChanRead2,NULL);
+        analog_input[i].ReadAnalogF64(n_points,  # int32 numSampsPerChan,
+                                      5.0,   # float64 timeout,
+                                      DAQmx_Val_GroupByChannel,    # bool32 fillMode,
+                                      raw_data[i],    # float64 readArray[],
+                                      n_points*n_channels[i],    # uInt32 arraySizeInSamps,
+                                      byref(read),    # int32 *sampsPerChanRead,
+                                      None)   # bool32 *reserved);
 
-    analog_input.StopTask()
+        print "Acquired %d points" % read.value
+        print('raw_data length: %s' % len(raw_data[i]))
 
+    for i in range(len(sorted_unique)-1, -1, -1):
+        analog_input[i].StopTask()
+        analog_input[i].TaskControl(DAQmx_Val_Task_Unreserve)
 
-
-    # print "Acquired %d points" % read.value
-    # print('raw_data length: %s' % len(raw_data))
-
+    dev_idx = -1
     data = {}
     for i in range(len(analog_channels)):
-        print analog_channels[i]
-        print(raw_data[i*n_points:(i+1)*n_points])
-        scaled_data = dsm_expression(channel_name=analog_channels[i], dsm_value=raw_data[i*n_points:(i+1)*n_points])
+        # print('Getting data for %s' % analog_channels[i])
+        for j in range(len(chan_decoder)):
+            # print('Looking in data set: %s' % chan_decoder[j])
+            if any(analog_channels[i] in s for s in chan_decoder[j]):
+                device_number = dev_numbers[i]
+                dev_idx = j
+                chan_idx = chan_decoder[j].index(analog_channels[i])
+                break
+        # print('Channel: %s, Device number: %s, Device Index: %s, Channel Index: %s'
+        #       % (i, device_number, dev_idx, chan_idx))
+        # print(raw_data[dev_idx][chan_idx*n_points:(chan_idx+1)*n_points])
+        scaled_data = dsm_expression(channel_name=analog_channels[i],
+                                     dsm_value=raw_data[dev_idx][chan_idx*n_points:(chan_idx+1)*n_points])
         data[analog_channels[i]] = scaled_data
 
     time_vector = np.linspace(0., n_points/sample_rate, n_points)
-    # print('time: %s, volt: %s, curr: %s' % (len(time), len(ac_voltage_10), len(ac_current_10)))
+    # print('time length: %s' % (len(time_vector)))
+    # for i in range(len(analog_channels)):
+    #     print('data length: %s' % (len(data[analog_channels[i]])))
+
     import matplotlib.pyplot as plt
     # plt.plot(time, ac_voltage_10, 'r', time, ac_current_10, 'b')
     # plt.show()
 
     fig, ax1 = plt.subplots()
     ax1.plot(time_vector, data[analog_channels[0]], 'b-')
+    ax1.plot(time_vector, data[analog_channels[2]], 'k-')
     ax1.set_xlabel('time (s)')
     # Make the y-axis label and tick labels match the line color.
     ax1.set_ylabel('AC Voltage', color='b')
@@ -549,13 +964,22 @@ if __name__ == "__main__":
 
     ax2 = ax1.twinx()
     ax2.plot(time_vector, data[analog_channels[1]], 'r-')
+    ax2.plot(time_vector, data[analog_channels[3]], 'g-')
     ax2.set_ylabel('AC Current', color='r')
     for tl in ax2.get_yticklabels():
         tl.set_color('r')
+
     plt.show()
 
-    f = open('D:\\SVP\\Node_10_waveforms-%s.csv' % (time.time()), 'w')
+    avg_P, S, Q1, N, PF1 = waveform_analysis.harmonic_analysis(time_vector, data[analog_channels[0]],
+                                                                   data[analog_channels[1]],
+                                                                   sample_rate, None)
+
+    print('Power = %s, Q = %s' % (avg_P, Q1))
+
+    f = open('D:\\SVP\\Node_4_waveforms-P=%s, Q=%s.csv' % (avg_P, Q1), 'w')
     f.write('Python Time (s), AC Voltage (V), AC Current (A)\n')
     for t in range(len(time_vector)):
         f.write('%0.6f, %0.6f, %0.6f\n' % (time_vector[t], data[analog_channels[0]][t], data[analog_channels[1]][t]))
     f.close()
+

@@ -65,13 +65,17 @@ class DAS(das.DAS):
     def __init__(self, ts, group_name, points=None, sc_points=None):
         das.DAS.__init__(self, ts, group_name, points=points, sc_points=sc_points)
         self.sample_interval = self._param_value('sample_interval')
-
         self.params['node'] = self._param_value('node')
+        self.params['sample_interval'] = self._param_value('sample_interval')
         self.params['sample_rate'] = self._param_value('sample_rate')
         self.params['n_cycles'] = self._param_value('n_cycles')
+        self.params['ts'] = ts
 
         self.device = device_das_sandia_ni_pcie.Device(self.params, ts)
+        self.data_points = self.device.data_points
 
+        # initialize soft channel points
+        self._init_sc_points()
 
     def _param_value(self, name):
         return self.ts.param_value(self.group_name + '.' + GROUP_NAME + '.' + name)

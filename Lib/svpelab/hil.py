@@ -106,7 +106,7 @@ class HIL(object):
         """
         Close any open communications resources associated with the HIL.
         """
-        pass
+        self.stop_simulation()
 
     def info(self):
         pass

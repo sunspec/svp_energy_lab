@@ -351,6 +351,18 @@ class DER(object):
     def active_power(self, params=None):
         pass
 
+    """ Get/set normal ramp rate
+        rate - Normal ramp rate in % rated current/sec
+    """
+    def ramp_rate(self, rate=None):
+        pass
+
+    """ Get/set soft start ramp rate
+        rate - Soft start ramp rate in % rated current/sec
+    """
+    def soft_start_ramp_rate(self, rate=None):
+        pass
+
     """ Get/set storage parameters
         'WChaMax': 0 - Setpoint for maximum charge.
         'WChaGra': 0 - Setpoint for maximum charging rate. Default is MaxChaRte.
