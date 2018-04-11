@@ -602,6 +602,7 @@ class DER(der.DER):
         try:
             if 'volt_var' in self.inv.models:
                 if params is not None:
+                    act_crv = params.get('ActCrv')
                     curve = params.get('curve')  ## Must write curve first because there is a read() in volt_var_curve
                     if curve is not None:
                         self.volt_var_curve(id=act_crv, params=curve)
@@ -611,7 +612,6 @@ class DER(der.DER):
                             self.inv.volt_var.ModEna = 1
                         else:
                             self.inv.volt_var.ModEna = 0
-                    act_crv = params.get('ActCrv')
                     if act_crv is not None:
                         self.inv.volt_var.ActCrv = act_crv
                     else:
@@ -626,6 +626,12 @@ class DER(der.DER):
                     if rvrt_tms is not None:
                         self.inv.volt_var.RvrtTms = rvrt_tms
                     self.inv.volt_var.write()
+
+                    # rewrite enable if already enabled
+                    if ena is not None:
+                        if ena is True:
+                            self.inv.volt_var.ModEna = 1
+                            self.inv.volt_var.write()
                 else:
                     params = {}
                     self.inv.volt_var.read()
@@ -1908,6 +1914,39 @@ class DER(der.DER):
                 params['RmpTms'] = self.inv.lvrtd.RmpTms
                 params['RvrtTms'] = self.inv.lvrtd.RvrtTms
 
+        except Exception, e:
+            raise der.DERError(str(e))
+
+        return params
+
+    def ramp_rates(self, params=None):
+        """ Get/set ramp rate control
+
+        Params:
+
+        :param params: Dictionary of parameters to be updated.
+        :return: Dictionary of active settings for ramp rate control.
+        """
+        if self.inv is None:
+            raise der.DERError('DER not initialized')
+
+        try:
+            if 'ext_settings' in self.inv.models:
+                if params is not None:
+                    rr = params.get('ramp_rate')
+                    ss = params.get('soft_start')
+                    if rr is not None:
+                        self.inv.ext_settings.NomRmpUpRte = rr
+                    if ss is not None:
+                        self.inv.ext_settings.ConnRmpUpRte = ss
+                    self.inv.ext_settings.write()
+                else:
+                    params = {}
+                    self.inv.ext_settings.read()
+                    params['ramp_rate'] = self.inv.ext_settings.NomRmpUpRte
+                    params['soft_start'] = self.inv.ext_settings.ConnRmpUpRte
+            else:
+                params = None
         except Exception, e:
             raise der.DERError(str(e))
 

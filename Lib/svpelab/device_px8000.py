@@ -81,6 +81,29 @@ query_points = {
 }
 
 
+def pf_scan(points, pf_points):
+    for i in range(len(points)):
+        if points[i].startswith('AC_PF'):
+            label = points[i][5:]
+            try:
+                p_index = points.index('AC_P%s' % (label))
+                q_index = points.index('AC_Q%s' % (label))
+                pf_points.append((i, p_index, q_index))
+            except ValueError:
+                pass
+
+def pf_adjust_sign(data, pf_idx, p_idx, q_idx):
+    """
+    Power factor sign is the opposite sign of the product of active power and reactive power
+    """
+    pq = data[p_idx] * data[q_idx]
+    # sign should be opposite of product of p and q
+    pf = abs(data[pf_idx])
+    if pq >= 0:
+        pf = pf * -1
+    return pf
+
+
 class DeviceError(Exception):
     """
     Exception to wrap all das generated exceptions.
@@ -95,6 +118,7 @@ class Device(object):
         self.params = params
         self.channels = params.get('channels')
         self.data_points = ['TIME']
+        self.pf_points = []
 
         # create query string for configured channels
         query_chan_str = ''
@@ -121,6 +145,8 @@ class Device(object):
         query_chan_str += '\n:NUMERIC:NORMAL:VALUE?'
 
         self.query_str = ':NUMERIC:FORMAT ASCII\nNUMERIC:NORMAL:NUMBER %d\n' % (item) + query_chan_str
+
+        pf_scan(self.data_points, self.pf_points)
 
         self.vx = vxi11.Instrument(self.params['ip_addr'])
 
@@ -161,8 +187,11 @@ class Device(object):
         self.capture(enable)
 
     def data_read(self):
-        data = [float(i) for i in self.query(self.query_str).split(',')]
+        q = self.query(self.query_str)
+        data = [float(i) for i in q.split(',')]
         data.insert(0, time.time())
+        for p in self.pf_points:
+            data[p[0]] = pf_adjust_sign(data, *p)
         return data
 
     def capture(self, enable=None):

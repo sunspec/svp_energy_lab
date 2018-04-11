@@ -132,8 +132,10 @@ class PVSim(pvsim.PVSim):
         if self.tsas is not None:
             # spread across active channels
             count = len(self.channel)
+            self.ts.log('power_set = %s - %s' % (power, type(power)))
             if count > 1:
                 power = power/count
+                self.ts.log('power = %s - %s' % (power, type(power)))
             if power > self.pmp:
                 self.ts.log_warning('Requested power > Pmp so irradiance will be > 1000 W/m^2)')
             # convert to irradiance for now
