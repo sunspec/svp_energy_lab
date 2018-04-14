@@ -43,6 +43,7 @@ import importlib
 
 gridsim_modules = {}
 
+
 def params(info, id=None, label='Grid Simulator', group_name=None, active=None, active_value=None):
     if group_name is None:
         group_name = GRIDSIM_DEFAULT_ID
@@ -60,6 +61,7 @@ def params(info, id=None, label='Grid Simulator', group_name=None, active=None, 
 
 GRIDSIM_DEFAULT_ID = 'gridsim'
 
+
 def gridsim_init(ts, id=None, group_name=None):
     """
     Function to create specific grid simulator implementation instances.
@@ -75,9 +77,11 @@ def gridsim_init(ts, id=None, group_name=None):
     if id is not None:
         group_name = group_name + '_' + str(id)
     mode = ts.param_value(group_name + '.' + 'mode')
+    # ts.log_debug('group_name, %s, mode: %s' % (group_name, mode))
     sim = None
     if mode != 'Disabled':
         sim_module = gridsim_modules.get(mode)
+        # ts.log_debug('gridsim_module, %s, gridsim_modules: %s' % (sim_module, gridsim_modules))
         if sim_module is not None:
             sim = sim_module.GridSim(ts, group_name)
         else:
@@ -115,9 +119,11 @@ class GridSim(object):
 
         self.auto_config = self._group_param_value('auto_config')
 
-
     def _group_param_value(self, name):
         return self.ts.param_value(self.group_name + '.' + name)
+
+    def info(self):
+        pass
 
     def config(self):
         """
@@ -238,6 +244,23 @@ class GridSim(object):
             voltage = (0.0, 0.0, 0.0)
         return voltage
 
+    def meas_power(self, ph_list=(1,2,3)):
+        return None, None, None
+
+    def meas_va(self, ph_list=(1,2,3)):
+        return None, None, None
+
+    def meas_current(self, ph_list=(1,2,3)):
+        return None, None, None
+
+    def meas_voltage(self, ph_list=(1,2,3)):
+        return None, None, None
+
+    def meas_freq(self):
+        return None, None, None
+
+    def meas_pf(self, ph_list=(1,2,3)):
+        return None, None, None
 
 def gridsim_scan():
     global gridsim_modules

@@ -36,7 +36,7 @@ import pv_profiles
 import pvsim
 
 try:
-    import typhoon.api.hil_control_panel as cp
+    import typhoon.api.hil as cp  # control panel
     from typhoon.api.schematic_editor import model
     import typhoon.api.pv_generator as pv
 except Exception, e:

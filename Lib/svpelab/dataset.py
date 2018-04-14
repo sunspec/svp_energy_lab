@@ -77,6 +77,13 @@ class Dataset(object):
         if data is None:
             self.clear()
 
+    def point_data(self, point):
+        try:
+            idx = self.points.index(point)
+        except ValueError:
+            raise DatasetError('Data point not in dataset: %s' % point)
+        return self.data[idx]
+
     def append(self, data):
         dlen = len(data)
         if len(data) != len(self.data):
@@ -84,7 +91,10 @@ class Dataset(object):
                                ' appended data contains %s points' % (len(self.data), dlen))
         for i in range(dlen):
             try:
-                v = float(data[i])
+                if data[i] is not None:
+                    v = float(data[i])
+                else:
+                    v = 'None'
             except ValueError:
                 v = data[i]
             self.data[i].append(v)

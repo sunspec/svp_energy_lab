@@ -753,6 +753,289 @@ def IC2_relay(new_state='close'):
                            None)  # bool32 *reserved
     task.StopTask()
 
+def IC1_relay(new_state='close'):
+    if new_state == 'open':
+        ditigal_wfm_data = np.array([0], dtype=np.uint8)
+        print('Opening IC1 Relay')
+    elif new_state == 'close':
+        ditigal_wfm_data = np.array([1], dtype=np.uint8)
+        print('Closing IC1 Relay')
+    else:
+        print('Unknown new switch state: %s' % new_state)
+        return
+
+    task = Task()
+    task.CreateDOChan("Dev1/port0/line16", "", DAQmx_Val_ChanForAllLines)
+    task.StartTask()
+    task.WriteDigitalLines(1,  # int32 numSampsPerChan
+                           1,  # bool32 autoStart
+                           10.0,  # float64 timeout
+                           DAQmx_Val_GroupByChannel,  # bool32 dataLayout
+                           ditigal_wfm_data,  # uInt8 writeArray[]
+                           None,  # int32 *sampsPerChanWritten
+                           None)  # bool32 *reserved
+    task.StopTask()
+
+def inv1_relay(new_state='close'):
+    if new_state == 'open':
+        ditigal_wfm_data = np.array([0], dtype=np.uint8)
+        print('Opening Inverter 1 Relay')
+    elif new_state == 'close':
+        ditigal_wfm_data = np.array([1], dtype=np.uint8)
+        print('Closing Inverter 1 Relay')
+    else:
+        print('Unknown new switch state: %s' % new_state)
+        return
+
+    task = Task()
+    task.CreateDOChan("Dev1/port0/line0", "", DAQmx_Val_ChanForAllLines)
+    task.StartTask()
+    task.WriteDigitalLines(1,  # int32 numSampsPerChan
+                           1,  # bool32 autoStart
+                           10.0,  # float64 timeout
+                           DAQmx_Val_GroupByChannel,  # bool32 dataLayout
+                           ditigal_wfm_data,  # uInt8 writeArray[]
+                           None,  # int32 *sampsPerChanWritten
+                           None)  # bool32 *reserved
+    task.StopTask()
+
+def inv2_relay(new_state='close'):
+    if new_state == 'open':
+        ditigal_wfm_data = np.array([0], dtype=np.uint8)
+        print('Opening Inverter 2 Relay')
+    elif new_state == 'close':
+        ditigal_wfm_data = np.array([1], dtype=np.uint8)
+        print('Closing Inverter 2 Relay')
+    else:
+        print('Unknown new switch state: %s' % new_state)
+        return
+
+    task = Task()
+    task.CreateDOChan("Dev1/port0/line1", "", DAQmx_Val_ChanForAllLines)
+    task.StartTask()
+    task.WriteDigitalLines(1,  # int32 numSampsPerChan
+                           1,  # bool32 autoStart
+                           10.0,  # float64 timeout
+                           DAQmx_Val_GroupByChannel,  # bool32 dataLayout
+                           ditigal_wfm_data,  # uInt8 writeArray[]
+                           None,  # int32 *sampsPerChanWritten
+                           None)  # bool32 *reserved
+    task.StopTask()
+
+def inv3_relay(new_state='close'):
+    if new_state == 'open':
+        ditigal_wfm_data = np.array([0], dtype=np.uint8)
+        print('Opening Inverter 3 Relay')
+    elif new_state == 'close':
+        ditigal_wfm_data = np.array([1], dtype=np.uint8)
+        print('Closing Inverter 3 Relay')
+    else:
+        print('Unknown new switch state: %s' % new_state)
+        return
+
+    task = Task()
+    task.CreateDOChan("Dev1/port0/line8", "", DAQmx_Val_ChanForAllLines)
+    task.StartTask()
+    task.WriteDigitalLines(1,  # int32 numSampsPerChan
+                           1,  # bool32 autoStart
+                           10.0,  # float64 timeout
+                           DAQmx_Val_GroupByChannel,  # bool32 dataLayout
+                           ditigal_wfm_data,  # uInt8 writeArray[]
+                           None,  # int32 *sampsPerChanWritten
+                           None)  # bool32 *reserved
+    task.StopTask()
+
+def inv4_relay(new_state='close'):
+    if new_state == 'open':
+        ditigal_wfm_data = np.array([0], dtype=np.uint8)
+        print('Opening Inverter 4 Relay')
+    elif new_state == 'close':
+        ditigal_wfm_data = np.array([1], dtype=np.uint8)
+        print('Closing Inverter 4 Relay')
+    else:
+        print('Unknown new switch state: %s' % new_state)
+        return
+
+    task = Task()
+    task.CreateDOChan("Dev1/port0/line9", "", DAQmx_Val_ChanForAllLines)
+    task.StartTask()
+    task.WriteDigitalLines(1,  # int32 numSampsPerChan
+                           1,  # bool32 autoStart
+                           10.0,  # float64 timeout
+                           DAQmx_Val_GroupByChannel,  # bool32 dataLayout
+                           ditigal_wfm_data,  # uInt8 writeArray[]
+                           None,  # int32 *sampsPerChanWritten
+                           None)  # bool32 *reserved
+    task.StopTask()
+
+def inv5_relay(new_state='close'):
+    if new_state == 'open':
+        ditigal_wfm_data = np.array([0], dtype=np.uint8)
+        print('Opening Inverter 5 Relay')
+    elif new_state == 'close':
+        ditigal_wfm_data = np.array([1], dtype=np.uint8)
+        print('Closing Inverter 5 Relay')
+    else:
+        print('Unknown new switch state: %s' % new_state)
+        return
+
+    task = Task()
+    task.CreateDOChan("Dev3/port0/line0", "", DAQmx_Val_ChanForAllLines)
+    task.StartTask()
+    task.WriteDigitalLines(1,  # int32 numSampsPerChan
+                           1,  # bool32 autoStart
+                           10.0,  # float64 timeout
+                           DAQmx_Val_GroupByChannel,  # bool32 dataLayout
+                           ditigal_wfm_data,  # uInt8 writeArray[]
+                           None,  # int32 *sampsPerChanWritten
+                           None)  # bool32 *reserved
+    task.StopTask()
+
+def inv6_relay(new_state='close'):
+    if new_state == 'open':
+        ditigal_wfm_data = np.array([0], dtype=np.uint8)
+        print('Opening Inverter 6 Relay')
+    elif new_state == 'close':
+        ditigal_wfm_data = np.array([1], dtype=np.uint8)
+        print('Closing Inverter 6 Relay')
+    else:
+        print('Unknown new switch state: %s' % new_state)
+        return
+
+    task = Task()
+    task.CreateDOChan("Dev3/port0/line8", "", DAQmx_Val_ChanForAllLines)
+    task.StartTask()
+    task.WriteDigitalLines(1,  # int32 numSampsPerChan
+                           1,  # bool32 autoStart
+                           10.0,  # float64 timeout
+                           DAQmx_Val_GroupByChannel,  # bool32 dataLayout
+                           ditigal_wfm_data,  # uInt8 writeArray[]
+                           None,  # int32 *sampsPerChanWritten
+                           None)  # bool32 *reserved
+    task.StopTask()
+
+def inv7_relay(new_state='close'):
+    if new_state == 'open':
+        ditigal_wfm_data = np.array([0], dtype=np.uint8)
+        print('Opening Inverter 7 Relay')
+    elif new_state == 'close':
+        ditigal_wfm_data = np.array([1], dtype=np.uint8)
+        print('Closing Inverter 7 Relay')
+    else:
+        print('Unknown new switch state: %s' % new_state)
+        return
+
+    task = Task()
+    task.CreateDOChan("Dev2/port0/line0", "", DAQmx_Val_ChanForAllLines)
+    task.StartTask()
+    task.WriteDigitalLines(1,  # int32 numSampsPerChan
+                           1,  # bool32 autoStart
+                           10.0,  # float64 timeout
+                           DAQmx_Val_GroupByChannel,  # bool32 dataLayout
+                           ditigal_wfm_data,  # uInt8 writeArray[]
+                           None,  # int32 *sampsPerChanWritten
+                           None)  # bool32 *reserved
+    task.StopTask()
+
+def inv8_relay(new_state='close'):
+    if new_state == 'open':
+        ditigal_wfm_data = np.array([0], dtype=np.uint8)
+        print('Opening Inverter 8 Relay')
+    elif new_state == 'close':
+        ditigal_wfm_data = np.array([1], dtype=np.uint8)
+        print('Closing Inverter 8 Relay')
+    else:
+        print('Unknown new switch state: %s' % new_state)
+        return
+
+    task = Task()
+    task.CreateDOChan("Dev2/port0/line1", "", DAQmx_Val_ChanForAllLines)
+    task.StartTask()
+    task.WriteDigitalLines(1,  # int32 numSampsPerChan
+                           1,  # bool32 autoStart
+                           10.0,  # float64 timeout
+                           DAQmx_Val_GroupByChannel,  # bool32 dataLayout
+                           ditigal_wfm_data,  # uInt8 writeArray[]
+                           None,  # int32 *sampsPerChanWritten
+                           None)  # bool32 *reserved
+    task.StopTask()
+
+def inv9_relay(new_state='close'):
+    if new_state == 'open':
+        ditigal_wfm_data = np.array([0], dtype=np.uint8)
+        print('Opening Inverter 9 Relay')
+    elif new_state == 'close':
+        ditigal_wfm_data = np.array([1], dtype=np.uint8)
+        print('Closing Inverter 9 Relay')
+    else:
+        print('Unknown new switch state: %s' % new_state)
+        return
+
+    task = Task()
+    task.CreateDOChan("Dev2/port0/line8", "", DAQmx_Val_ChanForAllLines)
+    task.StartTask()
+    task.WriteDigitalLines(1,  # int32 numSampsPerChan
+                           1,  # bool32 autoStart
+                           10.0,  # float64 timeout
+                           DAQmx_Val_GroupByChannel,  # bool32 dataLayout
+                           ditigal_wfm_data,  # uInt8 writeArray[]
+                           None,  # int32 *sampsPerChanWritten
+                           None)  # bool32 *reserved
+    task.StopTask()
+
+def inv10_relay(new_state='close'):
+    if new_state == 'open':
+        ditigal_wfm_data = np.array([0], dtype=np.uint8)
+        print('Opening Inverter 10 Relay')
+    elif new_state == 'close':
+        ditigal_wfm_data = np.array([1], dtype=np.uint8)
+        print('Closing Inverter 10 Relay')
+    else:
+        print('Unknown new switch state: %s' % new_state)
+        return
+
+    task = Task()
+    task.CreateDOChan("Dev2/port0/line9", "", DAQmx_Val_ChanForAllLines)
+    task.StartTask()
+    task.WriteDigitalLines(1,  # int32 numSampsPerChan
+                           1,  # bool32 autoStart
+                           10.0,  # float64 timeout
+                           DAQmx_Val_GroupByChannel,  # bool32 dataLayout
+                           ditigal_wfm_data,  # uInt8 writeArray[]
+                           None,  # int32 *sampsPerChanWritten
+                           None)  # bool32 *reserved
+    task.StopTask()
+
+
+def close_1_5():
+    inv1_relay('close')
+    inv2_relay('close')
+    inv3_relay('close')
+    inv4_relay('close')
+    inv5_relay('close')
+
+def open_1_5():
+    inv1_relay('open')
+    inv2_relay('open')
+    inv3_relay('open')
+    inv4_relay('open')
+    inv5_relay('open')
+
+def close_6_10():
+    inv6_relay('close')
+    inv7_relay('close')
+    inv8_relay('close')
+    inv9_relay('close')
+    inv10_relay('close')
+
+def open_6_10():
+    inv6_relay('open')
+    inv7_relay('open')
+    inv8_relay('open')
+    inv9_relay('open')
+    inv10_relay('open')
+
+
 if __name__ == "__main__":
 
     # consider moving to SuperTask in acq4

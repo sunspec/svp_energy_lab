@@ -602,8 +602,10 @@ class DER(der.DER):
         try:
             if 'volt_var' in self.inv.models:
                 if params is not None:
+                    curve = params.get('curve')  # Must write curve first because there is a read() in volt_var_curve
                     act_crv = params.get('ActCrv')
-                    curve = params.get('curve')  ## Must write curve first because there is a read() in volt_var_curve
+                    if act_crv is None:
+                        act_crv = 1
                     if curve is not None:
                         self.volt_var_curve(id=act_crv, params=curve)
                     ena = params.get('Ena')
@@ -635,7 +637,7 @@ class DER(der.DER):
                 else:
                     params = {}
                     self.inv.volt_var.read()
-                    if self.inv.volt_var.ModEna == 0:
+                    if self.inv.volt_var.ModEna == 0 or self.inv.volt_var.ModEna is None:
                         params['Ena'] = False
                     else:
                         params['Ena'] = True
@@ -645,8 +647,14 @@ class DER(der.DER):
                     params['WinTms'] = self.inv.volt_var.WinTms
                     params['RmpTms'] = self.inv.volt_var.RmpTms
                     params['RvrtTms'] = self.inv.volt_var.RvrtTms
-                    if self.inv.volt_var.ActCrv != 0:
-                        params['curve'] = self.volt_var_curve(id=self.inv.volt_var.ActCrv)
+
+                    act_crv = self.inv.volt_var.ActCrv
+                    if act_crv != 0:
+                        if act_crv is not None:
+                            params['curve'] = self.volt_var_curve(id=act_crv)
+                        else:
+                            params['curve'] = self.volt_var_curve(id=1)  # use 1 as default
+
             else:
                 params = None
         except Exception, e:
@@ -672,8 +680,10 @@ class DER(der.DER):
         try:
             if 'volt_var' in self.inv.models:
                 self.inv.volt_var.read()
-                if int(id) > int(self.inv.volt_var.NCrv):
-                    raise der.DERError('Curve id out of range: %s' % (id))
+                n_crv = self.inv.volt_var.NCrv
+                if n_crv is not None:
+                    if int(id) > int(n_crv):
+                        raise der.DERError('Curve id out of range: %s' % (id))
                 curve = self.inv.volt_var.curve[id]
 
                 if params is not None:
@@ -694,12 +704,14 @@ class DER(der.DER):
                     if rmp_inc_tmm is not None:
                         curve.RmpIncTmm = rmp_inc_tmm
 
-                    n_pt = int(self.inv.volt_var.NPt)
+                    n_pt = self.inv.volt_var.NPt
+                    if n_pt is None:
+                        n_pt = 4  # Assume 4 points in the curve
                     # set voltage points
                     v = params.get('v')
                     if v is not None:
                         v_len = len(v)
-                        if v_len > n_pt:
+                        if v_len > int(n_pt):
                             raise der.DERError('Voltage point count out of range: %d' % (v_len))
                         for i in xrange(v_len):  # SunSpec point index starts at 1
                             v_point = 'V%d' % (i + 1)
@@ -720,7 +732,7 @@ class DER(der.DER):
                     act_pt = curve.ActPt
                     dept_ref = volt_var_dept_ref.get(curve.DeptRef)
                     if dept_ref is None:
-                        raise der.DERError('DeptRef out of range: %s' % (dept_ref))
+                        der.DERError('DeptRef out of range: %s' % (dept_ref))
                     params['DeptRef'] = dept_ref
                     params['RmpTms'] = curve.RmpTms
                     params['RmpDecTmm'] = curve.RmpDecTmm
@@ -729,11 +741,12 @@ class DER(der.DER):
 
                     v = []
                     var = []
-                    for i in xrange(1, act_pt + 1):  # SunSpec point index starts at 1
-                        v_point = 'V%d' % i
-                        var_point = 'VAr%d' % i
-                        v.append(getattr(curve, v_point))
-                        var.append(getattr(curve, var_point))
+                    if act_pt is not None:
+                        for i in xrange(1, act_pt + 1):  # SunSpec point index starts at 1
+                            v_point = 'V%d' % i
+                            var_point = 'VAr%d' % i
+                            v.append(getattr(curve, v_point))
+                            var.append(getattr(curve, var_point))
                     params['v'] = v
                     params['var'] = var
             else:
@@ -913,7 +926,7 @@ class DER(der.DER):
                     w = []
                     for i in xrange(1, act_pt + 1):  # SunSpec point index starts at 1
                         hz_point = 'Hz%d' % i
-                        w_point = 'VAr%d' % i
+                        w_point = 'W%d' % i
                         hz.append(getattr(curve, hz_point))
                         w.append(getattr(curve, w_point))
                     params['hz'] = hz
@@ -1000,6 +1013,11 @@ class DER(der.DER):
 
         return params
 
+    def soft_start_ramp_rate(self, params=None):
+        pass
+
+    def ramp_rate(self, params=None):
+        pass
 
     def volt_watt(self, params=None):
         """ Get/set volt/watt control

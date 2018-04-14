@@ -93,6 +93,11 @@ class LoadSim(object):
         self.ts = ts
         self.group_name = group_name
 
+    def config(self):
+        """
+        Configure device.
+        """
+        pass
 
     def info(self):
         """
@@ -112,10 +117,10 @@ class LoadSim(object):
         """
         pass
 
-    def resistance(self, r=None, ph = None):
+    def resistance(self, r=None, ph=None):
         pass
 
-    def inductance(self, i=None, ph=None):
+    def inductance(self, l=None, ph=None):
         pass
 
     def capacitance(self, c=None, ph=None):

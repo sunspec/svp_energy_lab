@@ -35,7 +35,7 @@ import hil
 
 try:
     import typhoon
-    import typhoon.api.hil_control_panel as cp
+    import typhoon.api.hil as cp  # control panel
     from typhoon.api.schematic_editor import model
     import typhoon.api.pv_generator as pv
 except Exception, e:
@@ -130,9 +130,11 @@ class HIL(hil.HIL):
         self.ts.log('Checking on HIL HW settings...')
         hw = model.get_hw_settings()
         self.ts.log_debug('HIL hardware is %s' % (hw,))
+        # model.set_simulation_time_step(self.sim_time_step)
 
         self.load_schematic()
         self.compile_model()
+        self.ts.sleep(0.1)
         self.load_model_on_hil()
         self.init_sim_settings()
         self.ts.log("HIL simulation successfully prepared for execution.")
