@@ -41,6 +41,7 @@ SWITCH_OPEN = False
 
 switch_modules = {}
 
+
 def params(info, id=None, label='Switch Controller', group_name=None, active=None, active_value=None):
     if group_name is None:
         group_name = SWITCH_DEFAULT_ID
@@ -58,6 +59,7 @@ def params(info, id=None, label='Switch Controller', group_name=None, active=Non
 
 SWITCH_DEFAULT_ID = 'switch'
 
+
 def switch_init(ts, id=None, group_name=None):
     """
     Function to create specific switch implementation instances.
@@ -69,15 +71,18 @@ def switch_init(ts, id=None, group_name=None):
     if id is not None:
         group_name = group_name + '_' + str(id)
     mode = ts.param_value(group_name + '.' + 'mode')
+    # ts.log_debug('group_name, %s, mode: %s' % (group_name, mode))
     sim = None
     if mode != 'Disabled':
+        # ts.log_debug('mode, %s' % (mode))
         switch_module = switch_modules.get(mode)
+        # ts.log_debug('switch_module, %s, switch_modules: %s' % (switch_module, switch_modules))
         if switch_module is not None:
-            sm = switch_module.Switch(ts, group_name)
+            sim = switch_module.Switch(ts, group_name)
         else:
             raise SwitchError('Unknown switch controller mode: %s' % mode)
 
-    return sm
+    return sim
 
 
 class SwitchError(Exception):

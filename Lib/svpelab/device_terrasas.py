@@ -28,6 +28,8 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 Questions can be directed to support@sunspec.org
+
+Documentation: http://www.programmablepower.com/custom-power-supply/ETS/downloads/M609155-01_revH.pdf
 """
 
 import sys
@@ -35,6 +37,7 @@ import time
 import socket
 
 EN_50530_CURVE = 'EN 50530 CURVE'
+SVP_CURVE = 'SVP CURVE'
 
 STATUS_PROFILE_RUNNING = 64
 STATUS_PROFILE_PAUSED = 128
@@ -139,18 +142,46 @@ class TerraSAS(object):
     def curve(self, filename=None, voc=None, isc=None, vmp=None, imp=None, form_factor=None,
               beta_v=None, beta_p=None, kfactor_voltage=None, kfactor_irradiance=None):
 
+        curve_name = SVP_CURVE
+
         if filename is not None:
-            self.cmd('CURVe:READFile "%s"\r' % (filename))
-        if voc is not None and isc is not None:
-            self.cmd('CURVe:VIparms %s, %s\r' % (voc, isc))
-        if vmp is not None and imp is not None:
-            self.cmd('CURVe:MPPparms %s, %s\r' % (vmp, imp))
-        if form_factor is not None:
-            self.cmd('CURVe:FORMfactor %s\r' % (form_factor))
-        if beta_v is not None and beta_p is not None:
-            self.cmd('CURVe:BETAparms %s, %s\r' % (beta_v, beta_p))
-        if kfactor_voltage is not None and kfactor_irradiance is not None:
-            self.cmd('CURVe:KFactor %s, %s\r' % (kfactor_voltage, kfactor_irradiance))
+            try:
+                self.cmd('CURVe:DELEte "%s"\r' % filename)  # Must delete the curve from GUI
+            except Exception, e:
+                print('Curve not found: %s' % e)
+            self.cmd('CURVe:READFile "%s"\r' % (filename))  # Read it from disk
+        else:
+            try:
+                self.cmd('CURVe:DELEte "%s"\r' % SVP_CURVE)  # Must delete the previous curve
+            except Exception, e:
+                print('Curve not found: %s' % e)
+
+            if voc is not None and isc is not None:
+                self.cmd('CURVe:VIparms %s, %s\r' % (voc, isc))
+            if vmp is not None and imp is not None:
+                self.cmd('CURVe:MPPparms %s, %s\r' % (vmp, imp))
+            if form_factor is not None:
+                self.cmd('CURVe:FORMfactor %s\r' % (form_factor))
+
+            if beta_v is not None and beta_p is not None:
+                self.cmd('CURVe:BETAparms %s, %s\r' % (beta_v, beta_p))
+                # Sets the voltage and power temperature coefficients, expressed in percent values per
+                # degree Kelvin. Some manufacturers report the voltage coefficient in mV/K.
+                # Divide by Voc to obtain a percentage. Allowed range is +1.99 to -1.99.
+
+            if kfactor_voltage is not None and kfactor_irradiance is not None:
+                self.cmd('CURVe:KFactor %s, %s\r' % (kfactor_voltage, kfactor_irradiance))
+                # Sets the irradiance correction factor by entering parameters V1 and E1.
+                # See "Photovoltaic curve > Create" for more details. The voltage must be
+                # equal to or less than Voc. The irradiance must be between 100 and 800 W/m2.
+
+            import datetime
+            # Not possible to make new IV Curves using a name saved on the hard drive, so a new file is generated
+            curve_name = str(datetime.datetime.utcnow())
+            curve_name = curve_name.translate(None, ':')  # remove invalid characters
+            self.cmd('CURVe:ADD "%s"\r' % curve_name)  # Save new curve to disk and add to graphic pool
+
+        return curve_name  # return IV curve name
 
     def curve_en50530(self, tech='CSI', sim_type='STA', pmp=1000, vmp=100):
         self.cmd('CURVe:EN50530:SIMtype %s, %s\r' % (tech, sim_type))
@@ -187,9 +218,15 @@ class Channel(object):
         return self.tsas.query('SOURce:CURVe? (@%s)\r' % (self.index))
 
     def curve_set(self, name):
-        self.curve = name
-        self.tsas.cmd('SOURce:CURVe "%s", (@%s)\r' % (name, self.index))
+        if name is not None:
+            self.tsas.cmd('SOURce:CURVe "%s", (@%s)\r' % (name, self.index))
+        else:  # if no name provided, use the latest SVP curve
+            self.tsas.cmd('SOURce:CURVe "%s", (@%s)\r' % (SVP_CURVE, self.index))
+        # self.tsas.cmd('SOURce:IRRadiance 1000, (@%s)\r' % self.index)
+        # self.tsas.cmd('SOURce:TEMPerature 25, (@%s)\r' % self.index)
         self.tsas.cmd('SOURce:EXECute (@%s)\r' % (self.index))
+        # The indicated curve is applied on the selected channels. If the name is blank, curve 0 is
+        # applied. Specify name "EN 50530 CURVE" to execute the EN50530 curve.
 
     def group(self, channels):
         self.channels = channels
@@ -199,6 +236,7 @@ class Channel(object):
         self.irradiance = irradiance
         self.tsas.cmd('SOURce:IRRadiance %d, (@%s)\r' % (self.irradiance, self.index))
         self.tsas.cmd('SOURce:EXECute (@%s)\r' % (self.index))
+        # All previously programmed curve parameters are calculated and transferred to the PV simulator(s).
 
     def output_is_on(self):
         state = self.tsas.query('OUTPut:STATe? (@%s)\r' % (self.index))
@@ -251,6 +289,9 @@ class Channel(object):
     def status(self):
         return self.tsas.query('STATus:OPERation:CONDition? (@%s)\r' % (self.index))
 
+    def overvoltage_protection_set(self, voltage=330):
+        self.tsas.cmd('SOURce:VOLTage:PROTection %s, (@%s)\r' % (voltage, self.index))
+        #[SOURce:]CURRent:PROTection[:LEVel] <value> [,(@chanlist)]
 
 if __name__ == "__main__":
 

@@ -86,9 +86,8 @@ class DAS(das.DAS):
         # initialize soft channel points
         self._init_sc_points()
 
-        if self.sample_interval < 50:
+        if self.sample_interval < 50 and self.sample_interval is not 0:
             raise das.DASError('Parameter error: sample interval must be at least 50ms')
-
 
     def _param_value(self, name):
         return self.ts.param_value(self.group_name + '.' + GROUP_NAME + '.' + name)
