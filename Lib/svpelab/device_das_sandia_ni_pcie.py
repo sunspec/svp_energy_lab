@@ -1038,6 +1038,11 @@ def open_6_10():
 
 if __name__ == "__main__":
 
+    IC2_relay(new_state='close')
+    close_1_5()
+    close_6_10()
+
+    """
     # consider moving to SuperTask in acq4
     # https://github.com/acq4/acq4/blob/develop/acq4/drivers/nidaq/SuperTask.py
 
@@ -1265,4 +1270,5 @@ if __name__ == "__main__":
     for t in range(len(time_vector)):
         f.write('%0.6f, %0.6f, %0.6f\n' % (time_vector[t], data[analog_channels[0]][t], data[analog_channels[1]][t]))
     f.close()
+    """
 

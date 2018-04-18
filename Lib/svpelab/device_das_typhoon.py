@@ -201,7 +201,7 @@ class Device(object):
         self.points = None
         self.point_indexes = []
 
-        self.ts = self.params.get('ts')
+        self.ts = self.params['ts']
 
         # waveform settings
         self.wfm_sample_rate = None
@@ -268,21 +268,21 @@ class Device(object):
                    'AC_S_1': va/3.,
                    'AC_Q_1': q/3.,
                    'AC_PF_1': pf,
-                   'AC_FREQ_1': None,
+                   'AC_FREQ_1': 50.,
                    'AC_VRMS_2': v2,
                    'AC_IRMS_2': i2,
                    'AC_P_2': p/3.,
                    'AC_S_2': va/3.,
                    'AC_Q_2': q/3.,
                    'AC_PF_2': pf,
-                   'AC_FREQ_2': None,
+                   'AC_FREQ_2': 50.,
                    'AC_VRMS_3': v3,
                    'AC_IRMS_3': i3,
                    'AC_P_3': p/3.,
                    'AC_S_3': va/3.,
                    'AC_Q_3': q/3.,
                    'AC_PF_3': pf,
-                   'AC_FREQ_3': None,
+                   'AC_FREQ_3': 50.,
                    'DC_V': dc_v,
                    'DC_I': dc_i,
                    'DC_P': dc_i*dc_v,

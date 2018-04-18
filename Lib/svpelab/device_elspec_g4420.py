@@ -152,14 +152,17 @@ class Device(object):
         i2 = util.data_to_float(data[i_offset*2+4:i_offset*2+8])
         i3 = util.data_to_float(data[i_offset*2+8:i_offset*2+12])
 
-        read_start = 3475 # Elspec unit rejects any read that includes 2441, so need to do a second read
-        read_end = 3479
+        read_start = 3973 # Elspec unit rejects any read that includes 2441, so need to do a second read
+        read_end = 3977
         data = self.bulk_float_read(start=read_start, end=read_end)
 
-        pf_offset = 3475 - read_start
+        pf_offset = 3973 - read_start
         pf1 = util.data_to_float(data[pf_offset*2+0:pf_offset*2+4])
+        pf1 = -p1 / va1 * var1/abs(var1)
         pf2 = util.data_to_float(data[pf_offset*2+4:pf_offset*2+8])
+        pf2 = -p2 / va2 * var2/abs(var2)
         pf3 = util.data_to_float(data[pf_offset*2+8:pf_offset*2+12])
+        pf3 = -p3 / va3 * var3/abs(var3)
 
         '''data = self.bulk_float_read(start=3475, end=3479)
         pf1 = 1
@@ -292,14 +295,17 @@ def data_read():
         i2 = util.data_to_float(data[i_offset*2+4:i_offset*2+8])
         i3 = util.data_to_float(data[i_offset*2+8:i_offset*2+12])
 
-        read_start = 3475 # Elspec unit rejects any read that includes 2441, so need to do a second read
-        read_end = 3479
+        read_start = 3483 # Elspec unit rejects any read that includes 2441, so need to do a second read
+        read_end = 3487
         data = bulk_float_read(start=read_start, end=read_end)
 
-        pf_offset = 3475 - read_start
+        pf_offset = 3483 - read_start
         pf1 = util.data_to_float(data[pf_offset*2+0:pf_offset*2+4])
+        pf1 = -p1 / va1 * var1/abs(var1)
         pf2 = util.data_to_float(data[pf_offset*2+4:pf_offset*2+8])
+        pf2 = -p2 / va2 * var2/abs(var2)
         pf3 = util.data_to_float(data[pf_offset*2+8:pf_offset*2+12])
+        pf3 = -p3 / va3 * var3/abs(var3)
 
         '''data = self.bulk_float_read(start=3475, end=3479)
         pf1 = 1

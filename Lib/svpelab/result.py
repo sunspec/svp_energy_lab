@@ -235,7 +235,7 @@ class Result(object):
             name, ext = os.path.splitext(self.filename)
             if ext == '.csv':
                 index_row = result_wb.add_csv_file(os.path.join(results_dir, self.filename), self.name,
-                                                   relative_value_names = ['TIME'], params=self.params,
+                                                   relative_value_names=['TIME'], params=self.params,
                                                    index_row=index_row)
         print 'results = %s' % self.results
         for r in self.results:
@@ -272,13 +272,13 @@ class ResultWorkbook(object):
             width = index_hdr[i][1]
             if width:
                 self.ws_index.set_column(i, i, width)
-            self.ws_index.write(0, col,index_hdr[i][0], self.hdr_format)
+            self.ws_index.write(0, col, index_hdr[i][0], self.hdr_format)
             col += 1
 
     def add_index_entry(self, title, index_row, desc=None, notes=None):
         print 'add_index_entry: %s' % (title)
         self.ws_index.write_url(index_row, INDEX_COL_FILE, 'internal:%s!A1' % (title),
-                                       string=title)
+                                string=title)
         if desc is not None:
             self.ws_index.write(index_row, INDEX_COL_DESC, desc)
         if notes is not None:
