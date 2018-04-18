@@ -1,0 +1,8 @@
+
+<ipvx_settings>
+    <pv_model>EN50530 Compatible</pv_model>
+    <Voc_ref>997.</Voc_ref>
+    <Isc_ref>50.</Isc_ref>
+    <pv_type>cSi</pv_type>
+    <negative_current>False</negative_current>
+</ipvx_settings>

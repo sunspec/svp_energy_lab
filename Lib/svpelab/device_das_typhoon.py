@@ -38,27 +38,58 @@ import waveform
 import dataset
 
 try:
-    import typhoon.api.hil_control_panel as cp
+    import typhoon.api.hil as cp  # control panel
     from typhoon.api.schematic_editor import model
     import typhoon.api.pv_generator as pv
 except Exception, e:
     print('Typhoon HIL API not installed. %s' % e)
 
+# data_points = [
+#     'TIME',
+#     'DC_V',
+#     'DC_I',
+#     'AC_VRMS_1',
+#     'AC_IRMS_1',
+#     'DC_P',
+#     'AC_S_1',
+#     'AC_P_1',
+#     'AC_Q_1',
+#     'AC_FREQ_1',
+#     'AC_PF_1',
+#     'TRIG',
+#     'TRIG_GRID'
+# ]
+
 data_points = [
     'TIME',
     'DC_V',
     'DC_I',
-    'AC_VRMS',
-    'AC_IRMS',
+    'AC_VRMS_1',
+    'AC_VRMS_2',
+    'AC_VRMS_3',
+    'AC_IRMS_1',
+    'AC_IRMS_2',
+    'AC_IRMS_3',
     'DC_P',
-    'AC_S',
-    'AC_P',
-    'AC_Q',
-    'AC_FREQ',
-    'AC_PF',
+    'AC_S_1',
+    'AC_S_2',
+    'AC_S_3',
+    'AC_P_1',
+    'AC_P_2',
+    'AC_P_3',
+    'AC_Q_1',
+    'AC_Q_2',
+    'AC_Q_3',
+    'AC_FREQ_1',
+    'AC_FREQ_2',
+    'AC_FREQ_3',
+    'AC_PF_1',
+    'AC_PF_2',
+    'AC_PF_3',
     'TRIG',
     'TRIG_GRID'
 ]
+
 
 # To be implemented later
 # typhoon_points_asgc_1 = [
@@ -157,7 +188,10 @@ wfm_typhoon_channels = {'AC_VRMS_1': 'V( Vrms1 )',
                         # 'I( Ig3 )': 'AC_I_3',
                         'S1_fb': 'EXT'}
 
-event_map = {'Rising_Edge': 'Rising edge', 'Falling_Edge': 'Falling edge'}
+event_map = {'Rising_Edge': 'Rising edge',
+             'Rising Edge': 'Rising edge',
+             'Falling_Edge': 'Falling edge',
+             'Falling Edge': 'Falling edge'}
 
 class Device(object):
 
@@ -167,7 +201,7 @@ class Device(object):
         self.points = None
         self.point_indexes = []
 
-        self.ts = self.params.get('ts')
+        self.ts = self.params['ts']
 
         # waveform settings
         self.wfm_sample_rate = None
@@ -207,6 +241,9 @@ class Device(object):
     def close(self):
         pass
 
+    def data_capture(self, enable=True):
+        pass
+
     def data_read(self):
 
         v1 = float(cp.read_analog_signal(name='V( Vrms1 )'))
@@ -231,26 +268,32 @@ class Device(object):
                    'AC_S_1': va/3.,
                    'AC_Q_1': q/3.,
                    'AC_PF_1': pf,
-                   'AC_FREQ_1': None,
+                   'AC_FREQ_1': 50.,
                    'AC_VRMS_2': v2,
                    'AC_IRMS_2': i2,
                    'AC_P_2': p/3.,
                    'AC_S_2': va/3.,
                    'AC_Q_2': q/3.,
                    'AC_PF_2': pf,
-                   'AC_FREQ_2': None,
+                   'AC_FREQ_2': 50.,
                    'AC_VRMS_3': v3,
                    'AC_IRMS_3': i3,
                    'AC_P_3': p/3.,
                    'AC_S_3': va/3.,
                    'AC_Q_3': q/3.,
                    'AC_PF_3': pf,
-                   'AC_FREQ_3': None,
+                   'AC_FREQ_3': 50.,
                    'DC_V': dc_v,
                    'DC_I': dc_i,
-                   'DC_P': dc_i*dc_v}
+                   'DC_P': dc_i*dc_v,
+                   'TRIG': 0,
+                   'TRIG_GRID': 0}
 
-        return datarec
+        data = []
+        for chan in data_points:
+            data.append(datarec[chan])
+
+        return data
 
     def waveform_config(self, params):
         """
@@ -298,35 +341,36 @@ class Device(object):
         simulationStep = cp.get_sim_step()
         hil_sampling_rate = 1./simulationStep
         if self.wfm_sample_rate != hil_sampling_rate:
-            self.ts.log_warning('Waveform will be sampled at %s Samples/s because this is the simulation timestep '
-                                'and then resampled to generate the waveform.' % hil_sampling_rate)
+            self.ts.log('Waveform will be sampled at %s Samples/s because this is the simulation timestep '
+                        'and then resampled to generate the %s Hz waveform.' %
+                        (hil_sampling_rate, self.wfm_sample_rate))
             self.subsampling_rate = hil_sampling_rate/self.wfm_sample_rate
             if type(self.subsampling_rate) != 'int':
-                self.ts.log_warning('Subsampling HIL waveform factor is %s, but using integer %s to downsample data.' %
-                                    (self.subsampling_rate, int(self.subsampling_rate)))
+                self.ts.log('Subsampling HIL waveform factor is %s, but using integer %s to downsample data.' %
+                            (self.subsampling_rate, int(self.subsampling_rate)))
                 self.subsampling_rate = int(self.subsampling_rate)
 
         self.triggerOffset = (self.wfm_pre_trigger/(self.wfm_pre_trigger+self.wfm_post_trigger))*100.
         self.numberOfSamples = int(hil_sampling_rate*(self.wfm_pre_trigger+self.wfm_post_trigger))
         if self.numberOfSamples > 32e6/len(self.analog_channels):
-            self.ts.log_warning('Number of samples is not less than 32e6/numberOfChannels!')
-            self.numberOfSamples = 32e6/len(self.analog_channels)  # technically this only counts for analog channels
-            self.ts.log_warning('Number of samples set to 32e6/numberOfChannels!')
-        elif self.numberOfSamples < 256:
+            self.ts.log('Number of samples greater than 32e6/numberOfChannels!')
+            self.numberOfSamples = int(32e6/len(self.analog_channels))  # only counts for analog channels
+            self.ts.log('Number of samples set to 32e6/numberOfChannels!')
+        if self.numberOfSamples % 2 == 1:
+            self.ts.log_warning('Number of samples is not even!')
+            self.numberOfSamples -= 1
+            self.ts.log_warning('Number of samples set to %d.' % self.numberOfSamples)
+        if self.numberOfSamples < 256:
             self.ts.log_warning('Number of samples is not greater than 256!')
             self.numberOfSamples = 256
             self.ts.log_warning('Number of samples set to 256.')
-        elif self.numberOfSamples % 2 == 1:
-            self.ts.log_warning('Number of samples is not even!')
-            self.numberOfSamples += 1
-            self.ts.log_warning('Number of samples set to %d.' % self.numberOfSamples)
 
         if wfm_typhoon_channel_type[wfm_typhoon_channels[self.wfm_trigger_channel]] == 'digital':
             self.captureSettings = [self.decimation, len(self.analog_channels), self.numberOfSamples, True]
             self.triggerSettings = ["Digital", wfm_typhoon_channels[self.wfm_trigger_channel], self.wfm_trigger_level,
                                     event_map[self.wfm_trigger_cond], self.triggerOffset]
         else:
-            self.captureSettings = [self.decimation, len(self.analog_channels), self.numberOfSamples]
+            self.captureSettings = [self.decimation, len(self.analog_channels), int(self.numberOfSamples)]
             self.triggerSettings = ["Analog", wfm_typhoon_channels[self.wfm_trigger_channel], self.wfm_trigger_level,
                                     event_map[self.wfm_trigger_cond], self.triggerOffset]
 
@@ -341,9 +385,8 @@ class Device(object):
 
             self.wfm_data = None  # used as flag in waveform_status()
 
-            self.ts.log_debug('CaptureSettings: %s, triggerSettings: %s, channelSettings: %s, dataBuffer: %s'
-                              % (self.captureSettings, self.triggerSettings, self.channelSettings,
-                                 self.capturedDataBuffer))
+            self.ts.log_debug('CaptureSettings: %s, triggerSettings: %s, channelSettings: %s'
+                              % (self.captureSettings, self.triggerSettings, self.channelSettings))
 
             # start capture process and if everything ok, continue...
             if cp.start_capture(self.captureSettings,
@@ -372,6 +415,8 @@ class Device(object):
                                                                            self.triggerSettings,
                                                                            self.channelSettings,
                                                                            self.capturedDataBuffer))
+                self.ts.log_error('Ensure number of samples is valid and the trigger channel is included '
+                                  'in the captured channels.')
 
     def waveform_status(self):
         # return INACTIVE, ACTIVE, COMPLETE
@@ -430,19 +475,17 @@ if __name__ == "__main__":
     hil.stop_simulation()
 
     model.get_hw_settings()
-    if not model.load(r'D:/SVP/SVP 1.4.3 Directories 5-2-17/svp_energy_lab-loadsim/Lib/svpelab/Typhoon/ASGC.tse'):
+    if not model.load(r'D:/SVP/SVP 1.4.3 Directories 5-2-17/UL1741 SA for ASGC/Lib/svpelab/Typhoon/ASGC_AI.tse'):
         print "Model did not load!"
 
     if not model.compile():
         print "Model did not compile!"
 
     # first we need to load model
-    hil.load_model(file=r'D:/SVP/SVP 1.4.3 Directories 5-2-17/svp_energy_lab-loadsim/Lib'
-                        r'/svpelab/Typhoon/ASGC Target files/ASGC.cpd')
+    hil.load_model(file=r'D:/SVP/SVP 1.4.3 Directories 5-2-17/UL1741 SA for ASGC/Lib/svpelab/Typhoon/ASGC_AI Target files/ASGC_AI.cpd')
 
     # we could also open existing settings file...
-    hil.load_settings_file(file=r'D:/SVP/SVP 1.4.3 Directories 5-2-17/svp_energy_lab-loadsim/Lib/'
-                                r'svpelab/Typhoon/settings2.runx')
+    hil.load_settings_file(file=r'D:/SVP/SVP 1.4.3 Directories 5-2-17/UL1741 SA for ASGC/Lib/svpelab/Typhoon/settings2.runx')
 
     # after setting parameter we could start simulation
     hil.start_simulation()
@@ -531,9 +574,16 @@ if __name__ == "__main__":
     #     print('Contactor is open.')
 
     # start capture process...
-    if hil.start_capture(captureSettings,
-                         triggerSettings,
-                         channelSettings,
+    # if hil.start_capture(captureSettings,
+    #                      triggerSettings,
+    #                      channelSettings,
+    #                      dataBuffer=capturedDataBuffer,
+    #                      fileName=save_file_name,
+    #                      timeout=trigtimeout):
+
+    if hil.start_capture([1, 6, 500000],
+                         ['Forced'],
+                         [['V( V_L1 )', 'V( V_L2 )', 'V( V_L3 )', 'I( Ia )', 'I( Ib )', 'I( Ic )']],
                          dataBuffer=capturedDataBuffer,
                          fileName=save_file_name,
                          timeout=trigtimeout):

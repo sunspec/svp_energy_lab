@@ -35,7 +35,7 @@ import hil
 
 try:
     import typhoon
-    import typhoon.api.hil_control_panel as cp
+    import typhoon.api.hil as cp  # control panel
     from typhoon.api.schematic_editor import model
     import typhoon.api.pv_generator as pv
 except Exception, e:
@@ -80,7 +80,7 @@ class HIL(hil.HIL):
         self.settings_file_name = ts.param_value('hil.typhoon.setting_name')
         self.v = ts.param_value('hil.typhoon.eut_nominal_voltage')
         self.f = ts.param_value('hil.typhoon.eut_nominal_frequency')
-        cp.set_debug_level(level=3)
+        # cp.set_debug_level(level=3)  # redacted
 
         if self.auto_config == 'Enabled':
             ts.log('Configuring the Typhoon HIL Emulation Environment.')
@@ -129,10 +129,12 @@ class HIL(hil.HIL):
         """
         self.ts.log('Checking on HIL HW settings...')
         hw = model.get_hw_settings()
-        self.ts.log_debug('HIL hardware is %s' % (hw,))
+        self.ts.log_debug('HIL hardware is %s' % hw)
+        # model.set_simulation_time_step(self.sim_time_step)
 
         self.load_schematic()
         self.compile_model()
+        self.ts.sleep(0.1)
         self.load_model_on_hil()
         self.init_sim_settings()
         self.ts.log("HIL simulation successfully prepared for execution.")
@@ -153,7 +155,7 @@ class HIL(hil.HIL):
         '''
         lib_dir_raw = os.path.dirname(__file__) + os.path.sep
         lib_dir = lib_dir_raw.replace("\\", "/")
-        model_file = r"Typhoon/" + self.model_name + r".tse"
+        model_file = r"TyphoonASGC/" + self.model_name + r".tse"
         model_dir = lib_dir + model_file
         self.ts.log("Model File: %s" % model_dir)
 
@@ -185,7 +187,7 @@ class HIL(hil.HIL):
         '''
         lib_dir_raw = os.path.dirname(__file__) + os.path.sep
         lib_dir = lib_dir_raw.replace("\\", "/")
-        hil_model_file = r"Typhoon/" + self.model_name + r" Target files/" + self.model_name + r".cpd"
+        hil_model_file = r"TyphoonASGC/" + self.model_name + r" Target files/" + self.model_name + r".cpd"
         hil_model_dir = lib_dir + hil_model_file
         self.ts.log("Model File: %s" % hil_model_dir)
 
@@ -205,7 +207,7 @@ class HIL(hil.HIL):
         '''
         lib_dir_raw = os.path.dirname(__file__) + os.path.sep
         lib_dir = lib_dir_raw.replace("\\", "/")
-        settings_file = r"Typhoon/" + self.settings_file_name
+        settings_file = r"TyphoonASGC/" + self.settings_file_name
         settings_file_dir = lib_dir + settings_file
         self.ts.log("Model File: %s" % settings_file_dir)
 
@@ -256,19 +258,19 @@ if __name__ == "__main__":
     hil.stop_simulation()
 
     model.get_hw_settings()
-    #model_dir = r'D:/SVP/SVP Directories 11-7-16/UL 1741 SA Dev/Lib/Typhoon/'
+    #model_dir = r'D:/SVP/SVP Directories 11-7-16/UL 1741 SA Dev/Lib/TyphoonASGC/'
     #print model_dir, os.path.isfile(model_dir)
-    if not model.load(r'D:/SVP/SVP Directories 11-7-16/UL 1741 SA Dev/Lib/Typhoon/ASGC_AI.tse'):
+    if not model.load(r'D:/SVP/SVP Directories 11-7-16/UL 1741 SA Dev/Lib/TyphoonASGC/ASGC_AI.tse'):
         print "Model did not load!"
 
     if not model.compile():
         print "Model did not compile!"
 
     # first we need to load model
-    hil.load_model(file=r'D:/SVP/SVP Directories 11-7-16/UL 1741 SA Dev/Lib/Typhoon/ASGC_AI Target files/ASGC_AI.cpd')
+    hil.load_model(file=r'D:/SVP/SVP Directories 11-7-16/UL 1741 SA Dev/Lib/TyphoonASGC/ASGC_AI Target files/ASGC_AI.cpd')
 
     # we could also open existing settings file...
-    hil.load_settings_file(file=r'D:/SVP/SVP Directories 11-7-16/UL 1741 SA Dev/Lib/Typhoon/settings.runx')
+    hil.load_settings_file(file=r'D:/SVP/SVP Directories 11-7-16/UL 1741 SA Dev/Lib/TyphoonASGC/settings.runx')
 
     # after setting parameter we could start simulation
     hil.start_simulation()

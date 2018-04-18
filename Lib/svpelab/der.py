@@ -310,6 +310,11 @@ class DER(object):
     def freq_watt_param(self, params=None):
         pass
 
+    def soft_start_ramp_rate(self, params=None):
+        pass
+
+    def ramp_rate(self, params=None):
+        pass
 
     """ volt/watt control
         'ModEna': True/False
@@ -393,9 +398,6 @@ class DER(object):
         pass
 
     def vrt_trip_low(self, params=None):
-        pass
-
-    def ramp_rates(self, params=None):
         pass
 
 def der_scan():
