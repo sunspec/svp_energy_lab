@@ -96,17 +96,17 @@ void ReInit_user_sp_cpu_dev0() {
     _pq_power_meter1__filter_1_input_k_minus_1 = 0.0;
     _pq_power_meter1__filter_1_output_k_minus_1Q = 0.0;
     _pq_power_meter1__filter_1_input_k_minus_1Q = 0.0;
-    HIL_OutAO(0x2006, 0.0f);
-
-    HIL_OutAO(0x2007, 0.0f);
-
     HIL_OutAO(0x200b, 0.0f);
 
-    HIL_OutAO(0x2008, 0.0f);
+    HIL_OutAO(0x2007, 0.0f);
 
     HIL_OutAO(0x2009, 0.0f);
 
     HIL_OutAO(0x200a, 0.0f);
+
+    HIL_OutAO(0x2008, 0.0f);
+
+    HIL_OutAO(0x2006, 0.0f);
 
     //@cmp.init.block.end
 }
@@ -139,22 +139,22 @@ void TimerCounterHandler_0_user_sp_cpu_dev0() {
     //////////////////////////////////////////////////////////////////////////
     //@cmp.out.block.start
     // Generated from the component: Ig3.Ia1
-    _ig3_ia1__out = HIL_InAO(0x10);
+    _ig3_ia1__out = HIL_InAO(0x110);
 
     // Generated from the component: Ig2.Ia1
-    _ig2_ia1__out = HIL_InAO(0xf);
+    _ig2_ia1__out = HIL_InAO(0x10f);
 
     // Generated from the component: Ig1.Ia1
-    _ig1_ia1__out = HIL_InAO(0xe);
+    _ig1_ia1__out = HIL_InAO(0x10e);
 
     // Generated from the component: V_L3.Va1
-    _v_l3_va1__out = HIL_InAO(0x104);
+    _v_l3_va1__out = HIL_InAO(0x4);
 
     // Generated from the component: V_L1.Va1
-    _v_l1_va1__out = HIL_InAO(0x102);
+    _v_l1_va1__out = HIL_InAO(0x2);
 
     // Generated from the component: V_L2.Va1
-    _v_l2_va1__out = HIL_InAO(0x103);
+    _v_l2_va1__out = HIL_InAO(0x3);
 
     // Generated from the component: PQ Power Meter1
     _pq_power_meter1__v_alpha = SQRT_2OVER3 * ( _v_l1_va1__out - 0.5f * _v_l2_va1__out - 0.5f * _v_l3_va1__out);
@@ -187,17 +187,17 @@ void TimerCounterHandler_0_user_sp_cpu_dev0() {
     _pq_power_meter1__Qac = _pq_power_meter1__Q - _pq_power_meter1__Qdc;
 
     // Generated from the component: Pdc
-    HIL_OutAO(0x2006, _pq_power_meter1__Pdc);
+    HIL_OutAO(0x200b, _pq_power_meter1__Pdc);
     // Generated from the component: Qdc
     HIL_OutAO(0x2007, _pq_power_meter1__Qdc);
     // Generated from the component: Pac
-    HIL_OutAO(0x200b, _pq_power_meter1__Pac);
+    HIL_OutAO(0x2009, _pq_power_meter1__Pac);
     // Generated from the component: Qac
-    HIL_OutAO(0x2008, _pq_power_meter1__Qac);
+    HIL_OutAO(0x200a, _pq_power_meter1__Qac);
     // Generated from the component: S
-    HIL_OutAO(0x2009, _pq_power_meter1__apparent);
+    HIL_OutAO(0x2008, _pq_power_meter1__apparent);
     // Generated from the component: k
-    HIL_OutAO(0x200a, _pq_power_meter1__k_factor);
+    HIL_OutAO(0x2006, _pq_power_meter1__k_factor);
     //@cmp.out.block.end
 
 

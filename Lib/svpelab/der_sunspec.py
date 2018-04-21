@@ -601,6 +601,7 @@ class DER(der.DER):
 
         try:
             if 'volt_var' in self.inv.models:
+                self.inv.volt_var.read()
                 if params is not None:
                     curve = params.get('curve')  # Must write curve first because there is a read() in volt_var_curve
                     act_crv = params.get('ActCrv')
@@ -629,11 +630,6 @@ class DER(der.DER):
                         self.inv.volt_var.RvrtTms = rvrt_tms
                     self.inv.volt_var.write()
 
-                    # rewrite enable if already enabled
-                    if ena is not None:
-                        if ena is True:
-                            self.inv.volt_var.ModEna = 1
-                            self.inv.volt_var.write()
                 else:
                     params = {}
                     self.inv.volt_var.read()

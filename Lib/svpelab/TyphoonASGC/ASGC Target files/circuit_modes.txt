@@ -3,6 +3,11 @@
 
 *************** Writting SPC1 Modes ***************
 Definition of switches for switches possition vector
+Modes value relation to switches possition
+[ MODE NUMBER: 1 	SWITCHES POSSITION:  ] 	merged to  
+
+*************** Writting SPC2 Modes ***************
+Definition of switches for switches possition vector
 SWITCH: S_1_0 	related to COMPONENT: pesb_3l4q3ph_Ttype1.T Type 3L Leg1.S_1
 SWITCH: S_2_0 	related to COMPONENT: pesb_3l4q3ph_Ttype1.T Type 3L Leg1.S_2
 SWITCH: S_3_0 	related to COMPONENT: pesb_3l4q3ph_Ttype1.T Type 3L Leg1.S_3
@@ -141,8 +146,3 @@ Modes value relation to switches possition
 [ MODE NUMBER: 123 	SWITCHES POSSITION: 011011111111 ] 	merged to 111111111111 
 [ MODE NUMBER: 124 	SWITCHES POSSITION: 000111111111 ] 	merged to 111111111111 
 [ MODE NUMBER: 125 	SWITCHES POSSITION: 111111111111 ] 	merged to 111111111111 
-
-*************** Writting SPC2 Modes ***************
-Definition of switches for switches possition vector
-Modes value relation to switches possition
-[ MODE NUMBER: 1 	SWITCHES POSSITION:  ] 	merged to  
