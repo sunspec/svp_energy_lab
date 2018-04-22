@@ -231,26 +231,26 @@ void ReInit_sys_sp_cpu_dev0() {
 
 
 
-    HIL_OutAO(0x2005, 0.0f);
+    HIL_OutAO(0x2001, 0.0f);
 
 
-    HIL_OutAO(0x2002, 0.0f);
+    HIL_OutAO(0x2004, 0.0f);
 
+
+
+
+    HIL_OutAO(0x2003, 0.0f);
 
 
 
     HIL_OutAO(0x2000, 0.0f);
 
 
-
-    HIL_OutAO(0x2004, 0.0f);
-
-
-    HIL_OutAO(0x2001, 0.0f);
+    HIL_OutAO(0x2005, 0.0f);
 
 
 
-    HIL_OutAO(0x2003, 0.0f);
+    HIL_OutAO(0x2002, 0.0f);
 
 
     //@cmp.init.block.end
@@ -284,22 +284,22 @@ void TimerCounterHandler_0_sys_sp_cpu_dev0() {
     //////////////////////////////////////////////////////////////////////////
     //@cmp.out.block.start
     // Generated from the component: Vrms3.Vinst.Va1
-    _vrms3_vinst_va1__out = HIL_InAO(0x10a);
+    _vrms3_vinst_va1__out = HIL_InAO(0xa);
 
     // Generated from the component: Vrms2.Vinst.Va1
-    _vrms2_vinst_va1__out = HIL_InAO(0x109);
+    _vrms2_vinst_va1__out = HIL_InAO(0x9);
 
     // Generated from the component: Irms3.Iinst.Ia1
-    _irms3_iinst_ia1__out = HIL_InAO(0x14);
+    _irms3_iinst_ia1__out = HIL_InAO(0x114);
 
     // Generated from the component: Irms2.Iinst.Ia1
-    _irms2_iinst_ia1__out = HIL_InAO(0x13);
+    _irms2_iinst_ia1__out = HIL_InAO(0x113);
 
     // Generated from the component: Vrms1.Vinst.Va1
-    _vrms1_vinst_va1__out = HIL_InAO(0x108);
+    _vrms1_vinst_va1__out = HIL_InAO(0x8);
 
     // Generated from the component: Irms1.Iinst.Ia1
-    _irms1_iinst_ia1__out = HIL_InAO(0x12);
+    _irms1_iinst_ia1__out = HIL_InAO(0x112);
 
     // Generated from the component: Irms1.rms_calc_fast
     _irms1_rms_calc_fast__v_sq_sum_state = _irms1_rms_calc_fast__v_sq_sum_state + _irms1_iinst_ia1__out * _irms1_iinst_ia1__out;
@@ -547,7 +547,7 @@ void TimerCounterHandler_1_sys_sp_cpu_dev0() {
     // Generated from the component: Irms1.sys2
 
     // Generated from the component: Irms1.rms
-    HIL_OutAO(0x2005, _irms1_rms_calc_slow__var_rms);
+    HIL_OutAO(0x2001, _irms1_rms_calc_slow__var_rms);
     // Generated from the component: Vrms1.rms_calc_slow
     if(_vrms1_rt2_output__out > 0.0f) {
         _vrms1_rms_calc_slow__var_rms = sqrtf(_vrms1_rt1_output__out / _vrms1_rt2_output__out);
@@ -557,7 +557,7 @@ void TimerCounterHandler_1_sys_sp_cpu_dev0() {
     }
 
     // Generated from the component: Vrms1.rms
-    HIL_OutAO(0x2002, _vrms1_rms_calc_slow__var_rms);
+    HIL_OutAO(0x2004, _vrms1_rms_calc_slow__var_rms);
     // Generated from the component: Vrms1.sys2
 
     // Generated from the component: Irms2.rms_calc_slow
@@ -571,7 +571,7 @@ void TimerCounterHandler_1_sys_sp_cpu_dev0() {
     // Generated from the component: Irms2.sys2
 
     // Generated from the component: Irms2.rms
-    HIL_OutAO(0x2000, _irms2_rms_calc_slow__var_rms);
+    HIL_OutAO(0x2003, _irms2_rms_calc_slow__var_rms);
     // Generated from the component: Irms3.rms_calc_slow
     if(_irms3_rt2_output__out > 0.0f) {
         _irms3_rms_calc_slow__var_rms = sqrtf(_irms3_rt1_output__out / _irms3_rt2_output__out);
@@ -583,7 +583,7 @@ void TimerCounterHandler_1_sys_sp_cpu_dev0() {
     // Generated from the component: Irms3.sys2
 
     // Generated from the component: Irms3.rms
-    HIL_OutAO(0x2004, _irms3_rms_calc_slow__var_rms);
+    HIL_OutAO(0x2000, _irms3_rms_calc_slow__var_rms);
     // Generated from the component: Vrms2.rms_calc_slow
     if(_vrms2_rt2_output__out > 0.0f) {
         _vrms2_rms_calc_slow__var_rms = sqrtf(_vrms2_rt1_output__out / _vrms2_rt2_output__out);
@@ -593,7 +593,7 @@ void TimerCounterHandler_1_sys_sp_cpu_dev0() {
     }
 
     // Generated from the component: Vrms2.rms
-    HIL_OutAO(0x2001, _vrms2_rms_calc_slow__var_rms);
+    HIL_OutAO(0x2005, _vrms2_rms_calc_slow__var_rms);
     // Generated from the component: Vrms2.sys2
 
     // Generated from the component: Vrms3.rms_calc_slow
@@ -605,7 +605,7 @@ void TimerCounterHandler_1_sys_sp_cpu_dev0() {
     }
 
     // Generated from the component: Vrms3.rms
-    HIL_OutAO(0x2003, _vrms3_rms_calc_slow__var_rms);
+    HIL_OutAO(0x2002, _vrms3_rms_calc_slow__var_rms);
     // Generated from the component: Vrms3.sys2
 
     //@cmp.out.block.end

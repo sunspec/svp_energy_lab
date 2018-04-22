@@ -13,6 +13,15 @@
 ---------- Messages ----------
 
 Create circuit structure ... Building state space representation for subcircuit 1...
+
+-----------------------------------
+0) analysing configuration c...
+DAEs STABLE !
+DAEs largest real part of eigenvalues -1.000000e+000
+ODEs STABLE !
+ODEs largest real part of eigenvalues -1
+Modes have been generated analysed for subcircuit 1 !
+Building state space representation for subcircuit 2...
 Reading PESB mapping file for "transition_matrix" model...
  * Switch vector is: {'S_1' 'S_2' 'S_3' 'S_4' }
  * model made of 5 modes (out of a maximum of 16)
@@ -1401,23 +1410,24 @@ DAEs STABLE !
 DAEs largest real part of eigenvalues -3.709259e+001
 ODEs STABLE !
 ODEs largest real part of eigenvalues -3.709259e+001
-Modes have been generated analysed for subcircuit 1 !
-Building state space representation for subcircuit 2...
-
------------------------------------
-0) analysing configuration c...
-DAEs STABLE !
-DAEs largest real part of eigenvalues -1.000000e+000
-ODEs STABLE !
-ODEs largest real part of eigenvalues -1
 Modes have been generated analysed for subcircuit 2 !
 -----------------------------------
 Reducing number of modes for subcircuit: 1 ... Done
-Reduction ratio of subcircuit 1 is : 6.160000e+001%
+Reduction ratio of subcircuit 1 is : 0%
 -----------------------------------
 Reducing number of modes for subcircuit: 2 ... Done
-Reduction ratio of subcircuit 2 is : 0%
+Reduction ratio of subcircuit 2 is : 6.160000e+001%
 Discretizing state space equations for subcircuit 1 with time step 1e-006 ...
+-----------------------------------
+Discretizing & packing modes...
+Mode 
+Mode 4.163427e-267
+Mode c
+Discretizied ss is STABLE !
+Largest amplitude of discrete eigenvalue is: 9.999990e-001
+Discretizied rounded ss is STABLE !
+Largest amplitude of discrete rounded ss eigenvalue is: 9.999990e-001
+Discretizing state space equations for subcircuit 2 with time step 1e-006 ...
 -----------------------------------
 Discretizing & packing modes...
 Mode 
@@ -1710,17 +1720,19 @@ Discretizied ss is STABLE !
 Largest amplitude of discrete eigenvalue is: 1.000000e+000
 Discretizied rounded ss is STABLE !
 Largest amplitude of discrete rounded ss eigenvalue is: 1.000000e+000
-Discretizing state space equations for subcircuit 2 with time step 1e-006 ...
------------------------------------
-Discretizing & packing modes...
-Mode 
-Mode 
-Mode c
-Discretizied ss is STABLE !
-Largest amplitude of discrete eigenvalue is: 9.999990e-001
-Discretizied rounded ss is STABLE !
-Largest amplitude of discrete rounded ss eigenvalue is: 9.999990e-001
 Mapping subcircuit 1 to processor core 1...
+Building mapping directives for inputs...
+  * mapping signal generators...
+  * mapping circuit decoupler...
+mapping directives for inputs are built.
+  * mapping circuit measurement decoupler...
+-----------------------------------
+0) fitting mode c in the memory map... success.
+  * mapping signal generators...
+Starting matrix scheduler...
+Running scheduler for SPC1...
+Matrix scheduler done...
+Mapping subcircuit 2 to processor core 2...
 Building mapping directives for inputs...
   * mapping LUT...
   * mapping circuit decoupler...
@@ -1823,18 +1835,6 @@ mapping directives for inputs are built.
 -----------------------------------
 47) fitting mode c011000010001 in the memory map... success.
 Starting matrix scheduler...
-Running scheduler for SPC1...
-Matrix scheduler done...
-Mapping subcircuit 2 to processor core 2...
-Building mapping directives for inputs...
-  * mapping signal generators...
-  * mapping circuit decoupler...
-mapping directives for inputs are built.
-  * mapping circuit measurement decoupler...
------------------------------------
-0) fitting mode c in the memory map... success.
-  * mapping signal generators...
-Starting matrix scheduler...
 Running scheduler for SPC2...
 Matrix scheduler done...
 Starting matrix scheduler...
@@ -1855,8 +1855,8 @@ Running SPC specific analysis:
 	Contactor utilization in SPC3:                  0   out of   6        0%
 	Contactor utilization in SPC4:                  0   out of   6        0%
 SPC PESB processing power utilization summary:
-	Overall weight of Power Electronics Converters in SPC1:     3   out of   3      100%
-	Overall weight of Power Electronics Converters in SPC2:     0   out of   3        0%
+	Overall weight of Power Electronics Converters in SPC1:     0   out of   3        0%
+	Overall weight of Power Electronics Converters in SPC2:     3   out of   3      100%
 	Overall weight of Power Electronics Converters in SPC3:     0   out of   3        0%
 	Overall weight of Power Electronics Converters in SPC4:     0   out of   3        0%
 SP controlled sources utilization summary:
@@ -1870,14 +1870,14 @@ Time varying elements solvers utilization summary:
 	TVE solvers utilization in SPC3:                0   out of   4        0%
 	TVE solvers utilization in SPC4:                0   out of   4        0%
 Matrix memory utilization summary:
-	Standard Processing Core 1:      66%
-	Standard Processing Core 2:       1%
+	Standard Processing Core 1:       1%
+	Standard Processing Core 2:      66%
 	Standard Processing Core 3:       0%
 	Standard Processing Core 4:       0%
 Running timing analysis...
 Time slot usage summary:
-	Standard Processing Core 1:      73%
-	Standard Processing Core 2:      37%
+	Standard Processing Core 1:      37%
+	Standard Processing Core 2:      73%
 	Standard Processing Core 3:       0%
 	Standard Processing Core 4:       0%
 Timing constraints were met

@@ -65,12 +65,14 @@ class DatasetError(Exception):
 
 """
 class Dataset(object):
-    def __init__(self, points=None, data=None, start_time=None, sample_rate=None, trigger_sample=None, params=None):
+    def __init__(self, points=None, data=None, start_time=None, sample_rate=None, trigger_sample=None, params=None,
+                 ts=None):
         self.start_time = start_time              # start time
         self.sample_rate = sample_rate            # samples/second
         self.trigger_sample = trigger_sample      # trigger sample
         self.points = points                      # point names
         self.data = data                          # data
+        self.ts = ts
 
         if points is None:
             self.points = []
@@ -92,6 +94,7 @@ class Dataset(object):
         for i in range(dlen):
             try:
                 if data[i] is not None:
+                    # self.ts.log_debug(data[i])
                     v = float(data[i])
                 else:
                     v = 'None'

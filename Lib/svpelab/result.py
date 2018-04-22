@@ -368,7 +368,9 @@ class ResultWorkbook(object):
                         'values': '=%s!$%s$%s:$%s$%s' % (ws_name, col, 2, col, count + 1),
                         # 'line': {'color': line_color, 'width': 1.5},
                         'line': {'width': 1.5},
-                        'marker' : marker,
+                        'marker': marker,
+                        'categories_data': [],
+                        'values_data':     []
                     }
                     if min_error and max_error:
                         min_col = xl_col(point_names.index(min_error))
@@ -382,7 +384,9 @@ class ResultWorkbook(object):
                             'direction': 'both',
                             # 'value': 10
                             'plus_values': max_values,
-                            'minus_values': min_values
+                            'minus_values': min_values,
+                            'categories_data': [],
+                            'values_data':     []
                         }
                     print 'series = %s' % series
                     chart.add_series(series)
@@ -410,8 +414,10 @@ class ResultWorkbook(object):
                         'values': [ws_name, 2, col, count, col],
                         # 'line': {'color': line_color, 'width': 1.5},
                         'line': {'width': 1.5},
-                        'marker' : marker,
-                        'y2_axis': 1
+                        'marker': marker,
+                        'y2_axis': 1,
+                        'categories_data': [],
+                        'values_data':     []
                     })
 
                 except ValueError:

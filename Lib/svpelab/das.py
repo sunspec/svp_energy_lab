@@ -178,7 +178,7 @@ class DAS(object):
                 self.data_points.append(p)
                 self.sc[p] = 0
 
-        self._ds = dataset.Dataset(self.data_points)
+        self._ds = dataset.Dataset(self.data_points, ts=self.ts)
 
     def _data_expand(self, data):
         if len(self.data_points) != len(data):
@@ -221,7 +221,7 @@ class DAS(object):
         """
         if enable is True:
             if self._capture is False:
-                self._ds = dataset.Dataset(self.data_points)
+                self._ds = dataset.Dataset(self.data_points, ts=self.ts)
                 self._last_datarec = []
                 if self.sample_interval > 0:
                     if self.sample_interval < MINIMUM_SAMPLE_PERIOD:
