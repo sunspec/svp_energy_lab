@@ -32,8 +32,7 @@ Questions can be directed to support@sunspec.org
 
 import os
 import der
-import http.client
-import json
+import requests
 
 epri_info = {
     'name': os.path.splitext(os.path.basename(__file__))[0],
@@ -51,10 +50,9 @@ def params(info, group_name):
     info.param_group(gname(GROUP_NAME), label='%s Parameters' % mode,
                      active=gname('mode'),  active_value=mode, glob=True)
     # TCP parameters
-    info.param(pname('ipaddr'), label='IP Address', default='127.0.0.1')
-    info.param(pname('ipport'), label='IP Port', default=502)
-    info.param(pname('id'), label='Inverter ID', default=502)
-
+    info.param(pname('ipaddr'), label='IP Address', default='http://localhost')
+    info.param(pname('ipport'), label='IP Port', default=8000)
+    info.param(pname('mRID'), label='Inverter ID', default='03ac0d62-2d29-49ad-915e-15b9fbd46d86')
 
 GROUP_NAME = 'epri'
 
@@ -63,8 +61,12 @@ class DER(der.DER):
 
     def __init__(self, ts, group_name):
         der.DER.__init__(self, ts, group_name)
-        self.headers = {'Content-type': 'application/json'}
+        self.headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
         self.connection = None
+        self.mRID = self.param_value('mRID')
+        ipaddr = self.param_value('ipaddr')
+        ipport = self.param_value('ipport')
+        self.address = '%s:%s' % (ipaddr, ipport)
 
     def param_value(self, name):
         return self.ts.param_value(self.group_name + '.' + GROUP_NAME + '.' + name)
@@ -73,15 +75,23 @@ class DER(der.DER):
         self.open()
 
     def open(self):
-        ipaddr = self.param_value('ipaddr')
-        ipport = self.param_value('ipport')
+        # Start communications between DERMS and EPRI PV Sim
+        comm_start_cmd = {
+            "namespace": "comms",
+            "function": "startCommunication",
+            "requestId": "requestId",
+            "parameters": {
+                "deviceIds": [self.mRID]
+            }
+        }
 
-        self.connection = http.client.HTTPSConnection(ipaddr, port=ipport)
+        r = requests.post(self.address, json=comm_start_cmd)
+        self.ts.log_debug('Communication established to PDA. Data Posted! '
+                          'statusMessage: %s' % r.json()['statusMessage'])
 
     def close(self):
-        if self.inv is not None:
-            self.inv.close()
-            self.inv = None
+        if self.connection is not None:
+            self.connection.close()
 
     def info(self):
         """ Get DER device information.
@@ -96,11 +106,8 @@ class DER(der.DER):
         :return: Dictionary of information elements.
         """
 
-        if self.inv is None:
-            raise der.DERError('DER not initialized')
-
         try:
-            params = []
+            params = {}
             params['Manufacturer'] = 'EPRI'
             params['Model'] = "PV Simulator"
         except Exception, e:
@@ -121,20 +128,84 @@ class DER(der.DER):
         :param params: Dictionary of parameters to be updated.
         :return: Dictionary of active settings for fixed factor.
         """
-        try:
+        if params is not None:
+            pf = params.get('PF')
+            if pf is None:
+                pf = 1.0
+                var_action = "reverseProducingVars"
+            else:
+                if pf < 0:  # negative pf indicates the the inverter is injecting vars (EEI/SunSpec Sign Convention)
+                    var_action = "doNotreverseProducingVars"
+                else:
+                    var_action = "reverseProducingVars"
 
-            pf_cmd = {'text': 'Hello world github/linguist#1 **cool**, and #1!'}
-            json_pf_cmd = json.dumps(pf_cmd)
+            win_tms = params.get('WinTms')
+            if win_tms is None:
+                win_tms = 0.0
+            rmp_tms = params.get('RmpTms')
+            if rmp_tms is None:
+                rmp_tms = 0.0
+            rvrt_tms = params.get('RvrtTms')
+            if rvrt_tms is None:
+                rvrt_tms = 0.0
 
-            self.connection.request('POST', '/markdown', json_pf_cmd, self.headers)
+            # Field	           Data Type	    Description
+            # namespace	       String	        Namespace will be "der" for all device level messages to the PDA
+            # function	       String	        Function name will be "configurePowerFactor" to enable the power
+            #                                   factorfunction in the inverter
+            # requestId	       String	        RequestId will be a unique identifier for each request. Request IDs
+            #                                   can be used by RT-OPF to track the status of the request. Response
+            #                                   from PDA will contain the request ID of the corresponding request.
+            # deviceIds	       Array of strings	Array containing the mRIDs of the devices
+            # timeWindow	   Integer	        Time in seconds, over which a new setting is to take effect
+            # reversionTimeout Integer	        Time in seconds, after which the function is disabled
+            # rampTime	       Integer	        Time in seconds, over which the DER linearly places the new limit into
+            #                                   effect
+            # powerFactor	   number	        Sets the power factor of the inverter. Value must be between -1.0 and
+            #                                   +1.0
+            # varAction        String           Specifies whether the PF setting is leading or lagging. The value
+            #                                   must be "reverseProducingVars" to absorb VARs and
+            #                                   "doNotreverseProducingVars" to produce VARs
+            pf_cmd = {"namespace": "der",
+                      "function": "configurePowerFactor",
+                      "requestId": "requestId",
+                      "parameters": {
+                            "deviceIds": [self.mRID],
+                            "timeWindow": win_tms,
+                            "reversionTimeout": rvrt_tms,
+                            "rampTime": rmp_tms,
+                            "powerFactor": pf,
+                            "varAction": var_action
+                            }
+                      }
 
-            response = self.connection.getresponse()
-            print(response.read().decode())
+            # self.ts.log_debug('Setting new PF...')
+            r = requests.post(self.address, json=pf_cmd)
+            # self.ts.log_debug('Data Posted! statusMessage: %s' % r.json()['statusMessage'])
 
-        except Exception, e:
-            raise der.DERError(str(e))
+            ena = params.get('Ena')
+            if ena is None:
+                ena = False
+            # Field	           Data Type	    Description
+            # enable           Boolean          Enable key will be set to true in order to enable the function
+            #                                   and false to disable the power factor function
+            pf_enable_cmd = {"namespace": "der",
+                             "function": "powerFactor",
+                             "requestId": "requestId",
+                             "parameters": {
+                                   "deviceIds": [self.mRID],
+                                   "enable": ena
+                                   }
+                             }
 
-        return None
+            # self.ts.log_debug('Enabling new PF...')
+            r = requests.post(self.address, json=pf_enable_cmd)
+            # self.ts.log_debug('Data Posted! statusMessage: %s' % r.json()['statusMessage'])
+
+        else:  # read PF data
+            params = {'Ena': None, 'PF': None, 'WinTms': None, 'RmpTms': None, 'RvrtTms': None}
+
+        return params
 
     def limit_max_power(self, params=None):
         """ Get/set max active power control settings.
@@ -167,4 +238,56 @@ class DER(der.DER):
         :return: Dictionary of active settings for volt/var control.
         """
         pass
+
+if __name__ == "__main__":
+
+    import os
+    import httplib
+    import json
+    import requests
+
+    if __name__ == "__main__":
+        headers = {'Content-type': 'application/json'}
+
+        comm_start_cmd = {
+            "namespace": "comms",
+            "function": "startCommunication",
+            "requestId": "requestId",
+            "parameters": {
+                "deviceIds": ['03ac0d62-2d29-49ad-915e-15b9fbd46d86', ]
+            }
+        }
+
+        response = requests.post('http://localhost:8000', json=comm_start_cmd)
+        print('Data Posted! statusMessage: %s' % response.json()['statusMessage'])
+
+        pf_cmd = {"namespace": "der",
+                  "function": "configurePowerFactor",
+                  "requestId": "requestId",
+                  "parameters": {
+                      "deviceIds": ["03ac0d62-2d29-49ad-915e-15b9fbd46d86"],
+                      "timeWindow": 0,
+                      "reversionTimeout": 0,
+                      "rampTime": 0,
+                      "powerFactor": 0.85,
+                      "varAction": "reverseProducingVars"
+                  }
+                  }
+
+        print('Setting new PF...')
+        response = requests.post('http://localhost:8000', json=pf_cmd)
+        print('Data Posted! statusMessage: %s' % response.json()['statusMessage'])
+
+        pf_enable_cmd = {"namespace": "der",
+                         "function": "powerFactor",
+                         "requestId": "requestId",
+                         "parameters": {
+                             "deviceIds": ["03ac0d62-2d29-49ad-915e-15b9fbd46d86"],
+                             "enable": True
+                         }
+                         }
+
+        print('Enabling new PF...')
+        response = requests.post('http://localhost:8000', json=pf_enable_cmd)
+        print('Data Posted! statusMessage: %s' % response.json()['statusMessage'])
 
