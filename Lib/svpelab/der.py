@@ -149,6 +149,48 @@ class DER(object):
         pass
 
     """
+        A - Current
+        AphA
+        AphB
+        AphC
+        PPVphAB
+        PPVphBC
+        PPVphCA
+        PhVphA
+        PhVphB
+        PhVphC
+        W
+        Hz
+        VA
+        VAr
+        PF
+        WH
+        DCA
+        DCV
+        DCW
+        TmpCab
+        TmpSnk
+        TmpTrns
+        TmpOt
+        St
+        StVnd
+        Evt1
+        Evt2
+        EvtVnd1
+        EvtVnd2
+        EvtVnd3
+        EvtVnd4
+    """
+    def measurements(self):
+        """ Get measurement data.
+
+        Params:
+
+        :return: Dictionary of measurement data.
+        """
+        pass
+
+    """
         WMax
         VRef
         VRefOfs
