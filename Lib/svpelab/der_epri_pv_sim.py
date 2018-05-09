@@ -32,7 +32,10 @@ Questions can be directed to support@sunspec.org
 
 import os
 import der
-import requests
+try:
+    import requests
+except Exception, e:
+    print('No "requests" package in native python environment. %s' % e)
 
 epri_info = {
     'name': os.path.splitext(os.path.basename(__file__))[0],
