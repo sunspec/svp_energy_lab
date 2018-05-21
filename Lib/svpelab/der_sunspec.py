@@ -822,7 +822,7 @@ class DER(der.DER):
         return params
 
     def freq_watt_curve(self, id, params=None):
-        """ Get/set volt/var curve
+        """ Get/set freq/watt curve
             hz [] - List of frequency curve points
             w [] - List of power curve points
             CrvNam - Optional description for curve. (Max 16 chars)
