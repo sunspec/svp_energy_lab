@@ -31,12 +31,9 @@ Questions can be directed to support@sunspec.org
 """
 
 import os
-
 import sunspec.core.client as client
-
 import der
 import script
-
 
 sunspec_info = {
     'name': os.path.splitext(os.path.basename(__file__))[0],
@@ -822,7 +819,7 @@ class DER(der.DER):
         return params
 
     def freq_watt_curve(self, id, params=None):
-        """ Get/set freq/watt curve
+        """ Get/set volt/var curve
             hz [] - List of frequency curve points
             w [] - List of power curve points
             CrvNam - Optional description for curve. (Max 16 chars)

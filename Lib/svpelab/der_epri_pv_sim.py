@@ -32,11 +32,20 @@ Questions can be directed to support@sunspec.org
 
 import os
 import der
+import math
+
 try:
     import requests
 except Exception, e:
-    print('No "requests" package in native python environment. %s' % e)
-
+    print 'Missing requests package'
+try:
+    import json
+except Exception, e:
+    print 'Missing json package'
+try:
+    import urllib2
+except Exception, e:
+    print 'Missing urllib2 package'
 epri_info = {
     'name': os.path.splitext(os.path.basename(__file__))[0],
     'mode': 'EPRI'
@@ -53,8 +62,10 @@ def params(info, group_name):
     info.param_group(gname(GROUP_NAME), label='%s Parameters' % mode,
                      active=gname('mode'),  active_value=mode, glob=True)
     # TCP parameters
-    info.param(pname('ipaddr'), label='IP Address', default='http://localhost')
+    info.param(pname('ipaddr'), label='IP Address', default='http://10.1.2.2')
     info.param(pname('ipport'), label='IP Port', default=8000)
+    info.param(pname('ipaddr_reads'), label='IP Address Data Stream', default='http://localhost')
+    info.param(pname('ipport_reads'), label='IP Port Data Stream', default=8081)
     info.param(pname('mRID'), label='Inverter ID', default='03ac0d62-2d29-49ad-915e-15b9fbd46d86')
 
 GROUP_NAME = 'epri'
@@ -66,10 +77,17 @@ class DER(der.DER):
         der.DER.__init__(self, ts, group_name)
         self.headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
         self.connection = None
-        self.mRID = self.param_value('mRID')
+        self.mrid = self.param_value('mRID')
+
+        # Setup client for writing to EPRI inverter
         ipaddr = self.param_value('ipaddr')
         ipport = self.param_value('ipport')
         self.address = '%s:%s' % (ipaddr, ipport)
+
+        # Configure client connection to server for monitoring points
+        server_ipaddr = self.param_value('ipaddr_reads')
+        server_ipport = self.param_value('ipport_reads')
+        self.server_address = '%s:%s' % (server_ipaddr, server_ipport)
 
     def param_value(self, name):
         return self.ts.param_value(self.group_name + '.' + GROUP_NAME + '.' + name)
@@ -84,7 +102,7 @@ class DER(der.DER):
             "function": "startCommunication",
             "requestId": "requestId",
             "parameters": {
-                "deviceIds": [self.mRID]
+                "deviceIds": [self.mrid]
             }
         }
 
@@ -113,6 +131,37 @@ class DER(der.DER):
             params = {}
             params['Manufacturer'] = 'EPRI'
             params['Model'] = "PV Simulator"
+        except Exception, e:
+            raise der.DERError(str(e))
+
+        return params
+
+    def measurements(self):
+        """ Get measurement data.
+
+        Params:
+
+        :return: Dictionary of measurement data.
+        """
+
+        try:
+            params = {}
+            req = urllib2.Request(self.server_address)
+            resp = urllib2.urlopen(req, timeout=0.5)
+            r = resp.read()
+            if len(r) > 0:
+                data = json.loads(r)
+                # self.ts.log_debug(data)
+                params['W'] = data.get(self.mrid).get('Watts')
+                params['Hz'] = data.get(self.mrid).get('F')
+                params['VAr'] = data.get(self.mrid).get('Vars')
+                params['PF'] = data.get(self.mrid).get('PF')
+                params['PhVphA'] = data.get(self.mrid).get('VphAN')
+                try:
+                    params['VA'] = math.sqrt(params['W']**2 + params['VAr']**2)
+                    # self.ts.log_debug('%s Watts, %s Vars, %s VA' % (params['W'], params['VAr'], params['VA']))
+                except Exception, e:
+                    params['VA'] = None
         except Exception, e:
             raise der.DERError(str(e))
 
@@ -173,7 +222,7 @@ class DER(der.DER):
                       "function": "configurePowerFactor",
                       "requestId": "requestId",
                       "parameters": {
-                            "deviceIds": [self.mRID],
+                            "deviceIds": [self.mrid],
                             "timeWindow": win_tms,
                             "reversionTimeout": rvrt_tms,
                             "rampTime": rmp_tms,
@@ -196,7 +245,7 @@ class DER(der.DER):
                              "function": "powerFactor",
                              "requestId": "requestId",
                              "parameters": {
-                                   "deviceIds": [self.mRID],
+                                   "deviceIds": [self.mrid],
                                    "enable": ena
                                    }
                              }

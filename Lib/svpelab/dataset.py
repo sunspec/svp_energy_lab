@@ -94,8 +94,11 @@ class Dataset(object):
         for i in range(dlen):
             try:
                 if data[i] is not None:
-                    # self.ts.log_debug(data[i])
-                    v = float(data[i])
+                    if data[i] is tuple:
+                        self.ts.log_debug('tuple data point recorded: %s' % data)
+                        v = float(data[i][0])
+                    else:
+                        v = float(data[i])
                 else:
                     v = 'None'
             except ValueError:
@@ -123,6 +126,10 @@ class Dataset(object):
             for i in xrange(len(self.data[0])):
                 d = []
                 for j in cols:
+                    # self.ts.log_debug('data = %s' % self.data)
+                    # self.ts.log_debug('point names = %s' % self.points)
+                    # self.ts.log_debug('len(points) = %s, len(data) = %s' % (len(self.points), len(self.data)))
+                    # self.ts.log_debug('j = %s, i = %i, self.data[j][i] = %s' % (j, i, self.data[j][i]))
                     d.append(self.data[j][i])
                 f.write('%s\n' % ', '.join(map(str, d)))
             f.close()
