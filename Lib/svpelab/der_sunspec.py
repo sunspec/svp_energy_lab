@@ -31,12 +31,9 @@ Questions can be directed to support@sunspec.org
 """
 
 import os
-
 import sunspec.core.client as client
-
 import der
 import script
-
 
 sunspec_info = {
     'name': os.path.splitext(os.path.basename(__file__))[0],
