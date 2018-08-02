@@ -57,8 +57,11 @@ def params(info):
                values=['Enabled', 'Disabled'])
     info.param('hil.typhoon.eut_nominal_voltage', label='EUT nameplate voltage (V)', default=230.0)
     info.param('hil.typhoon.eut_nominal_frequency', label='EUT nominal frequency (Hz)', default=50.0)
-    info.param('hil.typhoon.model_name', label='Model file name (.tse)', default=r"ASGC")
-    info.param('hil.typhoon.setting_name', label='Settings file name (.runx)', default=r"settings2.runx")
+    info.param('hil.typhoon.model_name', label='Model file name (.tse)', default=r"ASGC_Closed_loop_full_model.tse")
+    info.param('hil.typhoon.setting_name', label='Settings file name (.runx)', default=r"ASGC_full_settings.runx")
+    info.param('hil.typhoon.hil_model_dir', label='Model Directory in Lib/svpelab/',
+               default=r"ASGC_Closed_loop_full_model/")
+
 
 class HIL(hil.HIL):
     """
@@ -72,7 +75,6 @@ class HIL(hil.HIL):
         hil.HIL.__init__(self, ts)
 
         self.ts = ts
-
         self.auto_config = ts.param_value('hil.typhoon.auto_config')
         self.eut_nominal_power = ts.param_value('hil.typhoon.eut_nominal_power')
         self.model_name = ts.param_value('hil.typhoon.model_name')
@@ -80,6 +82,7 @@ class HIL(hil.HIL):
         self.settings_file_name = ts.param_value('hil.typhoon.setting_name')
         self.v = ts.param_value('hil.typhoon.eut_nominal_voltage')
         self.f = ts.param_value('hil.typhoon.eut_nominal_frequency')
+        self.hil_model_dir = ts.param_value('hil.typhoon.hil_model_dir')
         # cp.set_debug_level(level=3)  # redacted
 
         if self.auto_config == 'Enabled':
@@ -144,9 +147,15 @@ class HIL(hil.HIL):
 
         # let the inverter startup
         sleeptime = 15
+        try:
+            # perturb irradiance
+            cp.set_pv_amb_params("PV1", illumination=995.)
+            self.ts.sleep(1)
+            cp.set_pv_amb_params("PV1", illumination=1000.)
+        except Exception, e:
+            self.ts.log('Attempted to perturb PV1 irradiance to get inverter to start. This failed. %s' % s)
         for i in range(1, sleeptime):
-            print ("Waiting another %d seconds until the inverter starts. Power = %f." %
-                   ((sleeptime-i), cp.read_analog_signal(name='Pdc')))
+            print ("Waiting another %d seconds until the inverter starts." % (sleeptime-i))
             self.ts.sleep(1)
 
     def load_schematic(self):
@@ -155,7 +164,11 @@ class HIL(hil.HIL):
         '''
         lib_dir_raw = os.path.dirname(__file__) + os.path.sep
         lib_dir = lib_dir_raw.replace("\\", "/")
-        model_file = r"TyphoonASGC/" + self.model_name + r".tse"
+        if self.model_name[-4:] == ".tse":
+            model_file = self.hil_model_dir + self.model_name
+        else:
+            model_file = self.hil_model_dir + self.model_name + r".tse"
+
         model_dir = lib_dir + model_file
         self.ts.log("Model File: %s" % model_dir)
 
@@ -187,7 +200,7 @@ class HIL(hil.HIL):
         '''
         lib_dir_raw = os.path.dirname(__file__) + os.path.sep
         lib_dir = lib_dir_raw.replace("\\", "/")
-        hil_model_file = r"TyphoonASGC/" + self.model_name + r" Target files/" + self.model_name + r".cpd"
+        hil_model_file = self.hil_model_dir + self.model_name + r" Target files/" + self.model_name + r".cpd"
         hil_model_dir = lib_dir + hil_model_file
         self.ts.log("Model File: %s" % hil_model_dir)
 
@@ -207,7 +220,10 @@ class HIL(hil.HIL):
         '''
         lib_dir_raw = os.path.dirname(__file__) + os.path.sep
         lib_dir = lib_dir_raw.replace("\\", "/")
-        settings_file = r"TyphoonASGC/" + self.settings_file_name
+        if self.settings_file_name[-5:] == ".runx":
+            settings_file = self.hil_model_dir + self.settings_file_name
+        else:
+            settings_file = self.hil_model_dir + self.settings_file_name + r".runx"
         settings_file_dir = lib_dir + settings_file
         self.ts.log("Model File: %s" % settings_file_dir)
 
