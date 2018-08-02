@@ -819,7 +819,7 @@ class DER(der.DER):
         return params
 
     def freq_watt_curve(self, id, params=None):
-        """ Get/set freq/watt curve
+        """ Get/set volt/var curve
             hz [] - List of frequency curve points
             w [] - List of power curve points
             CrvNam - Optional description for curve. (Max 16 chars)
@@ -1065,6 +1065,7 @@ class DER(der.DER):
                     curve = params.get('curve')
                     if curve is not None:
                         # curve paramaters
+                        id = self.inv.volt_watt.ActCrv
                         if int(id) > int(self.inv.volt_watt.NCrv):
                             raise der.DERError('Curve id out of range: %s' % (id))
                         curve = self.inv.volt_watt.curve[id]
@@ -1073,7 +1074,6 @@ class DER(der.DER):
                             dept_ref_id = volt_watt_dept_ref.get(dept_ref)
                             if dept_ref_id is None:
                                 raise der.DERError('Unsupported DeptRef: %s' % (dept_ref))
-
                             curve.DeptRef = dept_ref_id
                         rmp_tms = params.get('RmpTms')
                         if rmp_tms is not None:
@@ -1111,6 +1111,7 @@ class DER(der.DER):
                     params = {}
                     c_params = {}
                     self.inv.volt_watt.read()
+                    id = self.inv.volt_watt.ActCrv
                     curve = self.inv.volt_watt.curve[id]
                     if self.inv.volt_watt.ModEna == 0:
                         params['Ena'] = False
@@ -1127,25 +1128,25 @@ class DER(der.DER):
                         # curve parameters
                         act_pt = curve.ActPt
                         dept_ref = volt_watt_dept_ref.get(curve.DeptRef)
-                        if dept_ref is None:
-                            raise der.DERError('DeptRef out of range: %s' % (dept_ref))
                         c_params['DeptRef'] = dept_ref
-                        c_params['RmpTms'] = curve.RmpTms
-                        c_params['RmpDecTmm'] = curve.RmpDecTmm
-                        c_params['RmpIncTmm'] = curve.RmpIncTmm
+                        # c_params['RmpTms'] = curve.RmpTms
+                        # c_params['RmpDecTmm'] = curve.RmpDecTmm
+                        # c_params['RmpIncTmm'] = curve.RmpIncTmm
                         c_params['id'] = id  # also store the curve number
                         v = []
-                        var = []
+                        w = []
                         for i in xrange(1, act_pt + 1):  # SunSpec point index starts at 1
                             v_point = 'V%d' % i
-                            var_point = 'VAr%d' % i
+                            w_point = 'W%d' % i
                             v.append(getattr(curve, v_point))
-                            var.append(getattr(curve, var_point))
+                            w.append(getattr(curve, w_point))
+                            self.ts.log_debug((v, i))
                         c_params['v'] = v
-                        c_params['var'] = var
+                        c_params['w'] = w
                         params['curve'] = c_params
             else:
                 params = None
+
         except Exception, e:
             raise der.DERError(str(e))
 

@@ -32,7 +32,6 @@ Questions can be directed to support@sunspec.org
 
 import os
 from collections import namedtuple
-
 import grid_profiles
 import gridsim
 
@@ -534,7 +533,9 @@ class GridSim(gridsim.GridSim):
         """
 
         if voltage is not None:
-            voltage = float(max(voltage))  # voltage is a triplet but SPS only takes one value
+            # if voltage is a list or tuple, only take one value
+            if type(voltage) is list or type(voltage) is tuple:
+                voltage = float(max(voltage))
 
             if voltage <= 0:
                 raise gridsim.GridSimError('Maximum Voltage must be greater than 0V')
