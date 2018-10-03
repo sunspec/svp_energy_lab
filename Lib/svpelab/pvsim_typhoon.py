@@ -60,7 +60,7 @@ def params(info, group_name):
     # info.param(pname('pmp'), label='EN50530 MPP Power (W)', default=34500.0)
     info.param(pname('vmp'), label='EN50530 MPP Voc (V)', default=997.)
     info.param(pname('isc'), label='EN50530 MPP Isc (A)', default=50.)
-    info.param(pname('pv_name'), label='PV file name (.ipvx)', default=r"pv_model4.ipvx")
+    info.param(pname('pv_name'), label='PV file name (.ipvx)', default=r"init.ipvx")
     info.param(pname('irr_start'), label='Irradiance at the start of the test (W/m^2)', default=1000.)
     info.param(pname('profile_name'), label='Irradiance Profile Name', default='STPsIrradiance',
                desc='Typically the Sandia Test Protocols\' (STPs) Irradiance will be used for the profile.')
@@ -103,7 +103,10 @@ class PVSim(pvsim.PVSim):
     def config(self):
 
             lib_dir = os.path.dirname(__file__) + os.path.sep
-            model_file = r"Typhoon/" + self.pv_name
+            if self.pv_name[-5:] == ".ipvx":
+                model_file = r"Typhoon/" + self.pv_name
+            else:
+                model_file = r"Typhoon/" + self.pv_name + r".ipvx"
             self.pv_file = lib_dir.replace("\\", "/") + model_file
             self.ts.log("PV model (.ipvx) file: %s" % self.pv_file)
 

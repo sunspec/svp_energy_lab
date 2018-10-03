@@ -44,23 +44,7 @@ try:
 except Exception, e:
     print('Typhoon HIL API not installed. %s' % e)
 
-# data_points = [
-#     'TIME',
-#     'DC_V',
-#     'DC_I',
-#     'AC_VRMS_1',
-#     'AC_IRMS_1',
-#     'DC_P',
-#     'AC_S_1',
-#     'AC_P_1',
-#     'AC_Q_1',
-#     'AC_FREQ_1',
-#     'AC_PF_1',
-#     'TRIG',
-#     'TRIG_GRID'
-# ]
-
-data_points = [
+data_points = [  # 3 phase
     'TIME',
     'DC_V',
     'DC_I',
@@ -90,50 +74,71 @@ data_points = [
     'TRIG_GRID'
 ]
 
+# Legacy mapping
+typhoon_points_asgc_old = {  # data point : analog channel name
+    # in cases where the analog channel gets total value from all phases, scale by 1/3
+    'AC_VRMS_1': 'V( Vrms1 )', 'AC_VRMS_1_scaling': 1.,
+    'AC_VRMS_2': 'V( Vrms2 )', 'AC_VRMS_2_scaling': 1.,
+    'AC_VRMS_3': 'V( Vrms3 )', 'AC_VRMS_3_scaling': 1.,
+    'AC_IRMS_1': 'I( Irms1 )', 'AC_IRMS_1_scaling': 1.,
+    'AC_IRMS_2': 'I( Irms2 )', 'AC_IRMS_2_scaling': 1.,
+    'AC_IRMS_3': 'I( Irms3 )', 'AC_IRMS_3_scaling': 1.,
+    'AC_P_1': 'Pdc', 'AC_P_1_scaling': 1/3.,
+    'AC_P_2': 'Pdc', 'AC_P_2_scaling': 1/3.,
+    'AC_P_3': 'Pdc', 'AC_P_3_scaling': 1/3.,
+    'AC_Q_1': 'Qdc', 'AC_Q_1_scaling': 1/3.,
+    'AC_Q_2': 'Qdc', 'AC_Q_2_scaling': 1/3.,
+    'AC_Q_3': 'Qdc', 'AC_Q_3_scaling': 1/3.,
+    'AC_S_1': 'S', 'AC_S_1_scaling': 1/3.,
+    'AC_S_2': 'S', 'AC_S_2_scaling': 1/3.,
+    'AC_S_3': 'S', 'AC_S_3_scaling': 1/3.,
+    'AC_PF_1': 'k', 'AC_PF_1_scaling': 1.,
+    'AC_PF_2': 'k', 'AC_PF_2_scaling': 1.,
+    'AC_PF_3': 'k', 'AC_PF_3_scaling': 1.,
+    'AC_FREQ_1': 'AC_FREQ', 'AC_FREQ_1_scaling': 1.,
+    'AC_FREQ_2': 'AC_FREQ', 'AC_FREQ_2_scaling': 1.,
+    'AC_FREQ_3': 'AC_FREQ', 'AC_FREQ_3_scaling': 1.,
+    'DC_V': 'V( V_DC3 )', 'DC_V_scaling': 1.,
+    'DC_I': 'I( Ipv )',  'DC_I_scaling': 1.,
+    'DC_P': 'DC_P',  'DC_P_scaling': 1.,
+    'TRIG': 0,
+    'TRIG_GRID': 0}
 
-# To be implemented later
-# typhoon_points_asgc_1 = [
-#     'time',
-#     'V( V_DC3 )', # DC voltage
-#     'I( Ipv )',
-#     'V( Vrms1 )',
-#     'I( Irms1 )',
-#     'DC_P',  # calculated
-#     'S',
-#     'Pdc',
-#     'Qdc',
-#     'AC_FREQ',
-#     'k',
-#     'TRIG',
-#     'TRIG_GRID'
-# ]
-#
-# typhoon_points_asgc_3 = [
-#     'time',
-#     'V( V_DC3 )',  # DC voltage
-#     'I( Ipv )',
-#     'V( Vrms1 )',
-#     'V( Vrms2 )',
-#     'V( Vrms3 )',
-#     'I( Irms1 )',
-#     'I( Irms2 )',
-#     'I( Irms3 )',
-#     'DC_P',  # calculated
-#     'S',
-#     'Pdc',
-#     'Qdc',
-#     'AC_FREQ',
-#     'k',
-#     'TRIG',
-#     'TRIG_GRID'
-# ]
-#
-# typhoon_points_map = {
-#     'ASGC3': typhoon_points_asgc_3,  # AGF circuit, 3 phase
-#     'ASGC1': typhoon_points_asgc_1,  # AGF circuit, single phase
-#     'ASGC_Fault': typhoon_points_asgc_fault,  # ride-through circuit
-#     'ASGC_UI': typhoon_points_ui   # unintentional islanding circuit
-# }
+# Mapping Aug 2018
+typhoon_map_aug2018 = {  # data point : analog channel name
+    # in cases where the analog channel gets total value from all phases, scale by 1/3
+    'AC_VRMS_1': 'Van_grid_rms', 'AC_VRMS_1_scaling': 1.,
+    'AC_VRMS_2': 'Vbn_grid_rms', 'AC_VRMS_2_scaling': 1.,
+    'AC_VRMS_3': 'Vcn_grid_rms', 'AC_VRMS_3_scaling': 1.,
+    'AC_IRMS_1': 'Ia_grid_rms', 'AC_IRMS_1_scaling': 1.,
+    'AC_IRMS_2': 'Ib_grid_rms', 'AC_IRMS_2_scaling': 1.,
+    'AC_IRMS_3': 'Ic_grid_rms', 'AC_IRMS_3_scaling': 1.,
+    'AC_P_1': 'Grid P', 'AC_P_1_scaling': -1/3.,
+    'AC_P_2': 'Grid P', 'AC_P_2_scaling': -1/3.,
+    'AC_P_3': 'Grid P', 'AC_P_3_scaling': -1/3.,
+    'AC_Q_1': 'Grid Q', 'AC_Q_1_scaling': -1/3.,
+    'AC_Q_2': 'Grid Q', 'AC_Q_2_scaling': -1/3.,
+    'AC_Q_3': 'Grid Q', 'AC_Q_3_scaling': -1/3.,
+    'AC_S_1': 'Grid S', 'AC_S_1_scaling': 1/3.,
+    'AC_S_2': 'Grid S', 'AC_S_2_scaling': 1/3.,
+    'AC_S_3': 'Grid S', 'AC_S_3_scaling': 1/3.,
+    'AC_PF_1': 'Grid PF', 'AC_PF_1_scaling': 1.,
+    'AC_PF_2': 'Grid PF', 'AC_PF_2_scaling': 1.,
+    'AC_PF_3': 'Grid PF', 'AC_PF_3_scaling': 1.,
+    'AC_FREQ_1': 'AC_FREQ', 'AC_FREQ_1_scaling': 1.,
+    'AC_FREQ_2': 'AC_FREQ', 'AC_FREQ_2_scaling': 1.,
+    'AC_FREQ_3': 'AC_FREQ', 'AC_FREQ_3_scaling': 1.,
+    'DC_V': 'VDCm', 'DC_V_scaling': 1.,
+    'DC_I': 'IDCm',  'DC_I_scaling': 1.,
+    'DC_P': 'DC_P',  'DC_P_scaling': 1.,
+    'TRIG': 'Trigger Generator.V_Grid_Trig',
+    'TRIG_GRID': 'Trigger Generator.Vs_Grid_Trig'}
+
+
+typhoon_points_map = {
+    'ASGC': typhoon_map_aug2018,  # AGF circuit, 3 phase
+    'ASGC_old': typhoon_points_asgc_old,  # AGF circuit, single phase
+}
 
 wfm_channels = ['AC_V_1', 'AC_V_2', 'AC_V_3', 'AC_I_1', 'AC_I_2', 'AC_I_3', 'EXT']
 
@@ -202,6 +207,7 @@ class Device(object):
         self.point_indexes = []
 
         self.ts = self.params['ts']
+        self.map = self.params['map']
 
         # waveform settings
         self.wfm_sample_rate = None
@@ -245,43 +251,75 @@ class Device(object):
         pass
 
     def data_read(self):
-
-        v1 = float(cp.read_analog_signal(name='V( Vrms1 )'))
-        v2 = float(cp.read_analog_signal(name='V( Vrms2 )'))
-        v3 = float(cp.read_analog_signal(name='V( Vrms3 )'))
-        i1 = float(cp.read_analog_signal(name='I( Irms1 )'))
-        i2 = float(cp.read_analog_signal(name='I( Irms2 )'))
-        i3 = float(cp.read_analog_signal(name='I( Irms3 )'))
-        p = float(cp.read_analog_signal(name='Pdc'))  # Note this is the AC power (fundamental)
-        va = float(cp.read_analog_signal(name='S'))
-        q = float(cp.read_analog_signal(name='Qdc'))
-        pf = float(cp.read_analog_signal(name='k'))
-        # f = cp.frequency
-
-        dc_v = float(cp.read_analog_signal(name='V( V_DC3 )'))
-        dc_i = float(cp.read_analog_signal(name='I( Ipv )'))
+        # self.ts.log_debug('Analog Channels: %s' % cp.get_analog_signals())
+        v1 = float(cp.read_analog_signal(name=typhoon_points_map.get(self.map).get('AC_VRMS_1'))) * \
+             float(typhoon_points_map.get(self.map).get('AC_VRMS_1_scaling'))
+        v2 = float(cp.read_analog_signal(name=typhoon_points_map.get(self.map).get('AC_VRMS_2'))) * \
+             float(typhoon_points_map.get(self.map).get('AC_VRMS_2_scaling'))
+        v3 = float(cp.read_analog_signal(name=typhoon_points_map.get(self.map).get('AC_VRMS_3'))) * \
+             float(typhoon_points_map.get(self.map).get('AC_VRMS_3_scaling'))
+        i1 = float(cp.read_analog_signal(name=typhoon_points_map.get(self.map).get('AC_IRMS_1'))) * \
+             float(typhoon_points_map.get(self.map).get('AC_IRMS_1_scaling'))
+        i2 = float(cp.read_analog_signal(name=typhoon_points_map.get(self.map).get('AC_IRMS_2'))) * \
+             float(typhoon_points_map.get(self.map).get('AC_IRMS_2_scaling'))
+        i3 = float(cp.read_analog_signal(name=typhoon_points_map.get(self.map).get('AC_IRMS_3'))) * \
+             float(typhoon_points_map.get(self.map).get('AC_IRMS_3_scaling'))
+        p1 = float(cp.read_analog_signal(name=typhoon_points_map.get(self.map).get('AC_P_1'))) * \
+             float(typhoon_points_map.get(self.map).get('AC_P_1_scaling'))
+        p2 = float(cp.read_analog_signal(name=typhoon_points_map.get(self.map).get('AC_P_1'))) * \
+             float(typhoon_points_map.get(self.map).get('AC_P_2_scaling'))
+        p3 = float(cp.read_analog_signal(name=typhoon_points_map.get(self.map).get('AC_P_1'))) * \
+             float(typhoon_points_map.get(self.map).get('AC_P_3_scaling'))
+        va1 = float(cp.read_analog_signal(name=typhoon_points_map.get(self.map).get('AC_S_1'))) * \
+             float(typhoon_points_map.get(self.map).get('AC_S_1_scaling'))
+        va2 = float(cp.read_analog_signal(name=typhoon_points_map.get(self.map).get('AC_S_2'))) * \
+             float(typhoon_points_map.get(self.map).get('AC_S_2_scaling'))
+        va3 = float(cp.read_analog_signal(name=typhoon_points_map.get(self.map).get('AC_S_3'))) * \
+             float(typhoon_points_map.get(self.map).get('AC_S_3_scaling'))
+        q1 = float(cp.read_analog_signal(name=typhoon_points_map.get(self.map).get('AC_Q_1'))) * \
+             float(typhoon_points_map.get(self.map).get('AC_Q_1_scaling'))
+        q2 = float(cp.read_analog_signal(name=typhoon_points_map.get(self.map).get('AC_Q_1'))) * \
+             float(typhoon_points_map.get(self.map).get('AC_Q_2_scaling'))
+        q3 = float(cp.read_analog_signal(name=typhoon_points_map.get(self.map).get('AC_Q_1'))) * \
+             float(typhoon_points_map.get(self.map).get('AC_Q_3_scaling'))
+        pf1 = float(cp.read_analog_signal(name=typhoon_points_map.get(self.map).get('AC_PF_1'))) * \
+             float(typhoon_points_map.get(self.map).get('AC_PF_1_scaling'))
+        pf2 = float(cp.read_analog_signal(name=typhoon_points_map.get(self.map).get('AC_PF_2'))) * \
+             float(typhoon_points_map.get(self.map).get('AC_PF_2_scaling'))
+        pf3 = float(cp.read_analog_signal(name=typhoon_points_map.get(self.map).get('AC_PF_3'))) * \
+             float(typhoon_points_map.get(self.map).get('AC_PF_3_scaling'))
+        # f1 = float(cp.read_analog_signal(name=typhoon_points_map.get(self.map).get('AC_FREQ_1')))* \
+        #      float(typhoon_points_map.get(self.map).get('AC_FREQ_1_scaling'))
+        # f2 = float(cp.read_analog_signal(name=typhoon_points_map.get(self.map).get('AC_FREQ_2')))* \
+        #      float(typhoon_points_map.get(self.map).get('AC_FREQ_2_scaling'))
+        # f3 = float(cp.read_analog_signal(name=typhoon_points_map.get(self.map).get('AC_FREQ_3')))* \
+        #      float(typhoon_points_map.get(self.map).get('AC_FREQ_3_scaling'))
+        dc_v = float(cp.read_analog_signal(name=typhoon_points_map.get(self.map).get('DC_V'))) * \
+             float(typhoon_points_map.get(self.map).get('DC_V_scaling'))
+        dc_i = float(cp.read_analog_signal(name=typhoon_points_map.get(self.map).get('DC_I'))) * \
+             float(typhoon_points_map.get(self.map).get('DC_I_scaling'))
 
         datarec = {'TIME': time.time(),
                    'AC_VRMS_1': v1,
                    'AC_IRMS_1': i1,
-                   'AC_P_1': p/3.,
-                   'AC_S_1': va/3.,
-                   'AC_Q_1': q/3.,
-                   'AC_PF_1': pf,
+                   'AC_P_1': p1,
+                   'AC_S_1': va1,
+                   'AC_Q_1': q1,
+                   'AC_PF_1': pf1,
                    'AC_FREQ_1': 50.,
                    'AC_VRMS_2': v2,
                    'AC_IRMS_2': i2,
-                   'AC_P_2': p/3.,
-                   'AC_S_2': va/3.,
-                   'AC_Q_2': q/3.,
-                   'AC_PF_2': pf,
+                   'AC_P_2': p2,
+                   'AC_S_2': va2,
+                   'AC_Q_2': q2,
+                   'AC_PF_2': pf2,
                    'AC_FREQ_2': 50.,
                    'AC_VRMS_3': v3,
                    'AC_IRMS_3': i3,
-                   'AC_P_3': p/3.,
-                   'AC_S_3': va/3.,
-                   'AC_Q_3': q/3.,
-                   'AC_PF_3': pf,
+                   'AC_P_3': p3,
+                   'AC_S_3': va3,
+                   'AC_Q_3': q3,
+                   'AC_PF_3': pf3,
                    'AC_FREQ_3': 50.,
                    'DC_V': dc_v,
                    'DC_I': dc_i,

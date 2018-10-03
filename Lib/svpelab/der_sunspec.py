@@ -1140,7 +1140,6 @@ class DER(der.DER):
                             w_point = 'W%d' % i
                             v.append(getattr(curve, v_point))
                             w.append(getattr(curve, w_point))
-                            self.ts.log_debug((v, i))
                         c_params['v'] = v
                         c_params['w'] = w
                         params['curve'] = c_params
