@@ -655,6 +655,34 @@ class DER(der.DER):
 
         return params
 
+    def validate_volt_var(self, params=None):
+        """ validate volt/var curve data.
+            v [] - List of voltage curve points
+            var [] - List of var curve points based on DeptRef
+
+        :param params: Dictionary of parameters; we only use the v[] and var[].
+        """
+        if params is None:
+            return
+
+        v = params['v']
+        var = params['var']
+
+        # Simple check to validate length correspondence betwee points.
+        if len(v) != len(var):
+            raise der.DERError('Unaligned v/var point totals; (%d) v and (%d) var' % (len(v), len(var)))
+
+        # We validate quadrant of each v/var pair; the origin starts at (100, 0).
+        for idx in range(len(v)):
+            v_measure = v[idx]
+            var_measure = var[idx]
+
+            if (v_measure > 100 and var_measure > 0) or (v_measure < 100 and var_measure < 0):
+                raise der.DERError(
+                    'Unsecure quadrant location for power system operations @ index %d; (%d) v and (%d) var' 
+                    % (idx, v_measure, var_measure)
+                )
+
     def volt_var_curve(self, id, params=None):
         """ Get/set volt/var curve
             v [] - List of voltage curve points
@@ -680,6 +708,7 @@ class DER(der.DER):
                 curve = self.inv.volt_var.curve[id]
 
                 if params is not None:
+                    self.validate_volt_var(params=params)
                     dept_ref = params.get('DeptRef')
                     if dept_ref is not None:
                         dept_ref_id = volt_var_dept_ref.get(dept_ref)
