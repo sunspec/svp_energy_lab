@@ -31,7 +31,6 @@ Questions can be directed to support@sunspec.org
 """
 
 import os
-
 import pvsim
 
 pass_info = {

@@ -37,22 +37,22 @@ import vxi11
 data_query_str = (
 ':NUMERIC:FORMAT ASCII\n'
 'NUMERIC:NORMAL:NUMBER 24\n'
-':NUMERIC:NORMAL:ITEM1 URMS,1;'
-':NUMERIC:NORMAL:ITEM2 IRMS,1;'
+':NUMERIC:NORMAL:ITEM1 U,1;'
+':NUMERIC:NORMAL:ITEM2 I,1;'
 ':NUMERIC:NORMAL:ITEM3 P,1;'
 ':NUMERIC:NORMAL:ITEM4 S,1;'
 ':NUMERIC:NORMAL:ITEM5 Q,1;'
 ':NUMERIC:NORMAL:ITEM6 LAMBDA,1;'
 ':NUMERIC:NORMAL:ITEM7 FU,1;'
-':NUMERIC:NORMAL:ITEM8 URMS,2;'
-':NUMERIC:NORMAL:ITEM9 IRMS,2;'
+':NUMERIC:NORMAL:ITEM8 U,2;'
+':NUMERIC:NORMAL:ITEM9 I,2;'
 ':NUMERIC:NORMAL:ITEM10 P,2;'
 ':NUMERIC:NORMAL:ITEM11 S,2;'
 ':NUMERIC:NORMAL:ITEM12 Q,2;'
 ':NUMERIC:NORMAL:ITEM13 LAMBDA,2;'
 ':NUMERIC:NORMAL:ITEM14 FU,2;'
-':NUMERIC:NORMAL:ITEM15 URMS,3;'
-':NUMERIC:NORMAL:ITEM16 IRMS,3;'
+':NUMERIC:NORMAL:ITEM15 U,3;'
+':NUMERIC:NORMAL:ITEM16 I,3;'
 ':NUMERIC:NORMAL:ITEM17 P,3;'
 ':NUMERIC:NORMAL:ITEM18 S,3;'
 ':NUMERIC:NORMAL:ITEM19 Q,3;'
@@ -65,19 +65,21 @@ data_query_str = (
 )
 '''
 
+
 # map data points to query points
 query_points = {
-    'AC_VRMS': 'URMS',
-    'AC_IRMS': 'IRMS',
+    'AC_VRMS': 'U',
+    'AC_IRMS': 'I',
     'AC_P': 'P',
     'AC_S': 'S',
     'AC_Q': 'Q',
     'AC_PF': 'LAMBDA',
     'AC_FREQ': 'FU',
-    'DC_V': 'UDC',
-    'DC_I': 'IDC',
+    'DC_V': 'U',
+    'DC_I': 'I',
     'DC_P': 'P'
 }
+
 
 def pf_scan(points, pf_points):
     for i in range(len(points)):
@@ -112,16 +114,19 @@ class DeviceError(Exception):
 class Device(object):
 
     def __init__(self, params):
-        self.vx = None
+        self.vx = None  # tcp implementation
+        self.conn = None  # visa implementation
         self.params = params
         self.channels = params.get('channels')
+        self.visa_id = params.get('visa_id')
+        self.ts = params.get('ts')
         self.data_points = ['TIME']
         self.pf_points = []
 
         # create query string for configured channels
         query_chan_str = ''
         item = 0
-        for i in range(1,5):
+        for i in range(1, 5):
             chan = self.channels[i]
             if chan is not None:
                 chan_type = chan.get('type')
@@ -143,10 +148,27 @@ class Device(object):
         query_chan_str += '\n:NUMERIC:NORMAL:VALUE?'
 
         self.query_str = ':NUMERIC:FORMAT ASCII\nNUMERIC:NORMAL:NUMBER %d\n' % (item) + query_chan_str
-
+        # self.ts.log(self.query_str)    #  plot command string
         pf_scan(self.data_points, self.pf_points)
 
-        self.vx = vxi11.Instrument(self.params['ip_addr'])
+
+        if self.params.get('comm') == 'Network':
+            self.vx = vxi11.Instrument(self.params['ip_addr'])
+
+        elif self.params.get('comm') == 'VISA':
+            try:
+                # sys.path.append(os.path.normpath(self.visa_path))
+                import visa
+                self.rm = visa.ResourceManager()
+                self.conn = self.rm.open_resource(params.get('visa_id'))
+
+                # the default pyvisa write termination is '\r\n' which does not work with the SPS
+                self.conn.write_termination = '\n'
+
+                self.ts.sleep(1)
+
+            except Exception, e:
+                raise Exception('Cannot open VISA connection to %s\n\t%s' % (params.get('visa_id'), str(e)))
 
         # clear any error conditions
         self.cmd('*CLS')
@@ -159,20 +181,42 @@ class Device(object):
             self.vx.close()
             self.vx = None
 
+    '''
     def cmd(self, cmd_str):
         try:
-            self.vx.write(cmd_str)
-            resp = self.query('STAT:ERRor?')
+            if self.params.get('comm') == 'Network':
+                self.vx.write(cmd_str)
+                resp = self.query('STAT:ERRor?')
 
-            if len(resp) > 0:
-                if resp[0] != '0':
-                    raise DeviceError(resp)
+                if len(resp) > 0:
+                    if resp[0] != '0':
+                        raise DeviceError(resp)
+            elif self.params.get('comm') == 'VISA':
+                self.conn.query(cmd_str)
+
         except Exception, e:
             raise DeviceError('WT3000 communication error: %s' % str(e))
+    '''
+    def cmd(self, cmd_str):
+        if self.params['comm'] == 'Network':
+            try:
+                self.vx.write(cmd_str)
+            except Exception, e:
+                raise DeviceError('WT3000 communication error: %s' % str(e))
+
+        elif self.params['comm'] == 'VISA':
+            try:
+                # self.ts.log(self.conn.query(cmd_str))
+                self.conn.write(cmd_str)
+            except Exception, e:
+                raise DeviceError('WT3000 communication error: %s' % str(e))
 
     def query(self, cmd_str):
         try:
-            resp = self.vx.ask(cmd_str)
+            if self.params.get('comm') == 'Network':
+                resp = self.vx.ask(cmd_str)
+            elif self.params.get('comm') == 'VISA':
+                resp = self.conn.query(cmd_str)
         except Exception, e:
             raise DeviceError('WT3000 communication error: %s' % str(e))
 
@@ -253,6 +297,20 @@ if __name__ == "__main__":
 
     import time
     import ftplib
+    import visa
+
+    '''
+    params = {'ts': None, 'visa_id': "GPIB0::13::INSTR", 'comm': "visa", 'comm': "visa"}
+    device = Device(params)
+    device.info()
+    '''
+    visa_device = "GPIB0::13::INSTR"
+    rm = visa.ResourceManager()
+    conn = rm.open_resource(visa_device)
+
+    print(conn.query('*IDN?'))
+
+    '''   
 
     COND_RUN = 0x1000
     COND_TRG = 0x0004
@@ -261,6 +319,7 @@ if __name__ == "__main__":
     COND_RUNNING = (COND_RUN | COND_CAP)
 
     params = {}
+
     params['ip_addr'] = '192.168.0.100'
     params['channels'] = [None, None, None, None, None]
 
@@ -275,7 +334,7 @@ if __name__ == "__main__":
     d = Device(params=params)
     print(d.info())
 
-    '''
+    
     # initialize temp directory
     d.cmd('FILE:DRIV SD')
     path = d.query('FILE:PATH?')
