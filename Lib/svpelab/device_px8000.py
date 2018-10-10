@@ -274,6 +274,21 @@ if __name__ == "__main__":
     except:
         pass
 
+    points_default = {
+        'AC': ('VRMS', 'IRMS', 'P', 'S', 'Q', 'PF', 'FREQ'),
+        'DC': ('V', 'I', 'P')
+    }
+    points = dict(points_default)
+
+    channels = [None]
+    for i in range(1, 5):
+        chan_type = self._param_value('chan_%d' % (i))
+        chan_label = self._param_value('chan_%d_label' % (i))
+        if chan_label == 'None':
+            chan_label = ''
+        chan = {'type': chan_type, 'points': self.points.get(chan_type), 'label': chan_label}
+        channels.append(chan)
+
     d = Device(params=params)
     print d.info()
 

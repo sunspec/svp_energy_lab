@@ -31,6 +31,7 @@ Questions can be directed to support@sunspec.org
 """
 
 import os
+
 import device_wt3000
 import das
 
@@ -49,9 +50,11 @@ def params(info, group_name):
     info.param_add_value(gname('mode'), mode)
     info.param_group(gname(GROUP_NAME), label='%s Parameters' % mode,
                      active=gname('mode'),  active_value=mode, glob=True)
-    info.param(pname('comm'), label='Communications Interface', default='Network', values=['Network'])
+    info.param(pname('comm'), label='Communications Interface', default='Network', values=['Network', 'VISA'])
     info.param(pname('ip_addr'), label='IP Address',
                active=pname('comm'),  active_value=['Network'], default='192.168.0.10')
+    info.param(pname('visa_id'), label='visa_id',
+               active=pname('comm'),  active_value=['VISA'], default='GPIB0::13::INSTR')
     info.param(pname('sample_interval'), label='Sample Interval (ms)', default=1000)
 
     info.param(pname('chan_1'), label='Channel 1', default='AC', values=['AC', 'DC', 'Unused'])
@@ -93,6 +96,9 @@ class DAS(das.DAS):
         self.params['ip_addr'] = self._param_value('ip_addr')
         self.params['ipport'] = self._param_value('ip_port')
         self.params['timeout'] = self._param_value('ip_timeout')
+        self.params['visa_id'] = self._param_value('visa_id')
+        self.params['comm'] = self._param_value('comm')
+        self.params['ts'] = ts
 
         # create channel info for each channel from parameters
         channels = [None]
@@ -105,7 +111,6 @@ class DAS(das.DAS):
             channels.append(chan)
 
         self.params['channels'] = channels
-
         self.device = device_wt3000.Device(self.params)
         self.data_points = self.device.data_points
 
@@ -119,5 +124,3 @@ class DAS(das.DAS):
 if __name__ == "__main__":
 
     pass
-
-
