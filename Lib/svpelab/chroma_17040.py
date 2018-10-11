@@ -1,6 +1,5 @@
 # wanbin son 
 
-
 import time
 
 TERMINATOR = "\n"
@@ -87,15 +86,11 @@ class ChromaBattSim(object):
         except Exception, e:
             raise ChromaGridSimError('Cannot open VISA connection to %s' % (self.visa_device))
 
-		
-
     def protection_clear(self):
         self.cmd('PROTection:CLEar')
         
-
     def set_capacity(self, cap):
-		self.cmd("BATTery:CAP %f" % cap)
-		
+		self.cmd("BATTery:CAP %f" % cap)	
 
     def set_curve(self,soc,vol,dcr_d,dcr_c):
         cmd_str="BATTery:CURVe 0, %d " % len(vol)
@@ -138,9 +133,6 @@ class ChromaBattSim(object):
         
         self.cmd("BATTery:BOH 110")         # high soc protection
         self.cmd("BATTery:BOL -20")         # low soc protection
-        
-        
-
         
 
     def set_current_protection(self, high):
