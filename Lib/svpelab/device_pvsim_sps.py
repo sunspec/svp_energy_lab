@@ -61,7 +61,7 @@ class SPS(object):
         self.group_index = None
 
         # if using VISA, configure the connection
-        if self.params.get('comm') == 'VISA':
+        if self.comm == 'VISA':
             try:
                 import visa
                 self.rm = visa.ResourceManager()
@@ -70,7 +70,7 @@ class SPS(object):
                 self.conn.write_termination = '\n'
                 self.ts.sleep(1)
             except Exception, e:
-                raise Exception('Cannot open VISA connection to %s\n\t%s' % (params.get('visa_id'), str(e)))
+                raise Exception('Cannot open VISA connection to %s\n\t%s' % (visa_id, str(e)))
 
     # TCP/IP command
     def _cmd(self, cmd_str):
