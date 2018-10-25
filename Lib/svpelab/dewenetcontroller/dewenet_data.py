@@ -463,6 +463,8 @@ class DeweChannelInfo:
 
         if isinstance(string_value, str):
             string_value = string_value.replace(",", ".")
+        if isinstance(string_value, unicode):
+            string_value = string_value.replace(",", ".")
         return float(string_value)  # float
 
     def __str__(self, *args, **kwargs):
