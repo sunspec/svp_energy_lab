@@ -544,6 +544,9 @@ class GridSim(gridsim.GridSim):
             range_values = str(self._query('conf:amp:range?')).split(',')
 
             for i, rg in enumerate(range_values):
+                self.ts.log_debug('Range is "%s"' % rg)
+                self.ts.log_debug('rg[:-1] produces "%s"' % rg[:-1])
+                self.ts.log_debug('rg[:-2] produces "%s"' % rg[:-2])
                 value = float(rg[:-1])
                 if voltage == value:
                     self._write('amp:range %i' % i)
@@ -725,7 +728,7 @@ class GridSim(gridsim.GridSim):
             if self.conn is None:
                 raise gridsim.GridSimError('GPIB connection not open')
 
-            return self.conn.query(cmd_str)
+            return self.conn.query(cmd_str).rstrip("\n\r")
         except Exception, e:
             raise gridsim.GridSimError(str(e))
 
