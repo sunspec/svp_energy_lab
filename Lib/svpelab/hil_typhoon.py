@@ -40,6 +40,7 @@ try:
     import typhoon.api.pv_generator as pv
 except Exception, e:
     print('Typhoon HIL API not installed. %s' % e)
+    raise e
 
 typhoon_info = {
     'name': os.path.splitext(os.path.basename(__file__))[0],
@@ -125,6 +126,25 @@ class HIL(hil.HIL):
         self.ts.log('available analog meters = %s' % typhoon.api.ti_control_panel.available_references())
         return typhoon.api.ti_control_panel.available_references()
 
+
+    def __buildHandler__(self):
+        """
+        :todo check if model already built
+        :return:
+        """
+        if self.hil_model_dir + self.model_name + r" Target files/" + self.model_name + r".cpd":
+            if not self.load_schematic():
+                raise hil.HILModelException("Failed to load Schematic!")
+
+            if not self.compile_model():
+                raise hil.HILCompileException("Failed to compile model!")
+
+        self.ts.sleep(1)
+
+        if not self.load_model_on_hil():
+            raise hil.HILRuntimeException("Failed to load model!")
+
+
     def config(self):
         """
         Perform any configuration for the simulation based on the previously
@@ -135,15 +155,22 @@ class HIL(hil.HIL):
         self.ts.log_debug('HIL hardware is %s' % hw)
         # model.set_simulation_time_step(self.sim_time_step)
 
-        self.load_schematic()
-        self.compile_model()
-        self.ts.sleep(0.1)
-        self.load_model_on_hil()
+
+        try:
+            self.__buildHandler__()
+        except:
+            raise
+
         self.init_sim_settings()
         self.ts.log("HIL simulation successfully prepared for execution.")
 
         self.ts.log("Starting Simulation...")
         self.start_simulation()
+
+
+        """
+        This is a rather crude way to wait for EUT to start up! 
+        """
 
         # let the inverter startup
         sleeptime = 15
@@ -184,6 +211,7 @@ class HIL(hil.HIL):
             self.ts.log_warning("Model did not load!")
             status = False
             return status
+        return True
 
     def compile_model(self):
         '''
@@ -193,6 +221,7 @@ class HIL(hil.HIL):
             self.ts.log_warning("Model did not compile!")
             status = False
             return status
+        return True
 
     def load_model_on_hil(self):
         '''
@@ -213,6 +242,9 @@ class HIL(hil.HIL):
 
         if not cp.load_model(file=hil_model_dir):
             self.ts.log_warning("HIL model (.cpd) did not load!")
+            return False
+
+        return True
 
     def init_sim_settings(self):
         '''
@@ -237,6 +269,8 @@ class HIL(hil.HIL):
         # Open existing settings file.
         if not cp.load_settings_file(file=settings_file_dir):
             self.ts.log_warning("Settings file (.runx) did not work did not compile!")
+            return False
+        return True
 
     def init_control_panel(self):
         pass

@@ -91,7 +91,14 @@ class GridSim(gridsim.GridSim):
 
         self.f_nom = self._param_value('f_nom')
         self.f = self.f_nom
-        self.waveform_source_list = self._param_value('waveform_names').strip().replace(" ", "").split(',')
+
+        try:
+            tempstring = self._param_value('waveform_names').strip().split(',')
+            self.waveform_source_list = [i .rstrip(' ').lstrip(' ')for i in tempstring]
+        except Exception as e:
+            ts.log("Failed waveform_names: %s" % e)
+            raise e
+
         self.ts.log_debug('Grid Sources: %s.' % self.waveform_source_list)
 
         if self.auto_config == 'Enabled':
