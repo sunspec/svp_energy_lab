@@ -178,9 +178,11 @@ class HIL(hil.HIL):
                 try:
                     self.__buildHandler__()
                 except Exception as e:
+                    self.ts.log("Failed build with {}".format(e))
                     continue
                 if self.load_model_on_hil():
                     self.ts.log("Model loaded after {} tries".format(i))
+                    return True
                 else:
                     self.ts.log("Retry {}/4: Trying to load HIL Model {}".format(i,self.model_name))
                     #We will delete the Entire compiler output folder
