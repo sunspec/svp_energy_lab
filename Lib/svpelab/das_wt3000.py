@@ -53,6 +53,8 @@ def params(info, group_name):
     info.param(pname('comm'), label='Communications Interface', default='Network', values=['Network', 'VISA'])
     info.param(pname('ip_addr'), label='IP Address',
                active=pname('comm'),  active_value=['Network'], default='192.168.0.10')
+    info.param(pname('ip_port'), label='IP Port',
+               active=pname('comm'),  active_value=['Network'], default=10001)
     info.param(pname('visa_id'), label='visa_id',
                active=pname('comm'),  active_value=['VISA'], default='GPIB0::13::INSTR')
     info.param(pname('sample_interval'), label='Sample Interval (ms)', default=1000)
