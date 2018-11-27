@@ -34,6 +34,26 @@ import os
 import glob
 import importlib
 
+
+
+
+
+
+class HILGenericException(Exception):
+    pass
+
+class HILCompileException(Exception):
+    pass
+
+class HILModelException(Exception):
+    pass
+
+class HILRuntimeException(Exception):
+    pass
+
+class HILSimulationException(Exception):
+    pass
+
 # Import all hardware-in-the-loop extensions in current directory.
 # A hil extension has a file name of hil_*.py and contains a function hil_params(info) that contains
 # a dict with the following entries: name, init_func.

@@ -43,6 +43,13 @@ except Exception, e:
 
 
 
+"""
+todo: thread needs to be joined and stopped!
+
+"""
+
+
+
 
 """
 This is a really bad hack! 
@@ -220,8 +227,6 @@ class Device(object):
 
         self.data_points = list(data_points)
 
-        self.__logevent__(self.data_points)
-
         self.points = None
         self.point_indexes = []
 
@@ -367,8 +372,33 @@ if __name__ == "__main__":
     params['sample_interval'] = 1000
     params['sample_interval_dewe'] = 10000
 
+    params['AC_VRMS_1'] = "EUT/U_rms_L1"
+    params['AC_VRMS_2'] = "EUT/U_rms_L2"
+    params['AC_VRMS_3'] = "EUT/U_rms_L3"
+    params['AC_IRMS_1'] = "EUT/I_rms_L1"
+    params['AC_IRMS_2'] = "EUT/I_rms_L2"
+    params['AC_IRMS_3'] = "EUT/I_rms_L3"
+    params['AC_FREQ_1'] = "EUT/Frequency"
+    params['AC_FREQ_2'] = "EUT/Frequency"
+    params['AC_FREQ_3'] = "EUT/Frequency"
+    params['AC_P_1'] = "EUT/P_L1"
+    params['AC_P_2'] = "EUT/P_L2"
+    params['AC_P_3'] = "EUT/P_L1"
+    params['AC_S_1'] = "EUT/S_L1"
+    params['AC_S_2'] = "EUT/S_L2"
+    params['AC_S_3'] = "EUT/S_L3"
+    params['AC_Q_1'] = "EUT/Q_L1"
+    params['AC_Q_2'] = "EUT/Q_L2"
+    params['AC_Q_3'] = "EUT/Q_L3"
+    params['AC_PF_1'] = "EUT/PF_L1"
+    params['AC_PF_2'] = "EUT/PF_L2"
+    params['AC_PF_3'] = "EUT/PF_L3"
+    params['DC_V'] = "PV/U_rms_L1"
+    params['DC_I'] = "PV/I_rms_L1"
+    params['DC_P'] = "PV/P_L1"
 
-
+    params['deweproxy_ip_addr'] = "0.0.0.0"
+    params['deweproxy_ip_port'] = 9999
 
     d = Device(params=params)
 
@@ -376,8 +406,8 @@ if __name__ == "__main__":
     count = 0
     while True:
         count +=1
-        time.sleep(0.5)
-        print d.data_read()
-        if count > 50: break
+        time.sleep(0.25)
+        print "[%s] -> %s" % (count, d.data_read())
+        if count > 200: break
     d.close()
 
