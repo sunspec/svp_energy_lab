@@ -3,8 +3,7 @@ import socket
 import sys
 import time
 import vxi11
-
-'''
+"""
 data_query_str = (
 ':NUMERIC:FORMAT ASCII\n'
 'NUMERIC:NORMAL:NUMBER 24\n'
@@ -34,20 +33,47 @@ data_query_str = (
 ':NUMERIC:NORMAL:ITEM24 P,4;\n'
 ':NUMERIC:NORMAL:VALUE?'
 )
-'''
-
+"""
+"""
+data_config_str = (
+':NUM:NORM:ITEM1 U,1;'
+':NUM:NORM:ITEM2 I,1;'
+':NUM:NORM:ITEM3 P,1;'
+':NUM:NORM:ITEM4 S,1;'
+':NUM:NORM:ITEM5 Q,1;'
+':NUM:NORM:ITEM6 LAMBDA,1;'
+':NUM:NORM:ITEM7 FU,1;'
+':NUM:NORM:ITEM8 U,2;'
+':NUM:NORM:ITEM9 I,2;'
+':NUM:NORM:ITEM10 P,2;'
+':NUM:NORM:ITEM11 S,2;'
+':NUM:NORM:ITEM12 Q,2;'
+':NUM:NORM:ITEM13 LAMBDA,2;'
+':NUM:NORM:ITEM14 FU,2;'
+':NUM:NORM:ITEM15 U,3;'
+':NUM:NORM:ITEM16 I,3;'
+':NUM:NORM:ITEM17 P,3;'
+':NUM:NORM:ITEM18 S,3;'
+':NUM:NORM:ITEM19 Q,3;'
+':NUM:NORM:ITEM20 LAMBDA,3;'
+':NUM:NORM:ITEM21 FU,3;'
+':NUM:NORM:ITEM22 UDC,4;'
+':NUM:NORM:ITEM23 IDC,4;'
+':NUM:NORM:ITEM24 P,4;\n'
+)
+"""
 
 # map data points to query points
 query_points = {
-    'AC_VRMS': 'U',
-    'AC_IRMS': 'I',
+    'AC_VRMS': 'URMS',
+    'AC_IRMS': 'IRMS',
     'AC_P': 'P',
     'AC_S': 'S',
     'AC_Q': 'Q',
     'AC_PF': 'LAMBDA',
     'AC_FREQ': 'FU',
-    'DC_V': 'U',
-    'DC_I': 'I',
+    'DC_V': 'UDC',
+    'DC_I': 'IDC',
     'DC_P': 'P'
 }
 
@@ -97,6 +123,9 @@ class Device(object):
         self.ts = params.get('ts')
         self.data_points = ['TIME']
         self.pf_points = []
+        self.buffer_size=255
+        self.config_array= []
+        self.b_expct=6
 
         # create query string for configured channels
         query_chan_str = ''
@@ -116,35 +145,45 @@ class Device(object):
                         item += 1
                         point_str = '%s_%s' % (chan_type, p)
                         chan_str = query_points.get(point_str)
-                        query_chan_str += ':NUMERIC:NORMAL:ITEM%d %s,%d;' % (item, chan_str, i)
+                        self.config_array.append(':NUMERIC:NORMAL:ITEM%d %s,%d;' % (item, chan_str, i))
+                        #query_chan_str += ':NUMERIC:NORMAL:ITEM%d %s,%d;' % (item, chan_str, i)
                         if chan_label:
                             point_str = '%s_%s' % (point_str, chan_label)
                         self.data_points.append(point_str)
-        query_chan_str += '\n:NUMERIC:NORMAL:VALUE?'
-
-        self.query_str = ':NUMERIC:FORMAT ASCII\nNUMERIC:NORMAL:NUMBER %d\n' % (item) + query_chan_str
-        # self.ts.log(self.query_str)    #  plot command string
+        #query_chan_str += '\n:NUMERIC:NORMAL:VALUE?'
+        # self.query_str = ':NUMERIC:FORMAT ASCII\nNUMERIC:NORMAL:NUMBER %d\n' % (item) + query_chan_str
+        self.query_str = ':NUMERIC:NORMAL:VALUE?'
+        self.config_array.insert(0,':NUMERIC:FORMAT ASCII\nNUMERIC:NORMAL:NUMBER %d\n' % item)
         pf_scan(self.data_points, self.pf_points)
-
         if self.params.get('comm') == 'Network':
             # self.vx = vxi11.Instrument(self.params['ip_addr'])
-            self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             server_address = (self.ip_addr, self.ip_port)
-            self.sock.connect(server_address)
-            self.sock.settimeout(2.0)
+            self.conn.connect(server_address)
+            self.conn.settimeout(2.0)
+              
+            self.ts.log_debug('WT1600 is Connected')
 
             # Enter the username "anoymous" and password "".
             # If the WT1600 is not configured correctly, a connection cannot be made.
 
             # Read the WT1600 device asking for username
-            self._query(None)
+            resp = self._query(None)
+            self.ts.log_debug('WT1600 response: %s' % resp[4:len(resp)])
 
             # Provide the username
             resp = self.query(self.username)  # Read the WT1600 device asking for password, but ignore response
-            self.ts.log('WT1600 response: %s' % resp)
+            self.ts.log_debug('WT1600 response: %s' % resp[4:len(resp)])
 
             resp = self.query(self.password)  # Read the WT1600 device asking for password, but ignore response
-            self.ts.log('WT1600 response: %s' % resp)  # Should print a password OK message
+            self.ts.log_debug('WT1600 response: %s' % resp[4:len(resp)])  # Should print a password OK message
+
+            self.b_expct = 4
+            for n in range(1,24):
+                resp = self.query(self.config_array[n])  # Send channel configuration
+            self.b_expct = 6
+            resp = self.query(':NUMERIC:NORMAL?')  # Read the WT1600 Channel configuration
+            self.ts.log_debug('WT1600 Channel Configuration: %s' % resp[4:len(resp)])  # Print Channel Configuration
 
         elif self.params.get('comm') == 'VISA':
             try:
@@ -187,19 +226,15 @@ class Device(object):
 
         if cmd_str is not None:
             self._cmd(cmd_str)
-
-        while more_data:
-            try:
-                data = self.conn.recv(self.buffer_size)
-                if len(data) > 0:
-                    for d in data:
-                        resp += d
-                        if d == '\r':
-                            more_data = False
-                            break
-            except Exception, e:
-                raise DeviceError('Timeout waiting for response')
-        return resp
+        b_recv = 0
+        b_expct = self.b_expct
+        while b_recv < b_expct:
+           # try:
+            data = self.conn.recv(self.buffer_size)
+            b_recv+= len(data)
+            #except Exception, e:
+             #   raise DeviceError('Timeout waiting for response')
+        return data
 
     def cmd(self, cmd_str):
         if self.params['comm'] == 'Network':
@@ -212,7 +247,7 @@ class Device(object):
         elif self.params['comm'] == 'VISA':
             try:
                 # self.ts.log(self.conn.query(cmd_str))
-                self.conn.write(cmd_str)
+                self.conn.sendall(cmd_str)
             except Exception, e:
                 raise DeviceError('WT1600 communication error: %s' % str(e))
 
@@ -252,7 +287,10 @@ class Device(object):
 
     def data_read(self):
         q = self.query(self.query_str)
-        data = [float(i) for i in q.split(',')]
+        #q = self.query(self.query_str2)
+        m = q[4:len(q)]
+        # self.ts.log(m)
+        data = [float(i) for i in m.split(',')]
         data.insert(0, time.time())
         for p in self.pf_points:
             data[p[0]] = pf_adjust_sign(data, *p)
@@ -284,7 +322,7 @@ class Device(object):
             'trigger_wait' - waiting for trigger - True/False
             'capturing' - waveform capture is active - True/False
         """
-        cond = int(d.query('STAT:COND?'))
+        cond = int(d.query('STAT:COND?',6))
         result = {'trigger_wait': (cond & COND_TRG),
                   'capturing': (cond & COND_CAP),
                   'cond': cond}
@@ -315,75 +353,3 @@ class Device(object):
 
         pass
 
-
-def build_frame(message):
-    framesize = len(message)
-    s_frame = chr(0x80) + chr(0x00) + chr((framesize >> 8) & 0xFF) + chr(framesize & 0xFF) + message
-    return s_frame
-
-
-def receive_func():
-    amount_expected = 6
-    amount_received = 0
-    data = ''
-    while amount_received < amount_expected:
-        data = sock.recv(50)
-        amount_received += len(data)
-    return data
-
-
-def menu():
-
-    repeat_menu = True
-    option = ''
-    while repeat_menu:
-        os.system('cls')
-        print("Options:")
-        print("1-Read Voltage")
-        print("2-Exit")
-
-        option = input("Insert option >> ")
-        if int(option) < 1 or int(option) > 2:
-            print("Not valid option")
-            time.sleep(2)
-        else:
-            break
-    return option    
-    
-if __name__ == '__main__':
-    os.system('cls')
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-    print('Enter IP Address: ')
-    ip_address = input()
-    print('Enter TCP Port:')
-    tcp_port = int(input())
-    server_address = (ip_address, tcp_port)
-
-    sock.connect(server_address)
-    sock.settimeout(2.0)
-
-    print(receive_func())
-    message = build_frame(input())
-    sock.sendall(message)
-
-    print(receive_func())
-    message = build_frame(input())
-    sock.sendall(message)
-
-    print(receive_func())
-
-    repeat_cycle = True
-    while repeat_cycle:
-        opt = menu()
-        if opt == 2:
-            repeat_cycle = False
-        if opt == 1:
-            message = build_frame(":NUMERIC:NORMAL:VALUE? 1")
-            sock.sendall(message)
-            dato = receive_func()
-            print(dato)
-        time.sleep(2)
-
-    print >> sys.stderr, 'closing socket'
-    sock.close()
