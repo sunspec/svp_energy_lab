@@ -1,4 +1,3 @@
-
 import os
 import xml.etree.ElementTree as ET
 import csv
@@ -350,8 +349,7 @@ class ResultWorkbook(object):
                     min_error = params.get('plot.%s.min_error' % name)
                     max_error = params.get('plot.%s.max_error' % name)
                     print 'min_error, max_error = %s %s' % (min_error, max_error)
-                    col_index = point_names.index(name)
-                    col = xl_col(col_index)
+                    col = point_names.index(name)
                     line_color = params.get('plot.%s.color' % name, colors[color_idx])
                     point = params.get('plot.%s.point' % name, 'False')
                     if point == 'True':
@@ -364,8 +362,7 @@ class ResultWorkbook(object):
                     series = {
                         'name': name,
                         'categories': categories,
-                        # 'values': [ws_name, 2, col, count, col],
-                        'values': '=%s!$%s$%s:$%s$%s' % (ws_name, col, 2, col, count + 1),
+                        'values': [ws_name, 2, col, count, col],
                         # 'line': {'color': line_color, 'width': 1.5},
                         'line': {'width': 1.5},
                         'marker': marker,
@@ -373,18 +370,14 @@ class ResultWorkbook(object):
                         'values_data':     []
                     }
                     if min_error and max_error:
-                        min_col = xl_col(point_names.index(min_error))
-                        max_col = xl_col(point_names.index(max_error))
-                        min_values = '=%s!$%s$%s:$%s$%s' % (ws_name, min_col, 2, min_col, count + 1)
-                        max_values = '=%s!$%s$%s:$%s$%s' % (ws_name, max_col, 2, max_col, count + 1)
-                        print 'min_values = %s' % min_values
-                        print 'max_values = %s' % max_values
+                        min_col = point_names.index(min_error)
+                        max_col = point_names.index(max_error)
                         series['y_error_bars'] = {
                             'type': 'custom',
                             'direction': 'both',
                             # 'value': 10
-                            'plus_values': max_values,
-                            'minus_values': min_values,
+                            'plus_values': [ws_name, 2, max_col, count, max_col],
+                            'minus_values': [ws_name, 2, min_col, count, min_col],
                             'categories_data': [],
                             'values_data':     []
                         }
@@ -523,7 +516,6 @@ class ResultWorkbook(object):
             self.wb.close()
 
 """ Simple XML pretty print support function
-
 """
 def xml_indent(elem, level=0):
     i = "\n" + level*"  "
@@ -541,21 +533,34 @@ def xml_indent(elem, level=0):
             elem.tail = i
 
 if __name__ == "__main__":
+##
+##    result = Result(name='Result', type='suite')
+##    result1 = Result(name='Result 1', type='test', status='complete')
+##    result1.results.append(Result(name='Result 1 Log', type='log', filename='log/file/name/1'))
+##    result2 = Result(name='Result 2', type='test', status='complete', params={'param 1': 'param 1 value'})
+##    result2.results.append(Result(name='Result 2 Log', type='log', filename='log/file/name/2'))
+##    result.results.append(result1)
+##    result.results.append(result2)
+##
+##    xml_str = result.to_xml_str(pretty_print=True)
+##    print xml_str
+##    print result
+##    print '-------------------'
+##    result_xml = Result()
+##    root = ET.fromstring(xml_str)
+##    result_xml.from_xml(root)
+##    print result_xml
+    result_params = {
+        'plot.title': 'title_name',
+        'plot.x.title': 'Freq (Hz)',
+        'plot.x.points': 'AC_FREQ_1',
+        'plot.y.points': 'AC_P_1',
+        'plot.y.title': 'Power (W)',
+    }
+    xlsxfile = 'FW_1.xlsx'
+    print('Includes all file to {}'.format(xlsxfile))
+    result_workbook(xlsxfile, 'C:\\Users\\eapablaz\\Desktop\\Good test\\2018-10-24_11-08-57-758__FW__FW_1', 'FW\\FW_1')
 
-    result = Result(name='Result', type='suite')
-    result1 = Result(name='Result 1', type='test', status='complete')
-    result1.results.append(Result(name='Result 1 Log', type='log', filename='log/file/name/1'))
-    result2 = Result(name='Result 2', type='test', status='complete', params={'param 1': 'param 1 value'})
-    result2.results.append(Result(name='Result 2 Log', type='log', filename='log/file/name/2'))
-    result.results.append(result1)
-    result.results.append(result2)
 
-    xml_str = result.to_xml_str(pretty_print=True)
-    print xml_str
-    print result
-    print '-------------------'
-    result_xml = Result()
-    root = ET.fromstring(xml_str)
-    result_xml.from_xml(root)
-    print result_xml
 
+    
