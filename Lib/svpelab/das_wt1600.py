@@ -32,21 +32,21 @@ Questions can be directed to support@sunspec.org
 
 import os
 
-import device_wt3000
+import device_wt1600
 import das
 
-wt3000_info = {
+wt1600_info = {
     'name': os.path.splitext(os.path.basename(__file__))[0],
-    'mode': 'Yokogawa WT3000'
+    'mode': 'Yokogawa WT1600'
 }
 
 def das_info():
-    return wt3000_info
+    return wt1600_info
 
 def params(info, group_name):
     gname = lambda name: group_name + '.' + name
     pname = lambda name: group_name + '.' + GROUP_NAME + '.' + name
-    mode = wt3000_info['mode']
+    mode = wt1600_info['mode']
     info.param_add_value(gname('mode'), mode)
     info.param_group(gname(GROUP_NAME), label='%s Parameters' % mode,
                      active=gname('mode'),  active_value=mode, glob=True)
@@ -86,7 +86,7 @@ def params(info, group_name):
     # info.param(pname('ip_timeout'), label='IP Timeout',
     #            active=pname('comm'),  active_value=['Network'], default=5)
 
-GROUP_NAME = 'wt3000'
+GROUP_NAME = 'wt1600'
 
 
 class DAS(das.DAS):
@@ -119,7 +119,7 @@ class DAS(das.DAS):
             channels.append(chan)
 
         self.params['channels'] = channels
-        self.device = device_wt3000.Device(self.params)
+        self.device = device_wt1600.Device(self.params)
         self.data_points = self.device.data_points
 
         # initialize soft channel points

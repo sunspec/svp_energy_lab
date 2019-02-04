@@ -119,6 +119,10 @@ class Device(object):
         self.params = params
         self.channels = params.get('channels')
         self.visa_id = params.get('visa_id')
+        self.ip_addr = params.get('ip_addr')
+        self.ip_port = params.get('ip_port')
+        self.username = params.get('username')
+        self.password = params.get('password')
         self.ts = params.get('ts')
         self.data_points = ['TIME']
         self.pf_points = []
@@ -151,9 +155,25 @@ class Device(object):
         # self.ts.log(self.query_str)    #  plot command string
         pf_scan(self.data_points, self.pf_points)
 
-
         if self.params.get('comm') == 'Network':
-            self.vx = vxi11.Instrument(self.params['ip_addr'])
+            # self.vx = vxi11.Instrument(self.params['ip_addr'])
+            self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            server_address = (self.ip_addr, self.ip_port)
+            self.sock.connect(server_address)
+            self.sock.settimeout(2.0)
+
+            # Enter the username "anoymous" and password "".
+            # If the WT3000 is not configured correctly, a connection cannot be made.
+
+            # Read the WT3000 device asking for username
+            self._query(None)
+
+            # Provide the username
+            resp = self.query(self.username)  # Read the WT3000 device asking for password, but ignore response
+            self.ts.log('WT3000 response: %s' % resp)
+
+            resp = self.query(self.password)  # Read the WT3000 device asking for password, but ignore response
+            self.ts.log('WT3000 response: %s' % resp)  # Should print a password OK message
 
         elif self.params.get('comm') == 'VISA':
             try:
@@ -173,34 +193,49 @@ class Device(object):
         # clear any error conditions
         self.cmd('*CLS')
 
-    def open(self):
-        pass
-
-    def close(self):
-        if self.vx is not None:
-            self.vx.close()
-            self.vx = None
-
-    '''
-    def cmd(self, cmd_str):
+    def _cmd(self, cmd_str):
+        """ low-level TCP/IP socket connection to WT3000 """
         try:
-            if self.params.get('comm') == 'Network':
-                self.vx.write(cmd_str)
-                resp = self.query('STAT:ERRor?')
+            if self.conn is None:
+                self.conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                self.conn.settimeout(self.timeout)
+                self.conn.connect((self.ip_addr, self.ip_port))
+            # print 'cmd> %s' % (cmd_str)
 
-                if len(resp) > 0:
-                    if resp[0] != '0':
-                        raise DeviceError(resp)
-            elif self.params.get('comm') == 'VISA':
-                self.conn.query(cmd_str)
+            framesize = len(cmd_str)
+            frame = chr(0x80) + chr(0x00) + chr((framesize >> 8) & 0xFF) + chr(framesize & 0xFF) + cmd_str
+            self.conn.send(frame)
 
         except Exception, e:
-            raise DeviceError('WT3000 communication error: %s' % str(e))
-    '''
+            raise
+
+    def _query(self, cmd_str):
+        """ low-level query to WT3000 """
+        resp = ''
+        more_data = True
+
+        if cmd_str is not None:
+            self._cmd(cmd_str)
+
+        while more_data:
+            try:
+                data = self.conn.recv(self.buffer_size)
+                if len(data) > 0:
+                    for d in data:
+                        resp += d
+                        if d == '\r':
+                            more_data = False
+                            break
+            except Exception, e:
+                raise DeviceError('Timeout waiting for response')
+        return resp
+
     def cmd(self, cmd_str):
         if self.params['comm'] == 'Network':
             try:
-                self.vx.write(cmd_str)
+                # self.vx.write(cmd_str)
+                self._cmd(cmd_str)
+
             except Exception, e:
                 raise DeviceError('WT3000 communication error: %s' % str(e))
 
@@ -213,14 +248,31 @@ class Device(object):
 
     def query(self, cmd_str):
         try:
+            resp = ''
             if self.params.get('comm') == 'Network':
-                resp = self.vx.ask(cmd_str)
+                # resp = self.vx.ask(cmd_str)
+                resp = self._query(cmd_str).strip()
             elif self.params.get('comm') == 'VISA':
                 resp = self.conn.query(cmd_str)
         except Exception, e:
             raise DeviceError('WT3000 communication error: %s' % str(e))
 
         return resp
+
+    def open(self):
+        pass
+
+    def close(self):
+        try:
+            # if self.vx is not None:
+            #     self.vx.close()
+            #     self.vx = None
+            if self.conn is not None:
+                self.conn.close()
+        except Exception, e:
+            pass
+        finally:
+            self.conn = None
 
     def info(self):
         return self.query('*IDN?')
