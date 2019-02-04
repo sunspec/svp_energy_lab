@@ -219,6 +219,8 @@ class DAS(object):
         If sample_interval == 0, there will be no autonomous data captures and self.data_sample should be used to add
         data points to the capture
         """
+        if self.device is not None:
+            self.sample_interval = self.device.sample_interval
         if enable is True:
             if self._capture is False:
                 self._ds = dataset.Dataset(self.data_points, ts=self.ts)
