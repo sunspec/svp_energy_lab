@@ -29,7 +29,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 Questions can be directed to support@sunspec.org
 """
-
+import datetime
 
 class DatasetError(Exception):
     """
@@ -94,9 +94,12 @@ class Dataset(object):
         for i in range(dlen):
             try:
                 if data[i] is not None:
+                    print(type(data[i]))
                     if data[i] is tuple:
                         self.ts.log_debug('tuple data point recorded: %s' % data)
                         v = float(data[i][0])
+                    elif isinstance(data[i], datetime.datetime):
+                        v = data[i]
                     else:
                         v = float(data[i])
                 else:
