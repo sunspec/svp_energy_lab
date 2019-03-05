@@ -1,5 +1,5 @@
 """
-Copyright (c) 2017, Sandia National Labs and SunSpec Alliance
+Copyright (c) 2019, Sandia National Laboratories, SunSpec Alliance, and Tecnalia
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -28,8 +28,6 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 Questions can be directed to support@sunspec.org
-
-Documentation: http://www.programmablepower.com/custom-power-supply/ETS/downloads/M609155-01_revH.pdf
 """
 
 import sys
@@ -43,10 +41,10 @@ STATUS_PROFILE_RUNNING = 64
 STATUS_PROFILE_PAUSED = 128
 STATUS_PROFILE_IN_PROGRESS = STATUS_PROFILE_RUNNING + STATUS_PROFILE_PAUSED
 
-class keysightAPVError(Exception):
+class KeysightAPVError(Exception):
     pass
 
-class keysightAPV(object):
+class KeysightAPV(object):
 
     def __init__(self, ipaddr='127.0.0.1', ipport=5025, timeout=5):
         self.ipaddr = ipaddr
@@ -83,7 +81,7 @@ class keysightAPV(object):
                             more_data = False
                             break
             except Exception, e:
-                raise keysightAPVError('Timeout waiting for response')
+                raise KeysightAPVError('Timeout waiting for response')
 
         return resp
 
@@ -94,9 +92,9 @@ class keysightAPV(object):
 
             if len(resp) > 0:
                 if resp[1] != '0':
-                    raise keysightAPVError(resp)
+                    raise KeysightAPVError(resp)
         except Exception, e:
-            raise keysightAPVError(str(e))
+            raise KeysightAPVError(str(e))
         finally:
             self.close()
 
@@ -104,7 +102,7 @@ class keysightAPV(object):
         try:
             resp = self._query(cmd_str).strip()
         except Exception, e:
-            raise keysightAPVError(str(e))
+            raise KeysightAPVError(str(e))
         finally:
             self.close()
 
@@ -188,9 +186,9 @@ class Channel(object):
 if __name__ == "__main__":
 
     try:
-        ksas = keysightAPV(ipaddr='127.0.0.1')
-        # ksas = keysightAPV(ipaddr='192.168.0.196')
-        # ksas = keysightAPV(ipaddr='10.10.10.10')
+        ksas = KeysightAPV(ipaddr='127.0.0.1')
+        # ksas = KeysightAPV(ipaddr='192.168.0.196')
+        # ksas = KeysightAPV(ipaddr='10.10.10.10')
 
         ksas.scan()
 
@@ -234,4 +232,4 @@ if __name__ == "__main__":
 
     except Exception, e:
         raise
-        print 'Error running keysightAPV setup: %s' % (str(e))
+        print 'Error running KeysightAPV setup: %s' % (str(e))

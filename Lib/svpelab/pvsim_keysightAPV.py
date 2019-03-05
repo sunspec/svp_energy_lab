@@ -1,5 +1,5 @@
 """
-Copyright (c) 2017, Sandia National Labs and SunSpec Alliance
+Copyright (c) 2019, Sandia National Laboratories, SunSpec Alliance, and Tecnalia
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -92,8 +92,7 @@ class PVSim(pvsim.PVSim):
             self.v_overvoltage = self._param_value('overvoltage')
             self.vmp = self._param_value('vmp')
             self.imp = self._param_value('imp')
-            
-            
+
             self.filename = self._param_value('filename')
             if self.filename is None:
                 self.filename = keysightAPV.SVP_CURVE
@@ -108,7 +107,7 @@ class PVSim(pvsim.PVSim):
                     raise pvsim.PVSimError('Invalid channel number: %s' % c)
 
             self.profile_name = None
-            self.ksas = keysightAPV.keysightAPV(ipaddr=self.ipaddr)
+            self.ksas = keysightAPV.KeysightAPV(ipaddr=self.ipaddr)
             self.ksas.scan()
 
             for c in self.channel:
@@ -117,7 +116,7 @@ class PVSim(pvsim.PVSim):
                     # re-add SASCURVE curve with active parameters
                     self.ts.log('Initializing PV Simulator with imp = %d and Vmp = %d.' % (self.imp, self.vmp))
                     self.ksas.curve_SAS(imp=self.imp, vmp=self.vmp,isc=self.isc,voc=self.voc)
-                 #   channel.curve_set(keysightAPV.SAS_CURVE)
+                    # channel.curve_set(keysightAPV.SAS_CURVE)
                 elif self.curve_type == 'TABLE':
                     self.ksas.curve(filename=self.filename)
                     channel.curve_set(self.filename)
@@ -167,8 +166,8 @@ class PVSim(pvsim.PVSim):
             if count > 1:
                 power = power/count
             channel=self.ksas.channels[0]
-            data=self.ksas.curve_SAS_read()
-            self.pmp=float(data[0])*float(data[2])
+            data = self.ksas.curve_SAS_read()
+            self.pmp = float(data[0])*float(data[2])
             self.ts.log('Maximum Power %d' % self.pmp)
             if power > self.pmp:
                 self.ts.log_warning('Requested power > Pmp so irradiance will be > 1000 W/m^2)')
