@@ -244,6 +244,15 @@ class GridSim(object):
             voltage = (0.0, 0.0, 0.0)
         return voltage
 
+    def config_asymmetric_phase_angles(self, mag=None, angle=None):
+        """
+        :param mag: list of voltages for the imbalanced test, e.g., [277.2, 277.2, 277.2]
+        :param angle: list of phase angles for the imbalanced test, e.g., [0, 120, -120]
+
+        :returns: voltage list and phase list
+        """
+        return None, None
+
     def meas_power(self, ph_list=(1,2,3)):
         return None, None, None
 
