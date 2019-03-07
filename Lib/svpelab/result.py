@@ -362,7 +362,7 @@ class ResultWorkbook(object):
                     series = {
                         'name': name,
                         'categories': categories,
-                        'values': [ws_name, 2, col, count, col],
+                        'values': [ws_name, 1, col, count, col],
                         # 'line': {'color': line_color, 'width': 1.5},
                         'line': {'width': 1.5},
                         'marker': marker,
@@ -376,8 +376,8 @@ class ResultWorkbook(object):
                             'type': 'custom',
                             'direction': 'both',
                             # 'value': 10
-                            'plus_values': [ws_name, 2, max_col, count, max_col],
-                            'minus_values': [ws_name, 2, min_col, count, min_col],
+                            'plus_values': [ws_name, 1, max_col, count, max_col],
+                            'minus_values': [ws_name, 1, min_col, count, min_col],
                             'categories_data': [],
                             'values_data':     []
                         }
@@ -404,7 +404,7 @@ class ResultWorkbook(object):
                     chart.add_series({
                         'name': name,
                         'categories': categories,
-                        'values': [ws_name, 2, col, count, col],
+                        'values': [ws_name, 1, col, count, col],
                         # 'line': {'color': line_color, 'width': 1.5},
                         'line': {'width': 1.5},
                         'marker': marker,
