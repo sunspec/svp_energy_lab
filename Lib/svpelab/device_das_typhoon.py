@@ -208,6 +208,7 @@ class Device(object):
 
         self.ts = self.params['ts']
         self.map = self.params['map']
+        self.sample_interval = self.params['sample_interval']
 
         # waveform settings
         self.wfm_sample_rate = None
