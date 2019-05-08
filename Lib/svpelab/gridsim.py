@@ -167,6 +167,18 @@ class GridSim(object):
             freq = 0.0
         return freq
 
+    def rocof(self, rocof=None):
+        """
+        Set the rate of change of frequency (ROCOF) if provided. If none provided, obtains
+        the ROCOF.
+        The ROCOF unit Hz/s
+        """
+        if rocof is not None:
+            pass
+        else:
+            rocof = 0.0
+        return rocof
+
     def profile_load(self, profile_name=None, v_step=100, f_step=100, t_step=None, profile=None):
         """
         Load the profile either in list format or from a file.
@@ -248,7 +260,6 @@ class GridSim(object):
         """
         :param mag: list of voltages for the imbalanced test, e.g., [277.2, 277.2, 277.2]
         :param angle: list of phase angles for the imbalanced test, e.g., [0, 120, -120]
-
         :returns: voltage list and phase list
         """
         return None, None

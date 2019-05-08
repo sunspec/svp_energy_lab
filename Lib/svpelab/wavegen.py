@@ -120,14 +120,11 @@ class Wavegen(object):
             raise WavegenError('Wavegen device not initialized')
         self.device.close()
 
-    def load_config(self, params):
+    def load_config(self,sequence):
         """
-        Enable channels
-        :param params: dict containing following possible elements:
-          'sequence_filename': <sequence file name>
-        :return:
+        Load configuration
         """
-        self.device.load_config(params=params)
+        self.device.load_config(sequence=sequence)
 
     def start(self):
         """
@@ -143,21 +140,46 @@ class Wavegen(object):
         """
         self.device.stop()
 
-    def chan_enable(self, chans):
+    def chan_state(self, chans):
         """
         Enable channels
         :param chans: list of channels to enable
         :return:
         """
-        self.device.chan_enable(chans=chans)
+        self.device.chan_state(chans=chans)
 
-    def chan_disable(self, chans):
+
+
+    def voltage(self, voltage, channel):
         """
-        Disable channels
-        :param chans: list of channels to disable
-        :return:
+        Change the voltage value of individual channel
+        :param voltage: The amplitude of the waveform
+        :param channel: Channel to configure
         """
-        self.device.chan_enable(chans=chans)
+        self.device.voltage(voltage=voltage, channel=channel)
+
+    def frequency(self, frequency):
+        """
+        Change the voltage value of individual channel
+        :param frequency: The frequency of the waveform on all channels
+        """
+        self.device.frequency(frequency=frequency)
+
+    def phase(self, phase, channel):
+        """
+        Change the voltage value of individual channel
+        :param phase: This command sets the phase on selected channel
+        :param channel: Channel(s) to configure
+        """
+        self.device.phase(phase=phase, channel=channel)
+
+    def config_asymmetric_phase_angles(self, mag=None, angle=None):
+        """
+        :param mag: list of voltages for the imbalanced test, e.g., [277.2, 277.2, 277.2]
+        :param angle: list of phase angles for the imbalanced test, e.g., [0, 120, -120]
+        :returns: voltage list and phase list
+        """
+        return None, None
 
 def wavegen_scan():
     global wavegen_modules
