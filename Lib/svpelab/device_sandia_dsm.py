@@ -314,21 +314,29 @@ class Device(object):
         try:
             if self.points_file is None:
                 raise Exception('Point file not specified')
-            if self.dsm_method != 'Sandia LabView DSM':
-                raise Exception('Method not supported: %s' % (self.dsm_method))
+            if self.dsm_method == 'Sandia LabView DSM UDP':
+                import socket
+                UDP_IP = "0.0.0.0"
+                UDP_PORT = 6495
+                sock = socket.socket(socket.AF_INET, # Internet
+                                  socket.SOCK_DGRAM) # UDP
+                sock.bind((UDP_IP, UDP_PORT))
+                while True:
+                    data, addr = sock.recvfrom(4096)
+                    print "received message:", data
+            else:
+                f = open(self.points_file)
+                channels = f.read()
+                f.close()
 
-            f = open(self.points_file)
-            channels = f.read()
-            f.close()
-
-            self.points = self.extract_points(channels, str)
-            print self.points
-            for p in self.points_map:
-                try:
-                    index = self.points.index(p)
-                except ValueError:
-                    index = -1
-                self.point_indexes.append(index)
+                self.points = self.extract_points(channels, str)
+                print self.points
+                for p in self.points_map:
+                    try:
+                        index = self.points.index(p)
+                    except ValueError:
+                        index = -1
+                    self.point_indexes.append(index)
         except Exception, e:
             raise DeviceError(traceback.format_exc())
     '''
@@ -542,7 +550,107 @@ class Device(object):
 
         return ds
 
+def send(data, port=50003, addr='127.0.0.1'):
+        """send(data[, port[, addr]]) - multicasts a UDP datagram."""
+        # Create the socket
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        # Make the socket multicast-aware, and set TTL.
+        s.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 20) # Change TTL (=20) to suit
+        # Send the data
+        s.sendto(data, (addr, port))
+
+def recv(port=50003, addr="127.0.0.1", buf_size=1024):
+        """recv([port[, addr[,buf_size]]]) - waits for a datagram and returns the data."""
+
+        # Create the socket
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+        # Set some options to make it multicast-friendly
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+                s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+        except AttributeError:
+                pass # Some systems don't support SO_REUSEPORT
+        s.setsockopt(socket.SOL_IP, socket.IP_MULTICAST_TTL, 20)
+        s.setsockopt(socket.SOL_IP, socket.IP_MULTICAST_LOOP, 1)
+
+        # Bind to the port
+        s.bind(('', port))
+
+        # Set some more multicast options
+        intf = socket.gethostbyname(socket.gethostname())
+        s.setsockopt(socket.SOL_IP, socket.IP_MULTICAST_IF, socket.inet_aton(intf))
+        s.setsockopt(socket.SOL_IP, socket.IP_ADD_MEMBERSHIP, socket.inet_aton(addr) + socket.inet_aton(intf))
+
+        # Receive the data, then unregister multicast receive membership, then close the port
+        data, sender_addr = s.recvfrom(buf_size)
+        s.setsockopt(socket.SOL_IP, socket.IP_DROP_MEMBERSHIP, socket.inet_aton(addr) + socket.inet_aton('0.0.0.0'))
+        s.close()
+        return data
+
 if __name__ == "__main__":
+
+    from netifaces import interfaces, ifaddresses, AF_INET
+    import struct
+    import socket
+    import time
+    import sys
+
+    print(socket.gethostbyname(socket.gethostname()))
+
+    # Create a TCP/IP socket
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+    # Bind the socket to the port
+    server_address = ('239.100.100.100', 51051)
+    print 'starting up on %s port %s' % server_address
+    # sock.bind(server_address)
+    while True:
+        print >>sys.stderr, '\nwaiting to receive message'
+        data, address = sock.recvfrom(4096)
+
+        print 'received %s bytes from %s' % (len(data), address)
+        print data
+
+    '''
+    ip_addr = '10.1.2.78'
+    for interface in interfaces():
+        for link in ifaddresses(interface)[AF_INET]:
+            local_addr = link['addr'].split('.', 3)
+            targ_addr = ip_addr.split('.', 3)
+            if '%s.%s.%s' % (local_addr[0], local_addr[1], local_addr[2]) == \
+                            '%s.%s.%s' % (targ_addr[0], targ_addr[1], targ_addr[2]):
+                iface_for_comms = interface
+            print('interface: %s, IP: %s' % (interface, link['addr']))
+    print('Interface for comms: %s' % iface_for_comms)
+    '''
+
+    UDP_IP = '10.1.2.78'
+    IP = '10.1.2.218'
+    UDP_PORT = 51051
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    sock.bind((UDP_IP, UDP_PORT))
+    # mreq = struct.pack("=4sl", socket.inet_aton(UDP_IP), socket.INADDR_ANY)
+    # sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
+    for i in range(10):
+        data, addr = sock.recvfrom(4096)
+        print "received message:", data
+        time.sleep(0.1)
+
+
+
+    '''
+
+    import pyshark
+    capture = pyshark.LiveCapture()
+    capture.sniff(timeout=50)
+    for packet in capture.sniff_continuously(packet_count=5):
+        print('Just arrived:', packet)
+        capture = pyshark.LiveCapture(capture_filter='udp')
+        capture.apply_on_packets(packet_captured)
+        packet['ip'].dst
+        packet.ip.src
 
     params = {}
     params['dsm_method'] = 'Sandia LabView DSM'
@@ -569,6 +677,8 @@ if __name__ == "__main__":
     ds = d.waveform_capture_dataset()
     print ds.points
     ds.to_csv('c:\\users\\bob\\pycharmprojects\\loadsim\\files\\python_dsm\\wave.csv')
+    '''
+
 
 
 
