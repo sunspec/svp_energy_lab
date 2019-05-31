@@ -86,10 +86,8 @@ class HIL(hil.HIL):
         except Exception as e:
             raise hil.HILGenericException("Failed modelname parsing and formatting: %s" % e)
 
-
     def __init__(self, ts):
         hil.HIL.__init__(self, ts)
-
 
         self.ts = ts
         self.auto_config = ts.param_value('hil.typhoon.auto_config')
@@ -115,21 +113,16 @@ class HIL(hil.HIL):
         if self.debug:
             cp.set_debug_level(level=self.debug_level)
 
-        #Check and remove extensions:
-
+        # Check and remove extensions:
         try:
             self.model_name = self.__stripExtension__(self.model_name, 'tse')
             self.settings_file_name = self.__stripExtension__(self.settings_file_name, 'runx')
         except Exception as e:
             raise e
 
-
-
-
         if self.auto_config == 'Enabled':
             ts.log('Configuring the Typhoon HIL Emulation Environment.')
             self.config()
-
 
     def info(self):
         self.ts.log(' ')
@@ -152,7 +145,6 @@ class HIL(hil.HIL):
         self.ts.log('available parameters = %s' % typhoon.api.ti_control_panel.available_parameters())
         self.ts.log('available analog meters = %s' % typhoon.api.ti_control_panel.available_references())
         return typhoon.api.ti_control_panel.available_references()
-
 
     def __buildHandler__(self):
         """
@@ -185,13 +177,12 @@ class HIL(hil.HIL):
                     return True
                 else:
                     self.ts.log("Retry {}/4: Trying to load HIL Model {}".format(i,self.model_name))
-                    #We will delete the Entire compiler output folder
+                    # We will delete the Entire compiler output folder
                     import shutil
                     shutil.rmtree(self.hil_model_dir + self.model_name + r" Target files/", ignore_errors=True)
             raise hil.HILModelException("Failed to load the model")
         except Exception as e:
             raise hil.HILRuntimeException("Failed to load model! {}".format(e))
-
 
     def config(self):
         """
@@ -202,7 +193,6 @@ class HIL(hil.HIL):
         hw = model.get_hw_settings()
         self.ts.log_debug('HIL hardware is %s' % hw)
         # model.set_simulation_time_step(self.sim_time_step)
-
 
         try:
             self.__loadHandler__()
@@ -215,11 +205,9 @@ class HIL(hil.HIL):
         self.ts.log("Starting Simulation...")
         self.start_simulation()
 
-
         """
         This is a rather crude way to wait for EUT to start up! 
         """
-
         # let the inverter startup
         sleeptime = 15
         try:
@@ -310,7 +298,7 @@ class HIL(hil.HIL):
             return status
 
         # Open existing settings file.
-        if not cp.load_settings_file(file=settings_file, debug=self.debug):
+        if not cp.load_settings_file(file=settings_file):
             self.ts.log_warning("Settings file (.runx) did not work did not compile!")
             return False
         return True

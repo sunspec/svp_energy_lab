@@ -1,4 +1,6 @@
 """
+Communications to NI PCIe Cards
+
 Copyright (c) 2017, Sandia National Labs and SunSpec Alliance
 All rights reserved.
 
@@ -31,50 +33,49 @@ Questions can be directed to support@sunspec.org
 """
 
 import os
-
-import device_das_typhoon
+import device_das7_sandia_ni_pcie
 import das
 
-typhoon_info = {
+daq7_info = {
     'name': os.path.splitext(os.path.basename(__file__))[0],
-    'mode': 'Typhoon'
+    'mode': 'Sandia DAQ7 (NI PCIe)'
 }
 
 def das_info():
-    return typhoon_info
+    return daq7_info
 
 def params(info, group_name=None):
     gname = lambda name: group_name + '.' + name
     pname = lambda name: group_name + '.' + GROUP_NAME + '.' + name
-    mode = typhoon_info['mode']
+    mode = daq7_info['mode']
     info.param_add_value(gname('mode'), mode)
     info.param_group(gname(GROUP_NAME), label='%s Parameters' % mode,
                      active=gname('mode'),  active_value=mode, glob=True)
     info.param(pname('sample_interval'), label='Sample Interval (ms)', default=1000)
-    info.param(pname('map'), label='Typhoon Analog Channel Map', default='ASGC')
+    info.param(pname('sample_rate'), label='Sample rate of waveforms (Hz)', default=10000)
+    info.param(pname('n_cycles'), label='Number of cycles to capture', default=6)
 
-GROUP_NAME = 'typhoon'
+GROUP_NAME = 'sandia_daq7'
 
 
 class DAS(das.DAS):
 
     def __init__(self, ts, group_name, points=None, sc_points=None):
         das.DAS.__init__(self, ts, group_name, points=points, sc_points=sc_points)
-        self.params['ts'] = ts
-        self.params['map'] = self._param_value('map')
+        self.sample_interval = self._param_value('sample_interval')
         self.params['sample_interval'] = self._param_value('sample_interval')
+        self.params['sample_rate'] = self._param_value('sample_rate')
+        self.params['n_cycles'] = self._param_value('n_cycles')
+        self.params['ts'] = ts
 
-        self.device = device_das_typhoon.Device(self.params)
-        self.data_points = self.device.data_points
-
-        # self.wfm_channels = device_das_typhoon.wfm_channels
-        # self.wfm_typhoon_channels = device_das_typhoon.wfm_typhoon_channels
+        self.device = device_das7_sandia_ni_pcie.Device(self.params, ts)
+        self.data_points = []
+        for key, value in self.device.points_map.iteritems():
+            self.data_points.append(key)
+        self.data_points = sorted(self.data_points)  # alphabetize
 
         # initialize soft channel points
         self._init_sc_points()
-
-        if self.sample_interval < 50 and self.sample_interval is not 0:
-            raise das.DASError('Parameter error: sample interval must be at least 50 ms or 0 for manual sampling')
 
     def _param_value(self, name):
         return self.ts.param_value(self.group_name + '.' + GROUP_NAME + '.' + name)

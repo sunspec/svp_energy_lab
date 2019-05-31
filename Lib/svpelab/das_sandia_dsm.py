@@ -60,6 +60,7 @@ def params(info, group_name=None):
                active=pname('dsm_method'), active_value=['Sandia LabView DSM UDP'],
                desc='Selection of the data acquisition system')
     info.param(pname('node'), label='Node at Sandia - Used to ID DAQ channel', default=10,
+               active=pname('das_comp'), active_value=['10 Node'],
                desc='Selection of the EUT which will be used for the test (Sandia specific).')
     info.param(pname('sample_interval'), label='Sample Interval (ms)', default=1000)
     info.param(pname('file_path'), label='File Path', default='C:\\python_dsm', ptype=script.PTYPE_DIR)
