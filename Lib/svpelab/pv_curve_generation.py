@@ -54,7 +54,7 @@ class PVCurve(object):
     def __init__(self, tech='cSi', Pmpp=3000, Vmpp=460, Tpv=25, n_points=1000, v_max=600.):
         """
         Create an I-V curve of n_points number of points based on a simple model from EN 50530
-        :param tech: type of module technlogy - crystalline silicon or thin film
+        :param tech: type of module technology - crystalline silicon or thin film
         :param Pmpp: power at the maximum power point (W), at STC
         :param Vmpp: voltage at the maximum power point (V), at STC
         :param Tpv: PV temperature (deg C)

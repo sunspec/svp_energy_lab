@@ -245,6 +245,7 @@ class GridSim(gridsim.GridSim):
                         v2 = voltage[phase-1]
                     if phase == 3:
                         v3 = voltage[phase-1]
+
                 cp.update_sources(self.waveform_source_list, executeAt=None)
                 # cp.wait_msec(100.0)
                 self.v = (v1 + v2 + v3)/3
@@ -263,6 +264,36 @@ class GridSim(gridsim.GridSim):
             # set max voltage on all phases
             pass
         return self.v, self.v, self.v
+
+    def config_asymmetric_phase_angles(self, mag=None, angle=None):
+        """
+        :param mag: list of voltages for the imbalanced test, e.g., [277.2, 277.2, 277.2]
+        :param angle: list of phase angles for the imbalanced test, e.g., [0, 120, -120]
+
+        :returns: voltage list and phase list
+        """
+        if mag is not None:
+            if type(mag) is not list:
+                raise gridsim.GridSimError('Waveform magnitudes were not provided as list. "mag" type: %s' % type(mag))
+
+        if angle is not None:
+            if type(angle) is list:
+                cp.set_source_sine_waveform(self.waveform_source_list[0], rms=mag[0], phase=angle[0])
+                cp.set_source_sine_waveform(self.waveform_source_list[1], rms=mag[1], phase=angle[1])
+                cp.set_source_sine_waveform(self.waveform_source_list[2], rms=mag[2], phase=angle[2])
+                cp.update_sources(self.waveform_source_list, executeAt=None)
+                # cp.wait_msec(100.0)
+                self.v = (v1 + v2 + v3)/3
+                self.v1 = v1
+                self.v2 = v2
+                self.v3 = v3
+
+            else:
+                raise gridsim.GridSimError('Waveform angles were not provided as list.')
+
+        voltages = [self.v1, self.v2, self.v3]
+        phases = angle
+        return voltages, phases
 
     def i_max(self):
         return self.v/self.p_nom
