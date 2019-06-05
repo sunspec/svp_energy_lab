@@ -1116,7 +1116,7 @@ class DER(der.DER):
 
                         n_pt = int(self.inv.volt_watt.NPt)
                         # set voltage points
-                        v = params.get('v')
+                        v = params.get('curve').get('v')
                         if v is not None:
                             v_len = len(v)
                             if v_len > n_pt:
@@ -1125,7 +1125,7 @@ class DER(der.DER):
                                 v_point = 'V%d' % (i + 1)
                                 setattr(curve, v_point, v[i])
                         # set watt points
-                        watt = params.get('w')
+                        watt = params.get('curve').get('w')
                         if watt is not None:
                             watt_len = len(watt)
                             if watt_len > n_pt:
