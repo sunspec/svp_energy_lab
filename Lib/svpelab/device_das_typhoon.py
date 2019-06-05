@@ -134,9 +134,39 @@ typhoon_map_aug2018 = {  # data point : analog channel name
     'TRIG': 'Trigger Generator.V_Grid_Trig',
     'TRIG_GRID': 'Trigger Generator.Vs_Grid_Trig'}
 
+typhoon_map_june2019 = {  # data point : analog channel name
+    # in cases where the analog channel gets total value from all phases, scale by 1/3
+    'AC_VRMS_1': 'Van_grid_rms', 'AC_VRMS_1_scaling': 1.,
+    'AC_VRMS_2': 'Vbn_grid_rms', 'AC_VRMS_2_scaling': 1.,
+    'AC_VRMS_3': 'Vcn_grid_rms', 'AC_VRMS_3_scaling': 1.,
+    'AC_IRMS_1': 'Ia_grid_rms', 'AC_IRMS_1_scaling': 1.,
+    'AC_IRMS_2': 'Ib_grid_rms', 'AC_IRMS_2_scaling': 1.,
+    'AC_IRMS_3': 'Ic_grid_rms', 'AC_IRMS_3_scaling': 1.,
+    'AC_P_1': 'Grid P1', 'AC_P_1_scaling': -1.,
+    'AC_P_2': 'Grid P2', 'AC_P_2_scaling': -1.,
+    'AC_P_3': 'Grid P3', 'AC_P_3_scaling': -1.,
+    'AC_Q_1': 'Grid Q1', 'AC_Q_1_scaling': -1.,
+    'AC_Q_2': 'Grid Q2', 'AC_Q_2_scaling': -1.,
+    'AC_Q_3': 'Grid Q3', 'AC_Q_3_scaling': -1.,
+    'AC_S_1': 'Grid S', 'AC_S_1_scaling': 1/3.,
+    'AC_S_2': 'Grid S', 'AC_S_2_scaling': 1/3.,
+    'AC_S_3': 'Grid S', 'AC_S_3_scaling': 1/3.,
+    'AC_PF_1': 'Grid PF', 'AC_PF_1_scaling': 1.,
+    'AC_PF_2': 'Grid PF', 'AC_PF_2_scaling': 1.,
+    'AC_PF_3': 'Grid PF', 'AC_PF_3_scaling': 1.,
+    'AC_FREQ_1': 'AC_FREQ', 'AC_FREQ_1_scaling': 1.,
+    'AC_FREQ_2': 'AC_FREQ', 'AC_FREQ_2_scaling': 1.,
+    'AC_FREQ_3': 'AC_FREQ', 'AC_FREQ_3_scaling': 1.,
+    'DC_V': 'VDCm', 'DC_V_scaling': 1.,
+    'DC_I': 'IDCm',  'DC_I_scaling': 1.,
+    'DC_P': 'DC_P',  'DC_P_scaling': 1.,
+    'TRIG': 'Trigger Generator.V_Grid_Trig',
+    'TRIG_GRID': 'Trigger Generator.Vs_Grid_Trig'}
+
 
 typhoon_points_map = {
-    'ASGC': typhoon_map_aug2018,  # AGF circuit, 3 phase
+    'ASGC': typhoon_map_june2019,  # AGF circuit, 3 phase
+    'ASGC_2018': typhoon_map_aug2018,  # AGF circuit, 3 phase
     'ASGC_old': typhoon_points_asgc_old,  # AGF circuit, single phase
 }
 

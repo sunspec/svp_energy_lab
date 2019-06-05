@@ -189,7 +189,32 @@ class PVSim(pvsim.PVSim):
         cp.set_pv_amb_params("PV1", illumination=irradiance)
         # cp.wait_msec(50.0)
 
+    '''
     def iv_curve_config(self, pmp=None, vmp=None):
+        """
+        Hack method to generate I-V curves in typhoon that the ASGC plays nicely with. File names
+        are, e.g., 20Prated.ipvx, 60Prated.ipvx, and 100Prated.ipvx.
+        """
+        tol = 0.02
+        asgc_power = 34500.
+        for p_rated_ratio in [0.2, 0.6, 1.0]:
+            if asgc_power*(p_rated_ratio - tol) <= pmp <= asgc_power*(p_rated_ratio + tol):
+                new_pv_file = '%s%sPrated.ipvx' % (self.pv_file[:-5], int(p_rated_ratio*100.))
+                self.ts.log_debug('New PV file name: %s' % new_pv_file)
+
+                # set pv curve in Typhoon
+                self.set_pv_curve(new_pv_file)
+                self.ts.sleep(2)
+                return True
+
+        self.ts.log_error('Did not update I-V Curve in the Typhoon environment!')
+        return False
+    '''
+
+    def iv_curve_config(self, pmp=None, vmp=None):
+        """
+        Configure EN50530 curve based on Pmp and Vmp inputs
+        """
         if pmp is None:
             pmp = self.pv_pmp_get()
         if vmp is None:
