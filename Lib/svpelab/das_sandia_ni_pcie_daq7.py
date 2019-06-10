@@ -1,4 +1,6 @@
 """
+Communications to NI PCIe Cards
+
 Copyright (c) 2017, Sandia National Labs and SunSpec Alliance
 All rights reserved.
 
@@ -31,41 +33,29 @@ Questions can be directed to support@sunspec.org
 """
 
 import os
-
-import script
-import device_sandia_dsm
+import device_das7_sandia_ni_pcie
 import das
 
-sandia_info = {
+daq7_info = {
     'name': os.path.splitext(os.path.basename(__file__))[0],
-    'mode': 'Sandia DSM'
+    'mode': 'Sandia DAQ7 (NI PCIe)'
 }
 
 def das_info():
-    return sandia_info
+    return daq7_info
 
 def params(info, group_name=None):
     gname = lambda name: group_name + '.' + name
     pname = lambda name: group_name + '.' + GROUP_NAME + '.' + name
-    mode = sandia_info['mode']
+    mode = daq7_info['mode']
     info.param_add_value(gname('mode'), mode)
     info.param_group(gname(GROUP_NAME), label='%s Parameters' % mode,
                      active=gname('mode'),  active_value=mode, glob=True)
-    info.param(pname('dsm_method'), label='Data Acquisition Method', default='Sandia LabView DSM',
-               values=['Sandia LabView DSM', 'Sandia LabView DSM UDP'],
-               desc='Each lab will have different data acquisition methods. Sandia passes the data from the DAQ '
-                    'to python by writing the values locally or collecting them over the local network.')
-    info.param(pname('das_comp'), label='Data Acquisition Computer', default='10 Node',
-               values=['10 Node', 'DAS 3', 'DAS 5', 'DAS 8'],
-               active=pname('dsm_method'), active_value=['Sandia LabView DSM UDP'],
-               desc='Selection of the data acquisition system')
-    info.param(pname('node'), label='Node at Sandia - Used to ID DAQ channel', default=10,
-               active=pname('das_comp'), active_value=['10 Node'],
-               desc='Selection of the EUT which will be used for the test (Sandia specific).')
     info.param(pname('sample_interval'), label='Sample Interval (ms)', default=1000)
-    info.param(pname('file_path'), label='File Path', default='C:\\python_dsm', ptype=script.PTYPE_DIR)
+    info.param(pname('sample_rate'), label='Sample rate of waveforms (Hz)', default=10000)
+    info.param(pname('n_cycles'), label='Number of cycles to capture', default=6)
 
-GROUP_NAME = 'sandia'
+GROUP_NAME = 'sandia_daq7'
 
 
 class DAS(das.DAS):
@@ -73,20 +63,16 @@ class DAS(das.DAS):
     def __init__(self, ts, group_name, points=None, sc_points=None):
         das.DAS.__init__(self, ts, group_name, points=points, sc_points=sc_points)
         self.sample_interval = self._param_value('sample_interval')
-
-        self.params['dsm_method'] = self._param_value('dsm_method')
-        self.params['dsm_id'] = self._param_value('node')
-        self.params['comp'] = self._param_value('comp')
+        self.params['sample_interval'] = self._param_value('sample_interval')
+        self.params['sample_rate'] = self._param_value('sample_rate')
+        self.params['n_cycles'] = self._param_value('n_cycles')
         self.params['ts'] = ts
 
-        # if not absolute path, use SVP 'Files' directory
-        file_path = self._param_value('file_path')
-        if not os.path.isabs(file_path):
-            os.path.join(self.files_dir, file_path)
-        self.params['file_path'] = file_path
-
-        self.device = device_sandia_dsm.Device(self.params)
-        self.data_points = self.device.data_points
+        self.device = device_das7_sandia_ni_pcie.Device(self.params, ts)
+        self.data_points = []
+        for key, value in self.device.points_map.iteritems():
+            self.data_points.append(key)
+        self.data_points = sorted(self.data_points)  # alphabetize
 
         # initialize soft channel points
         self._init_sc_points()
@@ -94,6 +80,9 @@ class DAS(das.DAS):
     def _param_value(self, name):
         return self.ts.param_value(self.group_name + '.' + GROUP_NAME + '.' + name)
 
+
 if __name__ == "__main__":
 
     pass
+
+

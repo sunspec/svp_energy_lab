@@ -33,9 +33,7 @@ Questions can be directed to support@sunspec.org
 import os
 import time
 import socket
-
 import serial
-
 import grid_profiles
 import gridsim
 
@@ -284,19 +282,21 @@ class GridSim(gridsim.GridSim):
         phases = []
 
         if mag is not None:
-            if mag is list:
-                voltages = self.voltage(voltage=mag)
-            else:
-                raise gridsim.GridSimError('Waveform magnitudes were not provided as list.')
+            if type(mag) is not list:
+                raise gridsim.GridSimError('Waveform magnitudes were not provided as list. "mag" type: %s' % type(mag))
 
         if angle is not None:
-            if angle is list:
-                self.cmd('inst:coup none;:inst:nsel 1;:phas %0.1f\n' % angle[0])
-                self.cmd('inst:coup none;:inst:nsel 2;:phas %0.1f\n' % angle[1])
+            if type(angle) is list:
                 if angle[2] < 0:  # make positive for Ametek
                     angle[2] += 360.
-                self.cmd('inst:coup none;:inst:nsel 3;:phas %0.1f\n' % angle[2])
+                self.cmd('inst:coup none;:inst:nsel 1;:phas %0.1f;:volt:ac %0.1f;'
+                         ':inst:coup none;:inst:nsel 2;:phas %0.1f;:volt:ac %0.1f;'
+                         ':inst:coup none;:inst:nsel 3;:phas %0.1f;:volt:ac %0.1f\n' % (angle[0], mag[0], angle[1],
+                                                                                       mag[1], angle[2], mag[2]))
+
+                # get phase and voltage measurements to return
                 phases = self.config_phase_angles()
+                voltages = self.voltage()
             else:
                 raise gridsim.GridSimError('Waveform angles were not provided as list.')
 
@@ -773,6 +773,8 @@ class GridSim(gridsim.GridSim):
 if __name__ == "__main__":
 
     grid = GridSim(ts=None, group_name=None)
+
+    grid.config_asymmetric_phase_angles(mag=[276., 277., 278.], angle=[0., 121., 243.])
 
     print grid.meas_current()
     print grid.meas_voltage()
