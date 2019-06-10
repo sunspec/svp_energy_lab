@@ -31,7 +31,8 @@ Questions can be directed to support@sunspec.org
 """
 
 import os
-
+import pv_curve_generation
+import time
 import pv_profiles
 import pvsim
 
@@ -58,9 +59,11 @@ def params(info, group_name):
     info.param_group(gname(GROUP_NAME), label='%s Parameters' % mode,
                      active=gname('mode'),  active_value=mode, glob=True)
     # info.param(pname('pmp'), label='EN50530 MPP Power (W)', default=34500.0)
-    info.param(pname('vmp'), label='EN50530 MPP Voc (V)', default=997.)
+    info.param(pname('voc'), label='EN50530 MPP Voc (V)', default=997.)
     info.param(pname('isc'), label='EN50530 MPP Isc (A)', default=50.)
     info.param(pname('pv_name'), label='PV file name (.ipvx)', default=r"init.ipvx")
+    info.param(pname('pv_directory'), label='Absolute path to .ipvx file',
+               default=r"D:/SVP/1547.1 (5-10-19)/Lib/svpelab/ASGC_Closed_loop_full_model/")
     info.param(pname('irr_start'), label='Irradiance at the start of the test (W/m^2)', default=1000.)
     info.param(pname('profile_name'), label='Irradiance Profile Name', default='STPsIrradiance',
                desc='Typically the Sandia Test Protocols\' (STPs) Irradiance will be used for the profile.')
@@ -76,7 +79,7 @@ class PVSim(pvsim.PVSim):
 
         try:
             # self.pmp = ts.param_value('pvsim.typhoon.pmp')
-            self.voc = self._param_value('vmp')
+            self.voc = self._param_value('voc')
             self.isc = self._param_value('isc')
             self.irr_start = self._param_value('irr_start')
             self.profile_name = self._param_value('profile_name')
@@ -84,7 +87,8 @@ class PVSim(pvsim.PVSim):
             self.settings_file = None
 
             self.pv_name = self._param_value('pv_name')
-            self.pv_file = None  # set in config
+            self.pv_directory = self._param_value('pv_directory')
+            self.pv_file = self.pv_directory.replace("\\", "/") + self.pv_name
 
             # PV is configured with the .runx file in hil.typhoon
             # self.ts.log('Configuring PV simulation in Typhoon environment...')
@@ -92,7 +96,6 @@ class PVSim(pvsim.PVSim):
 
             # update the pmp after setting up I-V curve
             self.pmp = self.pv_pmp_get()
-
 
         except Exception:
             raise
@@ -135,6 +138,32 @@ class PVSim(pvsim.PVSim):
 
             return True  # PV configured correctly
 
+    def set_pv_curve(self, pv_curve_path):
+
+        # generating PV file
+        self.ts.log("Generating new PV curve...")
+        pv_params = {"Voc_ref": self.voc,                  # Open-circuit voltage (Voc [V])
+                     "Isc_ref": self.isc,                  # Short-circuit current (Isc [A])
+                     "pv_type": pv.EN50530_PV_TYPES[0],    # "cSi" pv type ("cSi" or "Thin film")
+                     "neg_current": False}                 # allow negative current
+        (status, msg) = pv.generate_pv_settings_file(pv.PV_MT_EN50530, pv_curve_path, pv_params)
+        if not status:
+            self.ts.log_error("Error during generating PV curve. Error: %s" % msg)
+            return status
+
+        if os.path.isfile(pv_curve_path):
+            self.ts.log_debug("PV model (.ipvx) file exists!  Setting curve in Typhoon environment...")
+
+            if not cp.set_pv_input_file('PV1', file=pv_curve_path, illumination=self.irr_start, temperature=25.0):
+                self.ts.log_error("Error during setting PV curve (%s)." % pv_curve_path)
+                status = False
+                return status
+        else:
+            self.ts.log_debug("PV model (.ipvx) file does not exist! Did not set new PV curve. ")
+            return False
+
+        return True
+
     def close(self):
         pass
 
@@ -159,6 +188,54 @@ class PVSim(pvsim.PVSim):
         self.ts.log('PV Models in the Simulation: %s. Changing the settings for "PV1"' % cp.get_pvs())
         cp.set_pv_amb_params("PV1", illumination=irradiance)
         # cp.wait_msec(50.0)
+
+    '''
+    def iv_curve_config(self, pmp=None, vmp=None):
+        """
+        Hack method to generate I-V curves in typhoon that the ASGC plays nicely with. File names
+        are, e.g., 20Prated.ipvx, 60Prated.ipvx, and 100Prated.ipvx.
+        """
+        tol = 0.02
+        asgc_power = 34500.
+        for p_rated_ratio in [0.2, 0.6, 1.0]:
+            if asgc_power*(p_rated_ratio - tol) <= pmp <= asgc_power*(p_rated_ratio + tol):
+                new_pv_file = '%s%sPrated.ipvx' % (self.pv_file[:-5], int(p_rated_ratio*100.))
+                self.ts.log_debug('New PV file name: %s' % new_pv_file)
+
+                # set pv curve in Typhoon
+                self.set_pv_curve(new_pv_file)
+                self.ts.sleep(2)
+                return True
+
+        self.ts.log_error('Did not update I-V Curve in the Typhoon environment!')
+        return False
+    '''
+
+    def iv_curve_config(self, pmp=None, vmp=None):
+        """
+        Configure EN50530 curve based on Pmp and Vmp inputs
+        """
+        if pmp is None:
+            pmp = self.pv_pmp_get()
+        if vmp is None:
+            vmp = self.pv_vmp_get()
+
+        self.ts.log_debug("Creating new EN50530 curve based on Pmp and Vmp...")
+        pv_curve = pv_curve_generation.PVCurve(tech='cSi', Pmpp=pmp, Vmpp=vmp, Tpv=25, n_points=1000, v_max=self.voc)
+        self.voc = pv_curve.Voc
+        self.isc = pv_curve.Isc
+
+        # Create new pv_file
+        self.ts.log_debug('Current PV file name: %s' % self.pv_file)
+        # new_pv_file = '%s%s.ipvx' % (self.pv_file[:-5], time.time())
+        new_pv_file = '%s_new.ipvx' % (self.pv_file[:-5])
+        self.ts.log_debug('New PV file name: %s' % new_pv_file)
+
+        # set pv curve in Typhoon
+        self.set_pv_curve(new_pv_file)
+        self.ts.sleep(2)
+
+        return True
 
     def profile_load(self, profile_name):
         if profile_name != 'None' and profile_name is not None:
