@@ -18,9 +18,18 @@ class p1547Error(Exception):
 
     pass
 
+
 class module_1547(object):
     script_name = ''
+
     def __init__(self, ts, aif, imbalance_angle_fix='No', absorb=None):
+        """
+        param ts: test script object
+        param aif: name of the test
+        param imbalance_angle_fix: indicates if the phase imbalance tests force the phase angles to be symmetrical
+        param absorb: dictionary if the EUT includes storage containing {'ena', 'p_rated_prime'}
+        """
+
         # Library variables
         self.ts = ts
         #self.params = params
@@ -33,20 +42,38 @@ class module_1547(object):
         """
         According to Table 3-Minimum requirements for manufacturers stated measured and calculated accuracy
         """
-        # TODO: Add verification?
-        self.v_nom = ts.param_value('eut.v_nom')
+        if ts.param_value('eut.v_nom') is not None:
+            self.v_nom = ts.param_value('eut.v_nom')
+        else:
+            self.v_nom = None
         self.MSA_V = 0.01 * self.v_nom
-        self.MSA_Q = 0.05 * ts.param_value('eut.s_rated')
-        self.MSA_P = 0.05 * ts.param_value('eut.s_rated')
+        if ts.param_value('eut.s_rated') is not None:
+            self.MSA_Q = 0.05 * ts.param_value('eut.s_rated')
+            self.MSA_P = 0.05 * ts.param_value('eut.s_rated')
+        else:
+            self.MSA_Q = None
+            self.MSA_P = None
         self.MSA_F = 0.01
-        self.f_nom = ts.param_value('eut.f_nom')
-        self.phases = ts.param_value('eut.phases')
-        self.p_rated = ts.param_value('eut.p_rated')
-        self.p_min = ts.param_value('eut.p_rated')
-        self.var_rated = ts.param_value('eut.var_rated')
+        if ts.param_value('eut.f_nom') is not None:
+            self.f_nom = ts.param_value('eut.f_nom')
+        else:
+            self.f_nom = None
+        if ts.param_value('eut.phases') is not None:
+            self.phases = ts.param_value('eut.phases')
+        else:
+            self.phases = None
+        if ts.param_value('eut.p_rated') is not None:
+            self.p_rated = ts.param_value('eut.p_rated')
+            self.p_min = ts.param_value('eut.p_rated')
+        else:
+            self.p_rated = None
+            self.p_min = None
+        if ts.param_value('eut.var_rated') is not None:
+            self.var_rated = ts.param_value('eut.var_rated')
+        else:
+            self.var_rated = None
         self.imbalance_angle_fix = imbalance_angle_fix
         self.absorb = absorb
-
 
         self._config()
 
@@ -61,9 +88,6 @@ class module_1547(object):
     """
     Setter functions
     """
-
-
-
     def set_result_summary_col_name(self):
         """
         Write column names for results file depending on which test is being run
@@ -71,17 +95,17 @@ class module_1547(object):
         :return: nothing
         """
         if self.script_name == "CPF":
-            self.rslt_sum_col_name = 'Q_TR_ACC_REQ,TR_REQ,Q_FINAL_ACC_REQ,P_MEAS,Q_MEAS,Q_TARGET,Q_TARGET_MIN,' \
-                       'Q_TARGET_MAX,STEP,FILENAME\n'
+            self.rslt_sum_col_name = 'Q_TR_ACC_REQ, TR_REQ, Q_FINAL_ACC_REQ, P_MEAS, Q_MEAS, Q_TARGET, Q_TARGET_MIN,' \
+                                     'Q_TARGET_MAX, STEP, FILENAME\n'
         elif self.script_name == "VV":
-            self.rslt_sum_col_name = 'Q_TR_ACC_REQ,TR_REQ,Q_FINAL_ACC_REQ,V_MEAS,Q_MEAS,Q_TARGET,Q_TARGET_MIN,' \
-                       'Q_TARGET_MAX,STEP,FILENAME\n'
+            self.rslt_sum_col_name = 'Q_TR_ACC_REQ, TR_REQ, Q_FINAL_ACC_REQ, V_MEAS, Q_MEAS, Q_TARGET, Q_TARGET_MIN,' \
+                                     'Q_TARGET_MAX, STEP, FILENAME\n'
         elif self.script_name == "VW":
-            self.rslt_sum_col_name = 'P_TR_ACC_REQ,TR_REQ,P_FINAL_ACC_REQ,V_MEAS,P_MEAS,P_TARGET,P_TARGET_MIN,' \
-                       'P_TARGET_MAX,STEP,FILENAME\n'
+            self.rslt_sum_col_name = 'P_TR_ACC_REQ, TR_REQ, P_FINAL_ACC_REQ, V_MEAS, P_MEAS, P_TARGET, P_TARGET_MIN,' \
+                                     'P_TARGET_MAX, STEP, FILENAME\n'
         elif self.script_name == "FW":
-            self.rslt_sum_col_name = 'P_TR_ACC_REQ,TR_REQ,P_FINAL_ACC_REQ,F_MEAS,P_MEAS,P_TARGET,P_TARGET_MIN,' \
-                          'P_TARGET_MAX,STEP,FILENAME\n'
+            self.rslt_sum_col_name = 'P_TR_ACC_REQ, TR_REQ, P_FINAL_ACC_REQ, F_MEAS, P_MEAS, P_TARGET, P_TARGET_MIN,' \
+                                     'P_TARGET_MAX, STEP, FILENAME\n'
 
     def set_params(self):
         """
@@ -248,26 +272,26 @@ class module_1547(object):
     """
     Getter functions
     """
-
     def get_test_name(self):
         """
         This getters function returns the advanced inverter function complete name
         :return: test_name as a String
         """
         try:
-            test_name = ''
             if self.script_name == 'FW':
                 test_name = 'Frequency-Watt'
-            if self.script_name == 'CPF':
+            elif self.script_name == 'CPF':
                 test_name = 'Constant Power Factor'
-            if self.script_name == 'VW':
+            elif self.script_name == 'VW':
                 test_name = 'Volt-Watt'
-            if self.script_name == 'VV':
+            elif self.script_name == 'VV':
                 test_name = 'Volt-Var'
+            else:
+                test_name = self.script_name
 
             return test_name
         except Exception as e:
-            raise p1547Error('Error in get_test_name(): %s' % ( str(e)))
+            raise p1547Error('Error in get_test_name(): %s' % (str(e)))
 
     def get_rslt_sum_col_name(self):
         """
@@ -279,7 +303,7 @@ class module_1547(object):
     def get_measurement_label(self, type_meas):
         """
         Sum the EUT reactive power from all phases
-        :param type_meas:   Either V,P or Q
+        :param type_meas:   Either V, P, PF, I, F, VA, or Q
         :return:            List of labeled measurements
         """
         meas_label = None
@@ -293,8 +317,11 @@ class module_1547(object):
             meas_root = 'AC_IRMS'
         elif type_meas == 'F':
             meas_root = 'AC_FREQ'
+        elif type_meas == 'VA':
+            meas_root = 'AC_S'
         else:
             meas_root = 'AC_Q'
+
         if self.phases == 'Single phase':
             meas_label = [meas_root+'_1']
         elif self.phases == 'Split phase':
@@ -307,11 +334,13 @@ class module_1547(object):
     def get_measurement_total(self, data, type_meas, log):
         """
         Sum the EUT reactive power from all phases
-        :param data:        dataset from data acquistion object
+        :param data:        dataset from data acquisition object
         :param type_meas:   Either V,P or Q
         :param log:         Boolean variable to disable or enable logging
         :return: Any measurements from the DAQ
         """
+        value = None
+        nb_phases = None
         try:
             if self.phases == 'Single phase':
                 value = data.get(self.get_measurement_label(type_meas)[0])
@@ -346,7 +375,7 @@ class module_1547(object):
 
         # TODO : imbalance_resp should change the way you acquire the data
         if type_meas == 'V':
-            # average value of V and F
+            # average value of V
             value = value / nb_phases
 
         elif type_meas == 'F':
@@ -354,6 +383,7 @@ class module_1547(object):
             value = data.get(self.get_measurement_label(type_meas)[0])
 
         elif type_meas == 'P':
+            # TODO need to handle energy storage systems that will have negative power values
             return abs(value)
 
         return value
@@ -363,7 +393,7 @@ class module_1547(object):
         Sum the EUT reactive power from all phases
         :param daq:         data acquisition object from svpelab library
         :param step:        test procedure step letter or number (e.g "Step G")
-        :return: returns a dictionnary with the timestamp, event and total EUT reactive power
+        :return: returns a dictionary with the timestamp, event and total EUT reactive power
         """
         # TODO : In a more sophisticated approach, get_initial['timestamp'] will come from a
         #  reliable secure thread or data acquisition timestamp
@@ -389,21 +419,19 @@ class module_1547(object):
     def get_tr_data(self, daq, step, tr, pwr_lvl=None, curve=None, target = None):
         """
         Get the data from a specific time response (tr) corresponding to x and y values
-        of the aif (e.g. aif='VW' x == voltage and y == active power) returns a dictionnary
+        of the aif (e.g. aif='VW' x == voltage and y == active power) returns a dictionary
         but also writes in the soft channels of the DAQ system
         :param daq:         data acquisition object from svpelab library
         :param step:        test procedure step letter or number (e.g "Step G")
         :param pwr_lvl:     The input power level in p.u.
         :param curve:       The characteristic curve number
         :param target:      The target value of AIF, only use for CPF
-        :return: returns a dictionnary with the timestamp, event and total EUT reactive power
+        :return: returns a dictionary with the timestamp, event and total EUT reactive power
         """
         tr_data = {}
-        x=None
-        y=None
         daq.data_sample()
         data = daq.data_capture_read()
-        try :
+        try:
             x = self.get_letter('x')
             y = self.get_letter('y')
             daq.sc['%s_MEAS' % x] = self.get_measurement_total(data=data, type_meas='%s' % x, log=False)
@@ -447,7 +475,7 @@ class module_1547(object):
         :param initial_value:   A dictionary with measurements before a step
         :param tr_1_data:       A dictionary with measurements after one time response cycle
         :param tr_4_data:       A dictionary with measurements after four time response cycle
-        :return: returns a dictionnary with pass fail criteria that will be use in the
+        :return: returns a dictionary with pass fail criteria that will be use in the
         result_summary.csv file.
         """
         analysis = {}
@@ -455,10 +483,10 @@ class module_1547(object):
         y = self.get_letter('y')
 
         analysis['%s_INITIAL' % y] = initial_value['y_value']
-        analysis['%s_FINAL'% y] = tr_4_data['%s'% y]
-        analysis['%s_TR_1' % y] = tr_1_data['%s'% y]
-        tr_diff = analysis['%s_FINAL' % y] - analysis['%s_INITIAL'% y]
-        p_tr_target = ((0.9 * tr_diff) + analysis['%s_INITIAL'% y])
+        analysis['%s_FINAL' % y] = tr_4_data['%s' % y]
+        analysis['%s_TR_1' % y] = tr_1_data['%s' % y]
+        tr_diff = analysis['%s_FINAL' % y] - analysis['%s_INITIAL' % y]
+        p_tr_target = ((0.9 * tr_diff) + analysis['%s_INITIAL' % y])
 
         if tr_diff < 0:
             if analysis['%s_TR_1' % y] <= p_tr_target:
@@ -493,10 +521,10 @@ class module_1547(object):
                                                                                     tr_4_data['%s_TARGET_MAX' % y],
                                                                                     analysis['%s_FINAL_TR' % y]))
 
-        analysis['%s_TARGET'% y] = tr_4_data['%s_TARGET'% y]
-        analysis['%s_TARGET_MIN'% y] = tr_4_data['%s_TARGET_MIN'% y]
-        analysis['%s_TARGET_MAX'% y] = tr_4_data['%s_TARGET_MAX'% y]
-        analysis['%s_MEAS' % x] =  tr_4_data['%s' % x]
+        analysis['%s_TARGET' % y] = tr_4_data['%s_TARGET' % y]
+        analysis['%s_TARGET_MIN' % y] = tr_4_data['%s_TARGET_MIN' % y]
+        analysis['%s_TARGET_MAX' % y] = tr_4_data['%s_TARGET_MAX' % y]
+        analysis['%s_MEAS' % x] = tr_4_data['%s' % x]
         analysis['%s_MEAS' % y] = tr_4_data['%s' % y]
         """
         The variable y_tr is the value use to verify the time response requirement.
@@ -510,18 +538,20 @@ class module_1547(object):
         is calculated as 90% x (Y_final_tr - Y_initial ) + Y_initial
         """
 
-        self.ts.log('        %s_TR [%s], TR [%s], %s_FINAL [%s]' %(y, analysis['%s_TR' % y],
-                                                                   analysis['TR'],
-                                                                   y, analysis['%s_FINAL_TR' % y]))
+        self.ts.log('        %s_TR [%s], TR [%s], %s_FINAL [%s]' % (y, analysis['%s_TR' % y],
+                                                                    analysis['TR'],
+                                                                    y, analysis['%s_FINAL_TR' % y]))
         return analysis
 
-    def get_letter(self,letter):
+    def get_letter(self, letter):
         """
         A simple getter that return the x or y value of the corresponding AIF
 
         :param letter:   A string (x or y)
         :return: A string
         """
+        x = None
+        y = None
         if self.script_name == "VW" or self.script_name == "FW":
             y = 'P'
             if self.script_name == "VW":
@@ -531,7 +561,7 @@ class module_1547(object):
         if self.script_name == "CPF" or self.script_name == "VV":
             y = 'Q'
             if self.script_name == "VV":
-                x= 'V'
+                x = 'V'
             elif self.script_name == "CPF":
                 x = 'P'
 
@@ -563,8 +593,8 @@ class module_1547(object):
         elif y2 == 'F':
             y2_title = 'Frequency (Hz)'
 
-        y_points = '%s_TARGET,%s_MEAS' % (y,y)
-        y2_points = '%s_TARGET,%s_MEAS' % (y2,y2)
+        y_points = '%s_TARGET,%s_MEAS' % (y, y)
+        y2_points = '%s_TARGET,%s_MEAS' % (y2, y2)
 
         # For CPF
         if self.script_name =='CPF' :
@@ -677,10 +707,6 @@ class module_1547(object):
         and test result accuracy requirements ( y_x_analysis[y_final_passfail_label] )
         """
         try:
-            analysis = {}
-            tr_4_data = None
-            tr_4_data = None
-            analysis_loop = 'start'
             first_tr = initial_value['timestamp'] + timedelta(seconds=tr)
             four_times_tr = initial_value['timestamp'] + timedelta(seconds=4 * tr)
             now = datetime.now()
@@ -701,31 +727,6 @@ class module_1547(object):
 
         except Exception as e:
             raise p1547Error('Error in criteria(): %s' % (str(e)))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 if __name__ == "__main__":
