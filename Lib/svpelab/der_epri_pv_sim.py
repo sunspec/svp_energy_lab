@@ -67,6 +67,8 @@ def params(info, group_name):
     info.param(pname('ipaddr_reads'), label='IP Address Data Stream', default='http://localhost')
     info.param(pname('ipport_reads'), label='IP Port Data Stream', default=8081)
     info.param(pname('mRID'), label='Inverter ID', default='03ac0d62-2d29-49ad-915e-15b9fbd46d86')
+    # a3bbf028-ff09-4185-95ea-4c6dfea23d8c
+    # 22261658-4c34-41ec-ab51-6a794bb47d37
 
 GROUP_NAME = 'epri'
 
@@ -298,48 +300,47 @@ if __name__ == "__main__":
     import json
     import requests
 
-    if __name__ == "__main__":
-        headers = {'Content-type': 'application/json'}
+    headers = {'Content-type': 'application/json'}
 
-        comm_start_cmd = {
-            "namespace": "comms",
-            "function": "startCommunication",
-            "requestId": "requestId",
-            "parameters": {
-                "deviceIds": ['03ac0d62-2d29-49ad-915e-15b9fbd46d86', ]
-            }
+    comm_start_cmd = {
+        "namespace": "comms",
+        "function": "startCommunication",
+        "requestId": "requestId",
+        "parameters": {
+            "deviceIds": ['03ac0d62-2d29-49ad-915e-15b9fbd46d86', ]
         }
+    }
 
-        response = requests.post('http://localhost:8000', json=comm_start_cmd)
-        print('Data Posted! statusMessage: %s' % response.json()['statusMessage'])
+    response = requests.post('http://localhost:8000', json=comm_start_cmd)
+    print('Data Posted! statusMessage: %s' % response.json()['statusMessage'])
 
-        pf_cmd = {"namespace": "der",
-                  "function": "configurePowerFactor",
-                  "requestId": "requestId",
-                  "parameters": {
-                      "deviceIds": ["03ac0d62-2d29-49ad-915e-15b9fbd46d86"],
-                      "timeWindow": 0,
-                      "reversionTimeout": 0,
-                      "rampTime": 0,
-                      "powerFactor": 0.85,
-                      "varAction": "reverseProducingVars"
-                  }
-                  }
+    pf_cmd = {"namespace": "der",
+              "function": "configurePowerFactor",
+              "requestId": "requestId",
+              "parameters": {
+                  "deviceIds": ["03ac0d62-2d29-49ad-915e-15b9fbd46d86"],
+                  "timeWindow": 0,
+                  "reversionTimeout": 0,
+                  "rampTime": 0,
+                  "powerFactor": 0.85,
+                  "varAction": "reverseProducingVars"
+              }
+              }
 
-        print('Setting new PF...')
-        response = requests.post('http://localhost:8000', json=pf_cmd)
-        print('Data Posted! statusMessage: %s' % response.json()['statusMessage'])
+    print('Setting new PF...')
+    response = requests.post('http://localhost:8000', json=pf_cmd)
+    print('Data Posted! statusMessage: %s' % response.json()['statusMessage'])
 
-        pf_enable_cmd = {"namespace": "der",
-                         "function": "powerFactor",
-                         "requestId": "requestId",
-                         "parameters": {
-                             "deviceIds": ["03ac0d62-2d29-49ad-915e-15b9fbd46d86"],
-                             "enable": True
-                         }
-                         }
+    pf_enable_cmd = {"namespace": "der",
+                     "function": "powerFactor",
+                     "requestId": "requestId",
+                     "parameters": {
+                         "deviceIds": ["03ac0d62-2d29-49ad-915e-15b9fbd46d86"],
+                         "enable": True
+                     }
+                     }
 
-        print('Enabling new PF...')
-        response = requests.post('http://localhost:8000', json=pf_enable_cmd)
-        print('Data Posted! statusMessage: %s' % response.json()['statusMessage'])
+    print('Enabling new PF...')
+    response = requests.post('http://localhost:8000', json=pf_enable_cmd)
+    print('Data Posted! statusMessage: %s' % response.json()['statusMessage'])
 
