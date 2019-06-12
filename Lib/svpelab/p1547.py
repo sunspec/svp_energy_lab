@@ -483,7 +483,7 @@ class module_1547(object):
         y = self.get_letter('y')
 
         analysis['%s_INITIAL' % y] = initial_value['y_value']
-        analysis['%s_FINAL' % y] = tr_4_data['%s' % y]
+        analysis['%s_FINAL' % y] = tr_1_data['%s' % y]
         analysis['%s_TR_1' % y] = tr_1_data['%s' % y]
         tr_diff = analysis['%s_FINAL' % y] - analysis['%s_INITIAL' % y]
         p_tr_target = ((0.9 * tr_diff) + analysis['%s_INITIAL' % y])
