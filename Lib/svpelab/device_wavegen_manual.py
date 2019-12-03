@@ -33,7 +33,7 @@ Questions can be directed to support@sunspec.org
 class Device(object):
 
     def __init__(self, params=None):
-        pass
+        self.params = params
 
     def info(self):
         return 'Waveform Generator Manual - 1.0'
