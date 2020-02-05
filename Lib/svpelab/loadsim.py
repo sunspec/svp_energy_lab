@@ -118,26 +118,60 @@ class LoadSim(object):
         pass
 
     def resistance(self, r=None, ph=None):
+        """
+        Set resistance, r, in ohms on phase, ph
+        """
         pass
 
     def inductance(self, l=None, ph=None):
+        """
+        Set inductance, l, in henries on phase, ph
+        """
         pass
 
     def capacitance(self, c=None, ph=None):
+        """
+        Set capacitance, c, in farads on phase, ph
+        """
         pass
 
     def capacitor_q(self, q=None, ph=None):
+        """
+        Set capacitance, q, in vars on phase, ph
+        """
         pass
 
     def inductor_q(self, q=None, ph=None):
+        """
+        Set inductance, q, in vars on phase, ph
+        """
         pass
 
     def resistance_p(self, p=None, ph=None):
+        """
+        Set resistance, p, in watts on phase, ph
+        """
         pass
 
     def tune_current(self, i=None, ph=None):
+        """
+        Adjust load bank to produce a certain level of current
+        """
         pass
 
+    def p_q_profile(self, csv=None):
+        """
+        Setup load banks to run a power profile from a csv file
+
+        file format: time (sec), resistance (watts), inductance (var), capacitance (var)
+        """
+        pass
+
+    def start_profile(self):
+        """
+        Trigger p_q_profile to start running
+        """
+        pass
 
 def loadsim_scan():
     global loadsim_modules
