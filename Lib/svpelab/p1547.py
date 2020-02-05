@@ -68,6 +68,7 @@ class module_1547(object):
         else:
             self.v_nom = None
         self.MSA_V = 0.01 * self.v_nom
+
         # if ts.param_value('eut.s_rated') is not None:
         self.MSA_Q = 0.05 * ts.param_value('eut.s_rated')
         self.MSA_P = 0.05 * ts.param_value('eut.s_rated')
@@ -120,7 +121,7 @@ class module_1547(object):
     """
     Setter functions
     """
-
+    
     def set_complete_test_name(self):
         """
         Write full complete test names
@@ -532,7 +533,6 @@ class module_1547(object):
                                                                 analysis['%s_TR_%s_MAX' % (y, last_iter)],
                                                                 step,
                                                                 filename)
-
             return row_data
         except Exception as e:
             raise p1547Error('Error in write_rslt_sum() : %s' % (str(e)))
@@ -540,7 +540,6 @@ class module_1547(object):
     """
     Getter functions
     """
-
     def get_step_label(self):
         """
         get the step labels and increment in alphabetical order as shown in the standard
@@ -870,7 +869,6 @@ class module_1547(object):
         :return: returns a dictionary with pass fail criteria that will be use in the
         result_summary.csv file.
         """
-
         analysis = {}
         x = self.get_x_y_variable('x')
         y = self.get_x_y_variable('y')
@@ -899,6 +897,55 @@ class module_1547(object):
             if analysis['%s_TR_1' % y] >= p_tr_target:
                 analysis['TR_90_%_PF'] = 'Pass'
             else:
+                analysis['TR'] = 'Fail'
+
+        if tr_1_data['%s_TARGET_MIN' % y] <= analysis['%s_TR_1' % y] <= tr_1_data['%s_TARGET_MAX' % y]:
+            analysis['%s_TR' % y] = 'Pass'
+        else:
+            analysis['%s_TR' % y] = 'Fail'
+
+        self.ts.log('        %s(Tr_1) evaluation: %0.1f <= %0.1f <= %0.1f  [%s]' % (y,
+                                                                                    tr_1_data['%s_TARGET_MIN' % y],
+                                                                                    analysis['%s_TR_1' % y],
+                                                                                    tr_1_data['%s_TARGET_MAX' % y],
+                                                                                    analysis['%s_TR' % y]))
+
+        if tr_4_data['%s_TARGET_MIN' % y] <= analysis['%s_FINAL' % y] <= tr_4_data['%s_TARGET_MAX' % y]:
+            analysis['%s_FINAL_TR' % y] = 'Pass'
+        else:
+            analysis['%s_FINAL_TR' % y] = 'Fail'
+
+        self.ts.log('        %s(Tr_4) evaluation: %0.1f <= %0.1f <= %0.1f  [%s]' % (y,
+                                                                                    tr_4_data['%s_TARGET_MIN' % y],
+                                                                                    analysis['%s_FINAL' % y],
+                                                                                    tr_4_data['%s_TARGET_MAX' % y],
+                                                                                    analysis['%s_FINAL_TR' % y]))
+
+        analysis['%s_TARGET' % y] = tr_4_data['%s_TARGET' % y]
+        analysis['%s_TARGET_MIN' % y] = tr_4_data['%s_TARGET_MIN' % y]
+        analysis['%s_TARGET_MAX' % y] = tr_4_data['%s_TARGET_MAX' % y]
+
+        if x is not None:
+            analysis['%s_MEAS' % x] = tr_4_data['%s' % x]
+        analysis['%s_MEAS' % y] = tr_4_data['%s' % y]
+        """
+        The variable y_tr is the value use to verify the time response requirement.
+        |----------|----------|----------|----------|
+                   1st tr     2nd tr     3rd tr     4th tr            
+        |          |                                |
+        y_initial  y_tr                             y_final_tr    
+
+        (1547.1)After each step, the open loop response time, Tr , is evaluated. 
+        The expected output, Y (T r ), at one times the open loop response time,
+        is calculated as 90% x (Y_final_tr - Y_initial ) + Y_initial
+        """
+
+        self.ts.log('        %s_TR [%s], TR [%s], %s_FINAL [%s]' % (y, analysis['%s_TR' % y],
+                                                                    analysis['TR'],
+                                                                    y, analysis['%s_FINAL_TR' % y]))
+        return analysis
+
+    def get_x_y_variable(self, letter):
                 analysis['TR_90_%_PF'] = 'Fail'
         """
               The variable y_tr is the value use to verify the time response requirement.
@@ -1069,6 +1116,60 @@ class module_1547(object):
                 q_value = self.param[curve]['Q3']
             q_value *= pwr_lvl
             return q_value
+
+
+    """
+    Passfail functions
+    """
+    # STD_CHANGE: Analysis of X(Tr) value is not relevant when x_initial is really close to x_final
+    def criteria(self, daq, tr, step, initial_value, curve=None, pwr_lvl=1.0, target=None, mode=None):
+        """
+        Determine the passfail criteria of any test based on the parameter target
+
+        :param target:  float
+        The parameter target (PF_TARGET, V_TARGET or F_TARGET)
+
+        :param daq:     DAS object
+        data acquisition object in order to manipulated
+
+        :param tr:      float
+        The response time (s) of the tested function
+
+        :param step:    string
+        The test procedure step letter or number (e.g "Step G" )
+
+        :param initial_value:   dictionary
+        This is a dictionary with two important key : 'timestamp' and 'value' before a step
+
+        :param pwr_lvl:   float
+        The power level of test to be reflected in interpolation
+
+        :return y_x_analysis:    dictionary
+        y_x_analysis that contains passfail of response time requirements ( y_x_analysis[y_tr_passfail_label])
+        and test result accuracy requirements ( y_x_analysis[y_final_passfail_label] )
+        """
+        #try:
+        first_tr = initial_value['timestamp'] + timedelta(seconds=tr)
+        four_times_tr = initial_value['timestamp'] + timedelta(seconds=4 * tr)
+        now = datetime.now()
+        if now <= first_tr:
+            time_to_sleep = first_tr - datetime.now()
+            self.ts.sleep(time_to_sleep.total_seconds())
+
+        tr_1_data = self.get_tr_data(daq, step, tr=1, pwr_lvl=pwr_lvl, curve=curve, target=target)
+
+        if now <= four_times_tr:
+            time_to_sleep = four_times_tr - datetime.now()
+            self.ts.sleep(time_to_sleep.total_seconds())
+
+        tr_4_data = self.get_tr_data(daq, step, tr=4, pwr_lvl=pwr_lvl, curve=curve, target=target)
+
+        analysis = self.get_analysis(initial_value, tr_1_data, tr_4_data)
+        return analysis
+
+        #except Exception as e:
+
+        #   raise p1547Error('Error in criteria(): %s' % (str(e)))
 
     def process_data(self, daq, tr, step, initial_value, result_summary, filename, \
                      pwr_lvl=None, curve=None, x_target=None, y_target=None):
