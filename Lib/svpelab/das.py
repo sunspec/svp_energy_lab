@@ -83,7 +83,7 @@ WFM_STATUS_ACTIVE = 'inactive'
 WFM_STATUS_COMPLETE = 'complete'
 
 points_default = {
-    'AC': ('VRMS', 'IRMS', 'P', 'S', 'Q', 'PF', 'FREQ','INC'),
+    'AC': ('VRMS', 'IRMS', 'P', 'S', 'Q', 'PF', 'FREQ'),
     'DC': ('V', 'I', 'P')
 }
 
