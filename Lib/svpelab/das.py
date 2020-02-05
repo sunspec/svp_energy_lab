@@ -83,7 +83,7 @@ WFM_STATUS_ACTIVE = 'inactive'
 WFM_STATUS_COMPLETE = 'complete'
 
 points_default = {
-    'AC': ('VRMS', 'IRMS', 'P', 'S', 'Q', 'PF', 'FREQ'),
+    'AC': ('VRMS', 'IRMS', 'P', 'S', 'Q', 'PF', 'FREQ','INC'),
     'DC': ('V', 'I', 'P')
 }
 
@@ -107,6 +107,7 @@ def params(info, id=None, label='Data Acquisition System', group_name=None, acti
         m.params(info, group_name=group_name)
 
 DAS_DEFAULT_ID = 'das'
+
 
 def das_init(ts, id=None, points=None, sc_points=None, group_name=None):
     """
