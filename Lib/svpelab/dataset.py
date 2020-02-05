@@ -58,7 +58,7 @@ class DatasetError(Exception):
     A dataset consists of a set of time series points organized as parallel arrays and some
     additional optional properties.
 
-    Optional roperties:
+    Optional properties:
     Start time of dataset
     Sample rate of dataset (samples/sec)
     Trigger sample (record index into dataset)
@@ -94,12 +94,14 @@ class Dataset(object):
         for i in range(dlen):
             try:
                 if data[i] is not None:
-                    print(type(data[i]))
                     if data[i] is tuple:
                         self.ts.log_debug('tuple data point recorded: %s' % data)
                         v = float(data[i][0])
                     elif isinstance(data[i], datetime.datetime):
-                        v = data[i]
+                        epoch = datetime.datetime.utcfromtimestamp(0)
+                        total_seconds = (data[i] - epoch).total_seconds()
+                        # total_seconds will be in decimals (millisecond precision)
+                        v = total_seconds
                     else:
                         v = float(data[i])
                 else:
