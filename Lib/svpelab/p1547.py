@@ -5,24 +5,38 @@ import math
 import xlsxwriter
 import traceback
 from datetime import datetime, timedelta
+from collections import OrderedDict
 
 import time
 import collections
-#import sys
-#import os
-#import glob
-#import importlib
+
+# import sys
+# import os
+# import glob
+# import importlib
+
+
+FW = 'FW'
+CPF = 'CPF'
+VW = 'VW'
+VV = 'VV'
+WV = 'WV'
+CRP = 'CRP'
+LAP = 'LAP'
+PRI = 'PRI'
+
+VOLTAGE = "V"
+FREQUENCY = "F"
 
 
 class p1547Error(Exception):
-
     pass
 
 
 class module_1547(object):
     script_name = ''
 
-    def __init__(self, ts, aif, imbalance_angle_fix='No', absorb=None):
+    def __init__(self, ts, aif, imbalance_angle_fix='std', absorb='No'):
         """
         param ts: test script object
         param aif: name of the test
@@ -32,7 +46,7 @@ class module_1547(object):
 
         # Library variables
         self.ts = ts
-        #self.params = params
+        # self.params = params
         self.script_name = aif
         self.script_complete_name = aif
         self.rslt_sum_col_name = ''
@@ -43,6 +57,8 @@ class module_1547(object):
         self.param = {}
         self.x_criteria = None
         self.y_criteria = None
+        self.step_label = None
+        self.double_letter_label = False
 
         """
         According to Table 3-Minimum requirements for manufacturers stated measured and calculated accuracy
@@ -52,10 +68,11 @@ class module_1547(object):
         else:
             self.v_nom = None
         self.MSA_V = 0.01 * self.v_nom
-        #if ts.param_value('eut.s_rated') is not None:
+
+        # if ts.param_value('eut.s_rated') is not None:
         self.MSA_Q = 0.05 * ts.param_value('eut.s_rated')
         self.MSA_P = 0.05 * ts.param_value('eut.s_rated')
-        #else:
+        # else:
         #   self.MSA_Q = None
         #   self.MSA_P = None
         self.MSA_F = 0.01
@@ -77,6 +94,11 @@ class module_1547(object):
             self.var_rated = ts.param_value('eut.var_rated')
         else:
             self.var_rated = None
+
+        if ts.param_value('eut.s_rated') is not None:
+            self.s_rated = ts.param_value('eut.s_rated')
+        else:
+            self.s_rated = None
         self.imbalance_angle_fix = imbalance_angle_fix
         self.absorb = absorb
 
@@ -94,28 +116,29 @@ class module_1547(object):
         # Configure test for imblance operation
         self.set_imbalance_config()
         # Configure the x and y variable for criteria
-        self.set_x_y_criterias()
+        self.set_x_y_variable()
 
     """
     Setter functions
     """
+    
     def set_complete_test_name(self):
         """
         Write full complete test names
         :param nothing:
         :return: nothing
         """
-        if self.script_name == 'FW':
+        if self.script_name == FW:
             self.script_complete_name = 'Frequency-Watt'
-        elif self.script_name == 'CPF':
+        elif self.script_name == CPF:
             self.script_complete_name = 'Constant Power Factor'
-        elif self.script_name == 'VW':
+        elif self.script_name == VW:
             self.script_complete_name = 'Volt-Watt'
-        elif self.script_name == 'VV':
+        elif self.script_name == VV:
             self.script_complete_name = 'Volt-Var'
-        elif self.script_name == 'WV':
+        elif self.script_name == WV:
             self.script_complete_name = 'Watt-Var'
-        elif self.script_name == 'CRP':
+        elif self.script_name == CRP:
             self.script_complete_name = 'Constant Reactive Power'
         else:
             self.script_complete_name = self.script_name
@@ -126,24 +149,27 @@ class module_1547(object):
         :param nothing:
         :return: nothing
         """
-        if self.script_name == "CPF":
+        if self.script_name == CPF:
             self.rslt_sum_col_name = 'Q_TR_ACC_REQ, TR_REQ, Q_FINAL_ACC_REQ, P_MEAS, Q_MEAS, Q_TARGET, Q_TARGET_MIN,' \
                                      'Q_TARGET_MAX, STEP, FILENAME\n'
-        elif self.script_name == "VV":
-            self.rslt_sum_col_name = 'Q_TR_ACC_REQ, TR_REQ, Q_FINAL_ACC_REQ, V_MEAS, Q_MEAS, V_TARGET, Q_TARGET_MIN,' \
+        elif self.script_name == VV:
+            self.rslt_sum_col_name = 'Q_TR_ACC_REQ, TR_REQ, Q_FINAL_ACC_REQ, P_MEAS, V_MEAS, Q_MEAS, V_TARGET, Q_TARGET_MIN,' \
                                      'Q_TARGET_MAX, STEP, FILENAME\n'
-        elif self.script_name == "VW":
+        elif self.script_name == VW:
             self.rslt_sum_col_name = 'P_TR_ACC_REQ, TR_REQ, P_FINAL_ACC_REQ, V_MEAS, P_MEAS, P_TARGET, P_TARGET_MIN,' \
                                      'P_TARGET_MAX, STEP, FILENAME\n'
-        elif self.script_name == "FW":
+        elif self.script_name == FW:
             self.rslt_sum_col_name = 'P_TR_ACC_REQ, TR_REQ, P_FINAL_ACC_REQ, F_MEAS, P_MEAS, P_TARGET, P_TARGET_MIN,' \
                                      'P_TARGET_MAX, STEP, FILENAME\n'
-        elif self.script_name == "WV":
+        elif self.script_name == WV:
             self.rslt_sum_col_name = 'Q_TR_ACC_REQ, TR_REQ, Q_FINAL_ACC_REQ, P_MEAS, Q_MEAS, Q_TARGET, Q_TARGET_MIN,' \
                                      'Q_TARGET_MAX, STEP, FILENAME\n'
-        if self.script_name == "CRP":
+        elif self.script_name == CRP:
             self.rslt_sum_col_name = 'Q_TR_ACC_REQ, TR_REQ, Q_FINAL_ACC_REQ, P_MEAS, Q_MEAS, Q_TARGET, Q_TARGET_MIN,' \
                                      'Q_TARGET_MAX, STEP, FILENAME\n'
+        elif self.script_name == LAP:
+            self.rslt_sum_col_name = 'Q_TR_ACC_REQ, TR_REQ, Q_FINAL_ACC_REQ, P_MEAS, V_MEAS, F_MEAS, P_TARGET, ' \
+                                     'P_TARGET_MIN, P_TARGET_MAX, STEP, FILENAME\n'
 
     def set_sc_points(self):
         """
@@ -151,18 +177,22 @@ class module_1547(object):
         :param nothing:
         :return: nothing
         """
-        if self.script_name == "CPF":
-            self.sc_points['sc'] = ('V_MEAS', 'P_MEAS', 'Q_MEAS', 'Q_TARGET_MIN', 'Q_TARGET_MAX', 'PF_TARGET', 'event')
-        elif self.script_name == "VV":
+        if self.script_name == CPF:
+            self.sc_points['sc'] = (
+            'V_MEAS', 'P_MEAS', 'Q_MEAS', 'Q_TARGET', 'Q_TARGET_MIN', 'Q_TARGET_MAX', 'PF_TARGET', 'event')
+        elif self.script_name == VV:
             self.sc_points['sc'] = ('Q_TARGET', 'Q_TARGET_MIN', 'Q_TARGET_MAX', 'Q_MEAS', 'V_TARGET', 'V_MEAS', 'event')
-        elif self.script_name == "VW":
+        elif self.script_name == VW:
             self.sc_points['sc'] = ('P_TARGET', 'P_TARGET_MIN', 'P_TARGET_MAX', 'P_MEAS', 'V_TARGET', 'V_MEAS', 'event')
-        elif self.script_name == "FW":
+        elif self.script_name == FW:
             self.sc_points['sc'] = ('P_TARGET', 'P_TARGET_MIN', 'P_TARGET_MAX', 'P_MEAS', 'F_TARGET', 'F_MEAS', 'event')
-        elif self.script_name == "WV":
+        elif self.script_name == WV:
             self.sc_points['sc'] = ('Q_TARGET', 'Q_TARGET_MIN', 'Q_TARGET_MAX', 'Q_MEAS', 'P_TARGET', 'P_MEAS', 'event')
-        if self.script_name == "CRP":
-            self.sc_points['sc'] = ('V_MEAS', 'P_MEAS', 'Q_MEAS', 'Q_TARGET_MIN', 'Q_TARGET_MAX', 'Q_TARGET', 'event')
+        elif self.script_name == CRP:
+            self.sc_points['sc'] = ('V_MEAS', 'P_MEAS', 'Q_MEAS', 'Q_TARGET_MIN', 'Q_TARGET_MAX', 'PF_TARGET', 'event')
+        elif self.script_name == LAP:
+            self.sc_points['sc'] = ('V_MEAS', 'F_MEAS', 'P_MEAS', 'P_TARGET_MIN', 'P_TARGET_MAX', \
+                                    'V_TARGET', 'F_TARGET', 'P_TARGET', 'event')
 
     def set_params(self):
         """
@@ -171,7 +201,7 @@ class module_1547(object):
         :return: nothing
         """
 
-        if self.script_name == "VW":
+        if self.script_name == VW or (self.script_name == LAP and self.get_x_y_variable('x') == 'V'):
             self.param[1] = {'V1': round(1.06 * self.v_nom, 2),
                              'V2': round(1.10 * self.v_nom, 2),
                              'P1': round(self.p_rated, 2)}
@@ -188,7 +218,7 @@ class module_1547(object):
                 self.param[1]['P2'] = int(0.2 * self.p_rated)
                 self.param[2]['P2'] = int(0.2 * self.p_rated)
                 self.param[3]['P2'] = int(0.2 * self.p_rated)
-            elif self.absorb['ena'] == 'Yes':
+            elif self.absorb == 'Yes':
                 self.param[1]['P2'] = 0
                 self.param[2]['P2'] = self.absorb['p_rated_prime']
                 self.param[3]['P2'] = self.absorb['p_rated_prime']
@@ -197,28 +227,31 @@ class module_1547(object):
                 self.param[2]['P2'] = int(self.p_min)
                 self.param[3]['P2'] = int(self.p_min)
 
-        elif self.script_name == "FW":
+        if self.script_name == FW or (self.script_name == LAP and self.get_x_y_variable('x') == 'F'):
             p_small = self.ts.param_value('eut_fw.p_small')
+            if p_small is None:
+                p_small = 0.05
             self.param[1] = {"dbf": 0.036,
                              'kof': 0.05,
                              'tr': self.ts.param_value('fw.test_1_tr'),
                              'f_small': p_small * self.f_nom * 0.05
                              }
             self.param[2] = {'dbf': 0.017,
-                             'kof': 0.02,
+                             'kof': 0.03,
                              'tr': self.ts.param_value('fw.test_2_tr'),
-                             'f_small': p_small * self.f_nom  * 0.02
+                             'f_small': p_small * self.f_nom * 0.02
                              }
 
-        elif self.script_name == "VV":
+        elif self.script_name == VV:
             self.param[1] = {'V1': round(0.92 * self.v_nom, 2),
                              'V2': round(0.98 * self.v_nom, 2),
                              'V3': round(1.02 * self.v_nom, 2),
                              'V4': round(1.08 * self.v_nom, 2),
-                             'Q1': round(self.var_rated * 1.0, 2),
-                             'Q2': round(self.var_rated * 0.0, 2),
-                             'Q3': round(self.var_rated * 0.0, 2),
-                             'Q4': round(self.var_rated * -1.0, 2)}
+                             # 'V4': round(1.08 * self.v_nom, 2),
+                             'Q1': round(self.s_rated * 0.44, 2),
+                             'Q2': round(self.s_rated * 0.0, 2),
+                             'Q3': round(self.s_rated * 0.0, 2),
+                             'Q4': round(self.s_rated * -0.44, 2)}
 
             self.param[2] = {'V1': round(0.88 * self.v_nom, 2),
                              'V2': round(1.04 * self.v_nom, 2),
@@ -238,20 +271,20 @@ class module_1547(object):
                              'Q3': round(self.var_rated * -0.5, 2),
                              'Q4': round(self.var_rated * -1.0, 2)}
 
-        #Two sets of value depending if EUT can absorb power or not
+        # Two sets of value depending if EUT can absorb power or not
         elif self.script_name == "WV":
             if self.absorb is not "Yes":
                 self.ts.log('EUT able to absorb: No, P values loaded for characteristic curve')
                 self.ts.log('p_min={}'.format(self.p_min))
-                self.ts.log('0.2p_rated={}'.format(0.2*self.p_rated))
+                self.ts.log('0.2p_rated={}'.format(0.2 * self.p_rated))
 
-                if self.p_min > 0.2*self.p_rated:
+                if self.p_min > 0.2 * self.p_rated:
                     p = self.p_min
                     self.ts.log('p_min')
                 else:
-                    p = 0.2*self.p_rated
+                    p = 0.2 * self.p_rated
                     self.ts.log('20%p_rated')
-                #Added another Q(P) points since EUT looks to be asking for 4 pts
+                # Added another Q(P) points since EUT looks to be asking for 4 pts
                 self.param[1] = {'P0': 0,
                                  'P1': round(p, 2),
                                  'P2': round(0.5 * self.p_rated, 2),
@@ -307,6 +340,20 @@ class module_1547(object):
                                  'Q2': round(-0.44 * self.var_rated, 2),
                                  'Q3': round(-0.44 * self.var_rated, 2)}
 
+    def get_x_y_variable(self, letter):
+        """
+        A simple getter that return the x or y value of the corresponding AIF
+
+        :param letter:   A string (x or y)
+        :return: A string
+        """
+        if letter == 'x':
+            return self.x_criteria
+        elif letter == 'y':
+            return self.y_criteria
+        else:
+            raise p1547Error("Error in get_x_y_variable(). Must be either 'x' or 'y' as argument")
+
     def set_grid_asymmetric(self, grid, case):
         """
         Configure the grid simulator to change the magnitude and angles.
@@ -350,7 +397,7 @@ class module_1547(object):
         :return: nothing
         """
 
-        if self.imbalance_angle_fix == 'Yes':
+        if self.imbalance_angle_fix == 'std':
             # Case A
             self.mag['case_a'] = [1.07 * self.v_nom, 0.91 * self.v_nom, 0.91 * self.v_nom]
             self.ang['case_a'] = [0., 120, -120]
@@ -358,7 +405,23 @@ class module_1547(object):
             self.mag['case_b'] = [0.91 * self.v_nom, 1.07 * self.v_nom, 1.07 * self.v_nom]
             self.ang['case_b'] = [0., 120.0, -120.0]
             self.ts.log("Setting test with imbalanced test with FIXED angles/values")
-        elif self.imbalance_angle_fix == 'No':
+        elif self.imbalance_angle_fix == 'fix_mag':
+            # Case A
+            self.mag['case_a'] = [1.07 * self.v_nom, 0.91 * self.v_nom, 0.91 * self.v_nom]
+            self.ang['case_a'] = [0., 126.59, -126.59]
+            # Case B
+            self.mag['case_b'] = [0.91 * self.v_nom, 1.07 * self.v_nom, 1.07 * self.v_nom]
+            self.ang['case_b'] = [0., 114.5, -114.5]
+            self.ts.log("Setting test with imbalanced test with NOT FIXED angles/values")
+        elif self.imbalance_angle_fix == 'fix_ang':
+            # Case A
+            self.mag['case_a'] = [1.08 * self.v_nom, 0.91 * self.v_nom, 0.91 * self.v_nom]
+            self.ang['case_a'] = [0., 120, -120]
+            # Case B
+            self.mag['case_b'] = [0.9 * self.v_nom, 1.08 * self.v_nom, 1.08 * self.v_nom]
+            self.ang['case_a'] = [0., 120, -120]
+            self.ts.log("Setting test with imbalanced test with NOT FIXED angles/values")
+        elif self.imbalance_angle_fix == 'not_fix':
             # Case A
             self.mag['case_a'] = [1.08 * self.v_nom, 0.91 * self.v_nom, 0.91 * self.v_nom]
             self.ang['case_a'] = [0., 126.59, -126.59]
@@ -366,6 +429,50 @@ class module_1547(object):
             self.mag['case_b'] = [0.9 * self.v_nom, 1.08 * self.v_nom, 1.08 * self.v_nom]
             self.ang['case_b'] = [0., 114.5, -114.5]
             self.ts.log("Setting test with imbalanced test with NOT FIXED angles/values")
+
+    def set_x_y_variable(self, x=None, y=None, step=None):
+        """
+        A simple setter that sets the x or y value of the corresponding AIF
+        :param x:   A string (x or y)
+        :param y:   A string (x or y)
+        :param step:   The step of the test since now it change sometimes during the test
+        :return: Nothing
+        """
+        self.ts.log_debug("%s" % step)
+        if self.script_name == VW or self.script_name == FW or self.script_name == LAP:
+            self.y_criteria = 'P'
+            if self.script_name == VW:
+                self.x_criteria = 'V'
+            elif self.script_name == FW:
+                self.x_criteria = 'F'
+            elif self.script_name == LAP and step is not None:
+                if step == "Step C" or "Step D" in step or "Step E" in step:
+                    self.x_criteria = "F"
+                elif "Step F" in step:
+                    self.x_criteria = "V"
+                else:
+                    self.x_criteria = "None"
+
+        if self.script_name == CPF or self.script_name == VV or \
+                self.script_name == "WV" or self.script_name == CRP:
+            self.y_criteria = 'Q'
+            if self.script_name == VV:
+                self.x_criteria = 'V'
+            elif self.script_name == CPF or self.script_name == "WV" or self.script_name == CRP:
+                self.x_criteria = 'P'
+
+    def set_step_label(self, starting_label=None):
+        """
+        Write step labels in alphabetical order as shown in the standard
+        :param nothing:
+        :return: nothing
+        """
+        self.double_letter_label = False
+
+        if starting_label is None:
+            starting_label = 'a'
+        starting_label_value = ord(starting_label)
+        self.step_label = starting_label_value
 
     def write_rslt_sum(self, analysis, step, filename):
         """
@@ -376,21 +483,56 @@ class module_1547(object):
         :param filename: the dataset filname use for analysis
         :return: row_data a string with all the information for result_summary.csv
         """
+        row_data = ''
         try:
-            row_data = ''
-            x = self.get_x_y_variable('x')
-            y = self.get_x_y_variable('y')
+            if self.get_test_name() == 'LAP':
 
-            row_data = '%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n' % (analysis['%s_TR' % y],
-                                                            analysis['TR'],
-                                                            analysis['%s_FINAL_TR' % y],
-                                                            analysis['%s_MEAS' % x],
-                                                            analysis['%s_MEAS' % y],
-                                                            analysis['%s_TARGET' % y],
-                                                            analysis['%s_TARGET_MIN' % y],
-                                                            analysis['%s_TARGET_MAX' % y],
-                                                            step, filename)
-
+                x = self.get_x_y_variable('x')
+                y = self.get_x_y_variable('y')
+                first_iter = analysis['FIRST_ITER']
+                last_iter = analysis['LAST_ITER']
+                row_data = '%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n' % (analysis['%s_TR_%s_PF' % (y, first_iter)],
+                                                                   analysis['TR_90_%_PF'],
+                                                                   analysis['%s_TR_%s_PF' % (y, last_iter)],
+                                                                   analysis['P_MEAS_%s' % last_iter],
+                                                                   analysis['V_MEAS_%s' % last_iter],
+                                                                   analysis['F_MEAS_%s' % last_iter],
+                                                                   analysis['%s_TR_TARG_%s' % (y, last_iter)],
+                                                                   analysis['%s_TR_%s_MIN' % (y, last_iter)],
+                                                                   analysis['%s_TR_%s_MAX' % (y, last_iter)],
+                                                                   step,
+                                                                   filename)
+            elif self.get_test_name() == 'VV':
+                x = self.get_x_y_variable('x')
+                y = self.get_x_y_variable('y')
+                first_iter = analysis['FIRST_ITER']
+                last_iter = analysis['LAST_ITER']
+                row_data = '%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n' % (analysis['%s_TR_%s_PF' % (y, first_iter)],
+                                                                   analysis['TR_90_%_PF'],
+                                                                   analysis['%s_TR_%s_PF' % (y, last_iter)],
+                                                                   analysis['P_MEAS_%s' % last_iter],
+                                                                   analysis['V_MEAS_%s' % last_iter],
+                                                                   analysis['F_MEAS_%s' % last_iter],
+                                                                   analysis['%s_TR_TARG_%s' % (y, last_iter)],
+                                                                   analysis['%s_TR_%s_MIN' % (y, last_iter)],
+                                                                   analysis['%s_TR_%s_MAX' % (y, last_iter)],
+                                                                   step,
+                                                                   filename)
+            else:
+                x = self.get_x_y_variable('x')
+                y = self.get_x_y_variable('y')
+                first_iter = analysis['LAST_ITER']
+                last_iter = analysis['LAST_ITER']
+                row_data = '%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n' % (analysis['%s_TR_%s_PF' % (y, first_iter)],
+                                                                analysis['TR_90_%_PF'],
+                                                                analysis['%s_TR_%s_PF' % (y, last_iter)],
+                                                                analysis['%s_TR_%s' % (x, last_iter)],
+                                                                analysis['%s_TR_%s' % (y, last_iter)],
+                                                                analysis['%s_TR_TARG_%s' % (y, last_iter)],
+                                                                analysis['%s_TR_%s_MIN' % (y, last_iter)],
+                                                                analysis['%s_TR_%s_MAX' % (y, last_iter)],
+                                                                step,
+                                                                filename)
             return row_data
         except Exception as e:
             raise p1547Error('Error in write_rslt_sum() : %s' % (str(e)))
@@ -398,27 +540,23 @@ class module_1547(object):
     """
     Getter functions
     """
-    def set_x_y_criterias(self):
+    def get_step_label(self):
         """
-        A simple setter that sets the x or y value of the corresponding AIF
-
-        :param letter:   A string (x or y)
-        :return: Nothing
+        get the step labels and increment in alphabetical order as shown in the standard
+        :param nothing:
+        :return: nothing
         """
+        if self.step_label > 90:
+            self.step_label = ord('A')
+            self.double_letter_label = True
 
-        if self.script_name == "VW" or self.script_name == "FW":
-            self.y_criteria = 'P'
-            if self.script_name == "VW":
-                self.x_criteria = 'V'
-            elif self.script_name == "FW":
-                self.x_criteria = 'F'
-        if self.script_name == "CPF" or self.script_name == "VV" or \
-                self.script_name == "WV" or self.script_name == "CRP":
-            self.y_criteria = 'Q'
-            if self.script_name == "VV":
-                self.x_criteria = 'V'
-            elif self.script_name == "CPF" or self.script_name == "WV" or self.script_name == "CRP":
-                self.x_criteria = 'P'
+        if self.double_letter_label:
+            step_label = 'Step {}{}'.format(chr(self.step_label), chr(self.step_label))
+        else:
+            step_label = 'Step {}'.format(chr(self.step_label))
+
+        self.step_label += 1
+        return step_label
 
     def get_test_name(self):
         """
@@ -464,11 +602,11 @@ class module_1547(object):
             meas_root = 'AC_Q'
 
         if self.phases == 'Single phase':
-            meas_label = [meas_root+'_1']
+            meas_label = [meas_root + '_1']
         elif self.phases == 'Split phase':
-            meas_label = [meas_root+'_1', meas_root+'_2']
+            meas_label = [meas_root + '_1', meas_root + '_2']
         elif self.phases == 'Three phase':
-            meas_label = [meas_root+'_1', meas_root+'_2', meas_root+'_3']
+            meas_label = [meas_root + '_1', meas_root + '_2', meas_root + '_3']
 
         return meas_label
 
@@ -482,6 +620,9 @@ class module_1547(object):
         """
         value = None
         nb_phases = None
+
+        self.ts.log_debug('data meas= %s' % data)
+
         try:
             if self.phases == 'Single phase':
                 value = data.get(self.get_measurement_label(type_meas)[0])
@@ -512,6 +653,8 @@ class module_1547(object):
         except Exception as e:
             self.ts.log_error('Inverter phase parameter not set correctly.')
             self.ts.log_error('phases=%s' % self.phases)
+            self.ts.log_error('type_meas=%s' % type_meas)
+
             raise p1547Error('Error in get_measurement_total() : %s' % (str(e)))
 
         # TODO : imbalance_resp should change the way you acquire the data
@@ -529,7 +672,7 @@ class module_1547(object):
 
         return value
 
-    def get_initial(self, daq, step):
+    def get_initial_value(self, daq, step):
         """
         Sum the EUT reactive power from all phases
         :param daq:         data acquisition object from svpelab library
@@ -538,66 +681,62 @@ class module_1547(object):
         """
         # TODO : In a more sophisticated approach, get_initial['timestamp'] will come from a
         #  reliable secure thread or data acquisition timestamp
-        try:
-            initial = {}
-            initial['timestamp'] = datetime.now()
-            x = self.get_x_y_variable('x')
-            y = self.get_x_y_variable('y')
-            daq.data_sample()
-            data = daq.data_capture_read()
-            daq.sc['event'] = step
-            initial['x_value'] = self.get_measurement_total(data=data, type_meas=x, log=False)
-            initial['y_value'] = self.get_measurement_total(data=data, type_meas=y, log=False)
-            daq.sc['%s_MEAS' % x] = initial['x_value']
-            daq.sc['%s_MEAS' % y] = initial['y_value']
-            daq.data_sample()
-
-            return initial
-
-        except Exception as e:
-            raise p1547Error('Error in get_initial(): %s' % (str(e)))
-
-    def get_tr_data(self, daq, step, tr, pwr_lvl=None, curve=None, target=None):
-        """
-        Get the data from a specific time response (tr) corresponding to x and y values
-        of the aif (e.g. aif='VW' x == voltage and y == active power) returns a dictionary
-        but also writes in the soft channels of the DAQ system
-        :param daq:         data acquisition object from svpelab library
-        :param step:        test procedure step letter or number (e.g "Step G")
-        :param pwr_lvl:     The input power level in p.u.
-        :param curve:       The characteristic curve number
-        :param target:      The target value of AIF, only use for CPF
-        :return: returns a dictionary with the timestamp, event and total EUT reactive power
-        """
-        tr_data = {}
+        self.set_x_y_variable(step=step)
+        initial = {}
+        initial['timestamp'] = datetime.now()
+        x = self.get_x_y_variable('x')
+        y = self.get_x_y_variable('y')
         daq.data_sample()
         data = daq.data_capture_read()
-        #try:
+        daq.sc['event'] = step
+        if isinstance(x, list):
+            for xs in x:
+                initial[xs] = {'x_value': self.get_measurement_total(data=data, type_meas=xs, log=False)}
+                daq.sc['%s_MEAS' % xs] = initial[xs]['x_value']
+        else:
+            initial[x] = {'x_value': self.get_measurement_total(data=data, type_meas=x, log=False)}
+            daq.sc['%s_MEAS' % x] = initial[x]['x_value']
+        if isinstance(y, list):
+            for ys in y:
+                initial[ys] = {'y_value': self.get_measurement_total(data=data, type_meas=ys, log=False)}
+                daq.sc['%s_MEAS' % ys] = initial[ys]["y_value"]
+        else:
+            initial[y] = {'y_value': self.get_measurement_total(data=data, type_meas=y, log=False)}
+            daq.sc['%s_MEAS' % y] = initial[y]['y_value']
+        daq.data_sample()
+
+        return initial
+
+    def update_target_value(self, daq, pwr_lvl=None, curve=None, x_target=None, y_target=None, step=None, data=None):
         x = self.get_x_y_variable('x')
         y = self.get_x_y_variable('y')
 
-        if x is not None:
-            daq.sc['%s_MEAS' % x] = self.get_measurement_total(data=data, type_meas='%s' % x, log=False)
-        if y is not None:
-            daq.sc['%s_MEAS' % y] = self.get_measurement_total(data=data, type_meas='%s' % y, log=False)
+        # TODO : This is returning the MIN and Max but not the target value
 
+        if self.script_name == CPF:
+            daq.sc['%s_TARGET_MIN' % y] = self.get_targ(daq.sc['%s_MEAS' % x] + self.MSA_P * 1.5, pwr_lvl, pf=x_target) \
+                                          - 1.5 * self.MSA_Q
+            daq.sc['%s_TARGET_MAX' % y] = self.get_targ(daq.sc['%s_MEAS' % x] - self.MSA_P * 1.5, pwr_lvl, pf=x_target) \
+                                          + 1.5 * self.MSA_Q
+        elif self.script_name == VV:
+            v_meas = self.get_measurement_total(data=data, type_meas='V', log=False)
 
-        if self.script_name == "CPF":
-            daq.sc['%s_TARGET_MIN' % y] = self.get_targ(daq.sc['%s_MEAS' % x] + self.MSA_P * 1.5, pwr_lvl,pf=target)\
-                                          -1.5*self.MSA_Q
-            daq.sc['%s_TARGET_MAX' % y] = self.get_targ(daq.sc['%s_MEAS' % x] - self.MSA_P * 1.5, pwr_lvl,pf=target)\
-                                          +1.5*self.MSA_Q
-        elif self.script_name == "VV":
-            daq.sc['%s_TARGET_MIN' % y] = self.get_targ(daq.sc['%s_MEAS' % x] + self.MSA_V * 1.5, pwr_lvl,curve) - \
+            daq.sc['%s_TARGET_MIN' % y] = self.get_targ(v_meas + self.MSA_V * 1.5, pwr_lvl, curve) - \
                                           (self.MSA_Q * 1.5)
-            daq.sc['%s_TARGET_MAX' % y] = self.get_targ(daq.sc['%s_MEAS' % x] - self.MSA_V * 1.5, pwr_lvl,curve) + \
+            daq.sc['%s_TARGET_MAX' % y] = self.get_targ(v_meas - self.MSA_V * 1.5, pwr_lvl, curve) + \
                                           (self.MSA_Q * 1.5)
-        elif self.script_name == "VW":
+            '''
+            daq.sc['%s_TARGET_MIN' % y] = self.get_targ(daq.sc['%s_MEAS' % x] + self.MSA_V * 1.5, pwr_lvl, curve) - \
+                                          (self.MSA_Q * 1.5)
+            daq.sc['%s_TARGET_MAX' % y] = self.get_targ(daq.sc['%s_MEAS' % x] - self.MSA_V * 1.5, pwr_lvl, curve) + \
+                                          (self.MSA_Q * 1.5)
+            '''
+        elif self.script_name == VW:
             daq.sc['%s_TARGET_MIN' % y] = self.get_targ(daq.sc['%s_MEAS' % x] + self.MSA_V * 1.5, pwr_lvl, curve) - (
                     self.MSA_P * 1.5)
             daq.sc['%s_TARGET_MAX' % y] = self.get_targ(daq.sc['%s_MEAS' % x] - self.MSA_V * 1.5, pwr_lvl, curve) + (
                     self.MSA_P * 1.5)
-        elif self.script_name == "FW":
+        elif self.script_name == FW:
             daq.sc['P_TARGET_MIN'] = self.get_targ(daq.sc['%s_MEAS' % x] + self.MSA_F * 1.5, pwr_lvl, curve) - (
                     self.MSA_P * 1.5)
             daq.sc['P_TARGET_MAX'] = self.get_targ(daq.sc['%s_MEAS' % x] - self.MSA_F * 1.5, pwr_lvl, curve) + (
@@ -607,55 +746,156 @@ class module_1547(object):
                                                         pwr_lvl, curve) - (self.MSA_Q * 1.5)
             daq.sc['%s_TARGET_MAX' % y] = self.get_targ(daq.sc['%s_MEAS' % x] - self.MSA_P * 1.5,
                                                         pwr_lvl, curve) + (self.MSA_Q * 1.5)
-        elif self.script_name == "CRP":
-            daq.sc['%s_TARGET_MIN' % y] = target * 0.9
-            daq.sc['%s_TARGET_MAX' % y] = target * 1.1
+        elif self.script_name == CRP:
+            daq.sc['%s_TARGET_MIN' % y] = y_target * 0.9
+            daq.sc['%s_TARGET_MAX' % y] = y_target * 1.1
 
-        tr_data['%s_TARGET_MIN' % y] = daq.sc['%s_TARGET_MIN' % y]
-        tr_data['%s_TARGET_MAX' % y] = daq.sc['%s_TARGET_MAX' % y]
+        elif self.script_name == LAP:
+            if x == "V" and x_target is not None:
+                daq.sc['%s_TARGET_MIN' % y] = self.get_targ(daq.sc['%s_MEAS' % x] + self.MSA_V * 1.5, pwr_lvl,
+                                                            curve, variable=x) - (
+                                                      self.MSA_P * 1.5)
+                daq.sc['%s_TARGET_MAX' % y] = self.get_targ(daq.sc['%s_MEAS' % x] - self.MSA_V * 1.5, pwr_lvl,
+                                                            curve, variable=x) + (
+                                                      self.MSA_P * 1.5)
+                daq.sc['%s_TARGET' % x] = x_target
+            elif x == "F" and x_target is not None:
+                daq.sc['P_TARGET_MIN'] = self.get_targ(daq.sc['%s_MEAS' % x] + self.MSA_F * 1.5, pwr_lvl,
+                                                       curve, variable=x) - (self.MSA_P * 1.5)
+                daq.sc['P_TARGET_MAX'] = self.get_targ(daq.sc['%s_MEAS' % x] - self.MSA_F * 1.5, pwr_lvl,
+                                                       curve, variable=x) + (self.MSA_P * 1.5)
+                daq.sc['%s_TARGET' % x] = x_target
+
+            elif x_target is None and y_target is not None:
+                daq.sc['P_TARGET_MIN'] = y_target * self.p_rated - (self.MSA_P * 1.5)
+                daq.sc['P_TARGET_MAX'] = y_target * self.p_rated + (self.MSA_P * 1.5)
+                daq.sc['%s_TARGET' % y] = y_target * self.p_rated
 
 
-        tr_data['%s' % x] = daq.sc['%s_MEAS' % x]
-
-        tr_data['%s_TARGET' % y] = target
-        tr_data['%s' % y] = daq.sc['%s_MEAS' % y]
-
-        daq.sc['event'] = "{0}_TR_{1}".format(step, tr)
+        elif self.script_name == PRI:
+            # TODO : SPECIAL TARGET need to check standard each step is different Mulitple X and Mulitple Y
+            self.ts.log("update_target_value() to be done")
         daq.data_sample()
 
-        return tr_data
+    def get_tr_value(self, daq, initial_value, tr, step, number_of_tr=2, pwr_lvl=None, curve=None, x_target=None,
+                     y_target=None):
+        """
+        Get the data from a specific time response (tr) corresponding to x and y values
+        of the aif (e.g. aif='VW' x == voltage and y == active power) returns a dictionary
+        but also writes in the soft channels of the DAQ system
+        :param daq:             data acquisition object from svpelab library
+        :param initial_value:   the dictionnary with the initial values (X, Y and timestamp)
+        :param pwr_lvl:     The input power level in p.u.
+        :param curve:       The characteristic curve number
+        :param x_target:      The target value of X value (e.g. FW -> f_step)
+        :param y_target:      The target value of Y value (e.g. LAP -> act_pwrs_limits)
+        :param number_of_tr:  1547.1 : Specify two (2) time response in order to validate steady state values
 
-        #except Exception as e:
+        :return: returns a dictionary with the timestamp, event and total EUT reactive power
+        """
+        tr_value = collections.OrderedDict()
+        x = self.get_x_y_variable('x')
+        y = self.get_x_y_variable('y')
+
+        first_tr = initial_value['timestamp'] + timedelta(seconds=tr)
+        tr_list = [first_tr]
+        for i in range(number_of_tr - 1):
+            tr_list.append(tr_list[i] + timedelta(seconds=tr))
+        tr_iter = 1
+        for tr_ in tr_list:
+            now = datetime.now()
+            if now <= tr_:
+                time_to_sleep = tr_ - datetime.now()
+                self.ts.sleep(time_to_sleep.total_seconds())
+            data = daq.data_capture_read()
+            self.update_target_value(daq=daq,
+                                     pwr_lvl=pwr_lvl,
+                                     curve=curve,
+                                     x_target=x_target,
+                                     y_target=y_target,
+                                     step=step,
+                                     data=data)
+
+            tr_value[tr_iter] = {}
+            if x is not None:
+                if isinstance(x, list):
+                    for xs in x:
+                        tr_value[tr_iter][xs] = {
+                            'x_value': self.get_measurement_total(data=data, type_meas=xs, log=False)}
+                        daq.sc['%s_MEAS' % xs] = tr_value[tr_iter][xs]['x_value']
+
+                else:
+                    tr_value[tr_iter][x] = {'x_value': self.get_measurement_total(data=data, type_meas=x, log=False)}
+                    daq.sc['%s_MEAS' % x] = tr_value[tr_iter][x]['x_value']
+                    if self.get_test_name() == LAP:
+                        self.ts.log(tr_value)
+                        tr_value[tr_iter]['V_MEAS'] = self.get_measurement_total(data=data, type_meas='V', log=False)
+                        daq.sc['V_MEAS'] = tr_value[tr_iter]['V_MEAS']
+                        tr_value[tr_iter]['F_MEAS'] = self.get_measurement_total(data=data, type_meas='F', log=False)
+                        daq.sc['F_MEAS'] = tr_value[tr_iter]['F_MEAS']
+                        tr_value[tr_iter]['P_MEAS'] = self.get_measurement_total(data=data, type_meas='P', log=False)
+                        daq.sc['P_MEAS'] = tr_value[tr_iter]['P_MEAS']
+            if y is not None:
+                if isinstance(y, list):
+                    for ys in y:
+                        tr_value[tr_iter][ys] = {
+                            'y_value': self.get_measurement_total(data=data, type_meas=ys, log=False)}
+                        daq.sc['%s_MEAS' % ys] = tr_value[tr_iter][ys]['y_value']
+                else:
+                    tr_value[tr_iter][y] = {'y_value': self.get_measurement_total(data=data, type_meas=y, log=False)}
+                    daq.sc['%s_MEAS' % y] = tr_value[tr_iter][y]['y_value']
+            daq.sc['event'] = "{0}_TR_{1}".format(step, tr_iter)
+            # TODO : If multiple target this need to be change to a list or handle multiple Xs target
+
+            tr_value[tr_iter]['%s_TARGET' % y] = daq.sc['%s_TARGET' % y]
+            tr_value[tr_iter]["timestamp"] = tr_
+            tr_value[tr_iter]['%s_TARGET_MIN' % y] = daq.sc['%s_TARGET_MIN' % y]
+            tr_value[tr_iter]['%s_TARGET_MAX' % y] = daq.sc['%s_TARGET_MAX' % y]
+
+            tr_iter = tr_iter + 1
+            daq.data_sample()
+
+        return tr_value
+
+        # except Exception as e:
         #    raise p1547Error('Error in get_tr_data(): %s' % (str(e)))
 
-    def get_analysis(self, initial_value, tr_1_data, tr_4_data):
+    def get_analysis(self, initial_value, tr_values):
         """
         This functions get the analysis results from three pass-fail criteria.
 
         :param initial_value:   A dictionary with measurements before a step
-        :param tr_1_data:       A dictionary with measurements after one time response cycle
-        :param tr_4_data:       A dictionary with measurements after four time response cycle
+        :param tr_values:       A dictionary with measurements after one time response cycle
         :return: returns a dictionary with pass fail criteria that will be use in the
         result_summary.csv file.
         """
         analysis = {}
         x = self.get_x_y_variable('x')
         y = self.get_x_y_variable('y')
+        analysis['%s_INITIAL' % y] = initial_value[y]['y_value']
+        for tr_iter, tr_value in tr_values.items():
+            analysis['%s_TR_%s' % (y, tr_iter)] = tr_value[y]['y_value']
+            analysis['%s_TR_%s' % (x, tr_iter)] = tr_value[x]['x_value']
+            analysis['%s_TR_%s_MIN' % (y, tr_iter)] = tr_value['%s_TARGET_MIN' % y]
+            analysis['%s_TR_%s_MAX' % (y, tr_iter)] = tr_value['%s_TARGET_MAX' % y]
+            analysis['%s_TR_TARG_%s' % (y, tr_iter)] = tr_value['%s_TARGET' % y]
+            if self.get_test_name() == LAP:
+                analysis['P_MEAS_%s' % tr_iter] = tr_value['P_MEAS']
+                analysis['V_MEAS_%s' % tr_iter] = tr_value['V_MEAS']
+                analysis['F_MEAS_%s' % tr_iter] = tr_value['F_MEAS']
 
-        analysis['%s_INITIAL' % y] = initial_value['y_value']
-        analysis['%s_FINAL' % y] = tr_4_data['%s' % y]
-        analysis['%s_TR_1' % y] = tr_1_data['%s' % y]
-        tr_diff = analysis['%s_FINAL' % y] - analysis['%s_INITIAL' % y]
+        last_tr_value = tr_values[next(reversed(tr_values.keys()))]
+        tr_diff = last_tr_value[y]['y_value'] - analysis['%s_INITIAL' % y]
         p_tr_target = ((0.9 * tr_diff) + analysis['%s_INITIAL' % y])
 
         if tr_diff < 0:
             if analysis['%s_TR_1' % y] <= p_tr_target:
-                analysis['TR'] = 'Pass'
+                analysis['TR_90_%_PF'] = 'Pass'
             else:
-                analysis['TR'] = 'Fail'
+                analysis['TR_90_%_PF'] = 'Fail'
         elif tr_diff >= 0:
             if analysis['%s_TR_1' % y] >= p_tr_target:
-                analysis['TR'] = 'Pass'
+                analysis['TR_90_%_PF'] = 'Pass'
             else:
                 analysis['TR'] = 'Fail'
 
@@ -706,18 +946,39 @@ class module_1547(object):
         return analysis
 
     def get_x_y_variable(self, letter):
+                analysis['TR_90_%_PF'] = 'Fail'
         """
-        A simple getter that return the x or y value of the corresponding AIF
+              The variable y_tr is the value use to verify the time response requirement.
+              |----------|----------|----------|----------|
+                         1st tr     2nd tr     3rd tr     4th tr            
+              |          |          |
+              y_initial  y_tr       y_final_tr    
 
-        :param letter:   A string (x or y)
-        :return: A string
+              (1547.1)After each step, the open loop response time, Tr , is evaluated. 
+              The expected output, Y (T r ), at one times the open loop response time,
+              is calculated as 90% x (Y_final_tr - Y_initial ) + Y_initial
         """
-        if letter == 'x':
-            return self.x_criteria
-        elif letter == 'y':
-            return self.y_criteria
-        else:
-            raise p1547Error("Error in get_x_y_variable(). Must be either 'x' or 'y' as argument")
+        for tr_iter, tr_dic in tr_values.items():
+            if analysis['%s_TR_%s_MIN' % (y, tr_iter)] <= analysis['%s_TR_%s' % (y, tr_iter)] <= analysis[
+                '%s_TR_%s_MAX' % (y, tr_iter)]:
+                analysis['%s_TR_%s_PF' % (y, tr_iter)] = 'Pass'
+            else:
+                analysis['%s_TR_%s_PF' % (y, tr_iter)] = 'Fail'
+
+            self.ts.log('        %s(Tr_%s) evaluation: %0.1f <= %0.1f <= %0.1f  [%s]' % (y,
+                                                                                         tr_iter,
+                                                                                         analysis['%s_TR_%s_MIN' % (
+                                                                                         y, tr_iter)],
+                                                                                         analysis[
+                                                                                             '%s_TR_%s' % (y, tr_iter)],
+                                                                                         analysis['%s_TR_%s_MAX' % (
+                                                                                         y, tr_iter)],
+                                                                                         analysis['%s_TR_%s_PF' % (
+                                                                                         y, tr_iter)]))
+
+        analysis['FIRST_ITER'] = next(iter(tr_values.keys()))
+        analysis['LAST_ITER'] = tr_iter
+        return analysis
 
     def get_params(self, curve):
         return self.param[curve]
@@ -746,11 +1007,16 @@ class module_1547(object):
         y2_points = '%s_TARGET,%s_MEAS' % (y2, y2)
 
         # For CPF
-        if self.script_name == 'CPF' :
+        if self.script_name == 'CPF':
             y_points = '{}, PF_TARGET'.format(','.join(str(x) for x in self.get_measurement_label('PF')))
             y_title = 'Power Factor'
             y2_points = '{}'.format(','.join(str(x) for x in self.get_measurement_label('I')))
             y2_title = 'Current (A)'
+        elif self.script_name == 'LAP':
+            y_points = '{}'.format(','.join(str(x) for x in self.get_measurement_label('F')))
+            y_title = 'Frequency (Hz)'
+            y2_points = '{}'.format(','.join(str(x) for x in self.get_measurement_label('P')))
+            y2_title = 'Active Power (W)'
 
         result_params = {
             'plot.title': 'title_name',
@@ -766,9 +1032,11 @@ class module_1547(object):
 
         return result_params
 
-    def get_targ(self, value, pwr_lvl, curve=None, pf=None):
+    def get_targ(self, value, pwr_lvl, curve=None, pf=None, variable=None):
+        if curve is None:
+            curve = 1
         p_targ = None
-        if self.script_name == "FW":
+        if self.script_name == FW or variable == "F":
             f_dob = self.f_nom + self.param[curve]['dbf']
             f_dub = self.f_nom - self.param[curve]['dbf']
             p_db = self.p_rated * pwr_lvl
@@ -786,39 +1054,40 @@ class module_1547(object):
             p_targ *= pwr_lvl
             return p_targ
 
-        elif self.script_name == "VV":
-
+        elif self.script_name == VV:
             if value <= self.param[curve]['V1']:
                 q_value = self.param[curve]['Q1']
             elif value < self.param[curve]['V2']:
                 q_value = self.param[curve]['Q1'] + (
-                            (self.param[curve]['Q2'] - self.param[curve]['Q1']) /
-                            (self.param[curve]['V2'] - self.param[curve]['V1']) * (value - self.param[curve]['V1']))
+                        (self.param[curve]['Q2'] - self.param[curve]['Q1']) /
+                        (self.param[curve]['V2'] - self.param[curve]['V1']) * (value - self.param[curve]['V1']))
             elif value == self.param[curve]['V2']:
                 q_value = self.param[curve]['Q2']
             elif value <= self.param[curve]['V3']:
                 q_value = self.param[curve]['Q3']
             elif value < self.param[curve]['V4']:
                 q_value = self.param[curve]['Q3'] + (
-                            (self.param[curve]['Q4'] - self.param[curve]['Q3']) /
-                            (self.param[curve]['V4'] - self.param[curve]['V3']) * (value - self.param[curve]['V3']))
+                        (self.param[curve]['Q4'] - self.param[curve]['Q3']) /
+                        (self.param[curve]['V4'] - self.param[curve]['V3']) * (value - self.param[curve]['V3']))
             else:
                 q_value = self.param[curve]['Q4']
             q_value *= pwr_lvl
             return round(q_value, 1)
 
-        elif self.script_name == "CPF":
+        elif self.script_name == CPF:
             q_value = math.sqrt(pow(value, 2) * ((1 / pow(pf, 2)) - 1))
             return round(q_value, 1)
 
-        elif self.script_name == "VW":
+        elif self.script_name == VW or variable == "V":
+            self.ts.log(self.param)
+
             if value <= self.param[curve]['V1']:
                 p_targ = self.param[curve]['P1']
             elif value < self.param[curve]['V2']:
                 p_targ = self.param[curve]['P1'] + (
-                            (self.param[curve]['P2'] - self.param[curve]['P1']) /
-                            (self.param[curve]['V2'] - self.param[curve]['V1']) *
-                            (value - self.param[curve]['V1']))
+                        (self.param[curve]['P2'] - self.param[curve]['P1']) /
+                        (self.param[curve]['V2'] - self.param[curve]['V1']) *
+                        (value - self.param[curve]['V1']))
             else:
                 p_targ = self.param[curve]['P2']
 
@@ -835,19 +1104,18 @@ class module_1547(object):
             elif value <= self.param[curve]['P2']:
                 self.ts.log_debug('P2 TARGET')
                 q_value = self.param[curve]['Q1'] + (
-                            (self.param[curve]['Q2'] - self.param[curve]['Q1']) /
-                            (self.param[curve]['P2'] - self.param[curve]['P1']) * (value - self.param[curve]['P1']))
+                        (self.param[curve]['Q2'] - self.param[curve]['Q1']) /
+                        (self.param[curve]['P2'] - self.param[curve]['P1']) * (value - self.param[curve]['P1']))
             elif value < self.param[curve]['P3']:
                 self.ts.log_debug('P3 TARGET')
                 q_value = self.param[curve]['Q2'] + (
-                            (self.param[curve]['Q3'] - self.param[curve]['Q2']) /
-                            (self.param[curve]['P3'] - self.param[curve]['P2']) * (value - self.param[curve]['P2']))
+                        (self.param[curve]['Q3'] - self.param[curve]['Q2']) /
+                        (self.param[curve]['P3'] - self.param[curve]['P2']) * (value - self.param[curve]['P2']))
             else:
                 self.ts.log_debug('P3 FINAL TARGET')
                 q_value = self.param[curve]['Q3']
             q_value *= pwr_lvl
             return q_value
-
 
 
     """
@@ -902,6 +1170,25 @@ class module_1547(object):
         #except Exception as e:
 
         #   raise p1547Error('Error in criteria(): %s' % (str(e)))
+
+    def process_data(self, daq, tr, step, initial_value, result_summary, filename, \
+                     pwr_lvl=None, curve=None, x_target=None, y_target=None):
+        self.set_params()
+        tr_values = self.get_tr_value(daq=daq,
+                                      initial_value=initial_value,
+                                      tr=tr,
+                                      step=step,
+                                      curve=curve,
+                                      pwr_lvl=pwr_lvl,
+                                      x_target=x_target,
+                                      y_target=y_target)
+        analysis = self.get_analysis(initial_value=initial_value,
+                                     tr_values=tr_values)
+        self.ts.log('%s' % (analysis))
+        result_summary.write(self.write_rslt_sum(analysis=analysis,
+                                                 step=step,
+                                                 filename=filename))
+        return
 
 
 if __name__ == "__main__":
