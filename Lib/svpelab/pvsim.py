@@ -96,6 +96,9 @@ class PVSim(object):
     def irradiance_set(self, irradiance=1000):
         pass
 
+    def iv_curve_config(self, pmp, vmp):
+        pass
+
     def power_set(self, power):
         pass
 
