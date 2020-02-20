@@ -311,20 +311,14 @@ class Channel(object):
 if __name__ == "__main__":
 
     try:
-        tsas = TerraSAS(ipaddr='192.168.0.167')
-        tsas.scan()
-        print(tsas.channels)
-        print(tsas.query('MEASure:SCALar:VOLTage:DC? (@1,2,3,4,5,6,7,8,9,10)\r'))
-        print(tsas.query('MEASure:SCALar:CURRent:DC? (@1,2,3,4,5,6,7,8,9,10)\r'))
-        for i in range(1, 11):
-            channel = tsas.channels[i]
-            # print(tsas.query('SOURce:VOLTage? (@%s)\r' % channel.index))
-            # print(tsas.query('SOURce:CURRent? (@%s)\r' % channel.index))
-            print(channel.measurements_get())
+        tsas = TerraSAS(ipaddr='127.0.0.1')
+        # tsas = TerraSAS(ipaddr='192.168.0.196')
+        # tsas = TerraSAS(ipaddr='10.10.10.10')
 
-        '''
         tsas.scan()
+
         tsas.reset()
+
         tsas.curve_en50530(pmp=3000, vmp=460)
         tsas.curve('BP Solar - BP 3230T (60 cells)')
 
@@ -358,7 +352,6 @@ if __name__ == "__main__":
         print 'channel curve =', channel.curve_get()
         print 'channel profile =', channel.profile_get()
         print 'is on =', channel.output_is_on()
-        '''
 
         tsas.close()
 
