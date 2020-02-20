@@ -170,26 +170,6 @@ class PVSim(pvsim.PVSim):
                 self.tsas.close()
             raise
 
-    def iv_curve_config(self, pmp, vmp):
-        if self.tsas is not None:
-            count = len(self.channel)
-            if count > 1:
-                pmp = pmp/count
-            for c in self.channel:
-                channel = self.tsas.channels[c]
-                if channel.profile_is_active():
-                    channel.profile_abort()
-
-                if self.curve_type == 'EN50530':
-                    # re-add EN50530 curve with active parameters
-                    self.ts.log('Initializing PV Simulator with Pmp = %d and Vmp = %d.' % (self.pmp, self.vmp))
-                    self.tsas.curve_en50530(pmp=pmp, vmp=vmp)
-                    channel.curve_set(terrasas.EN_50530_CURVE)
-                else:
-                    raise pvsim.PVSimError('Invalid curve type: %s' % self.curve_type)
-
-                channel.overvoltage_protection_set(voltage=self.v_overvoltage)
-
     def _param_value(self, name):
         return self.ts.param_value(self.group_name + '.' + GROUP_NAME + '.' + name)
 
@@ -204,6 +184,9 @@ class PVSim(pvsim.PVSim):
     def irradiance_set(self, irradiance=1000):
         if self.tsas is not None:
             # spread across active channels
+            count = len(self.channel)
+            if count > 1:
+                irradiance = irradiance/count
             for c in self.channel:
                 if c is not None:
                     channel = self.tsas.channels[c]
@@ -282,6 +265,26 @@ class PVSim(pvsim.PVSim):
                     self.ts.log('Starting PV profile')
         else:
             raise pvsim.PVSimError('PV Sim not initialized')
+
+    def measure_power(self):
+        """
+        Get the current, voltage, and power from the TerraSAS
+        returns: dictionary with power data with keys: 'DC_V', 'DC_I', and 'DC_P'
+        """
+        dc_power_data = {'DC_I': 0., 'DC_V': 0., 'DC_P': 0.}
+        if self.tsas is not None:
+            for c in self.channel:
+                channel = self.tsas.channels[c]
+                chan_data = channel.measurements_get()
+                # self.ts.log_debug('chan_data: %s' % chan_data)
+                dc_power_data['DC_I'] += chan_data['DC_I']
+                dc_power_data['DC_V'] += chan_data['DC_V']
+                dc_power_data['DC_P'] += chan_data['DC_P']
+
+            return dc_power_data
+        else:
+            raise pvsim.PVSimError('PV Sim not initialized')
+
 
 if __name__ == "__main__":
     pass

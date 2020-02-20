@@ -293,17 +293,38 @@ class Channel(object):
         self.tsas.cmd('SOURce:VOLTage:PROTection %s, (@%s)\r' % (voltage, self.index))
         #[SOURce:]CURRent:PROTection[:LEVel] <value> [,(@chanlist)]
 
+    def measurements_get(self):
+        """
+        Returns the current setpoint for the selected channel. Multiple entries are separated by a comma.
+        Returns the voltage setpoint for the selected channel. Multiple entries are separated by a comma.
+
+        This setpoint is only valid in power supply (PS) mode.
+
+        :return: dictionary with power data with keys: 'DC_V', 'DC_I', and 'DC_P'
+        """
+        meas = {'DC_V': float(self.tsas.query('MEASure:SCALar:VOLTage:DC? (@%s)\r' % self.index)),
+                'DC_I': float(self.tsas.query('MEASure:SCALar:CURRent:DC? (@%s)\r' % self.index)),
+                # 'MPPT_Accuracy': float(self.tsas.query('MEASure:SCALar:MPPaccuracy:DC? (@%s)\r' % self.index)),
+                'DC_P': float(self.tsas.query('MEASure:SCALar:POWer:DC? (@%s)\r' % self.index))}
+        return meas
+
 if __name__ == "__main__":
 
     try:
-        tsas = TerraSAS(ipaddr='127.0.0.1')
-        # tsas = TerraSAS(ipaddr='192.168.0.196')
-        # tsas = TerraSAS(ipaddr='10.10.10.10')
-
+        tsas = TerraSAS(ipaddr='192.168.0.167')
         tsas.scan()
+        print(tsas.channels)
+        print(tsas.query('MEASure:SCALar:VOLTage:DC? (@1,2,3,4,5,6,7,8,9,10)\r'))
+        print(tsas.query('MEASure:SCALar:CURRent:DC? (@1,2,3,4,5,6,7,8,9,10)\r'))
+        for i in range(1, 11):
+            channel = tsas.channels[i]
+            # print(tsas.query('SOURce:VOLTage? (@%s)\r' % channel.index))
+            # print(tsas.query('SOURce:CURRent? (@%s)\r' % channel.index))
+            print(channel.measurements_get())
 
+        '''
+        tsas.scan()
         tsas.reset()
-
         tsas.curve_en50530(pmp=3000, vmp=460)
         tsas.curve('BP Solar - BP 3230T (60 cells)')
 
@@ -337,6 +358,7 @@ if __name__ == "__main__":
         print 'channel curve =', channel.curve_get()
         print 'channel profile =', channel.profile_get()
         print 'is on =', channel.output_is_on()
+        '''
 
         tsas.close()
 
