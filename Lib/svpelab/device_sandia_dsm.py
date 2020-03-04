@@ -280,6 +280,7 @@ class Device(object):
         self.dsm_id = self.params.get('dsm_id')
         self.comp = self.params.get('comp')
         self.file_path = self.params.get('file_path')
+        self.sample_interval = self.params.get('sample_interval')
         self.data_file = os.path.join(self.file_path, DATA_FILE)
         self.points_file = os.path.join(self.file_path, POINTS_FILE)
         self.wfm_trigger_file = os.path.join(self.file_path, WFM_TRIGGER_FILE)
@@ -318,19 +319,26 @@ class Device(object):
                 import socket
                 UDP_IP = "0.0.0.0"
                 UDP_PORT = 6495
-                sock = socket.socket(socket.AF_INET, # Internet
-                                  socket.SOCK_DGRAM) # UDP
+                sock = socket.socket(socket.AF_INET,  # Internet
+                                     socket.SOCK_DGRAM)  # UDP
                 sock.bind((UDP_IP, UDP_PORT))
                 while True:
                     data, addr = sock.recvfrom(4096)
-                    print "received message:", data
+                    if self.ts is not None:
+                        self.ts.log("received message: %s" % data)
+                    else:
+                        print("received message: %s" % data)
             else:
                 f = open(self.points_file)
                 channels = f.read()
                 f.close()
 
                 self.points = self.extract_points(channels, str)
-                print self.points
+                # if self.ts is not None:
+                #     self.ts.log("self.points: %s" % self.points)
+                # else:
+                #     print(self.points)
+
                 for p in self.points_map:
                     try:
                         index = self.points.index(p)
@@ -638,10 +646,7 @@ if __name__ == "__main__":
         print "received message:", data
         time.sleep(0.1)
 
-
-
     '''
-
     import pyshark
     capture = pyshark.LiveCapture()
     capture.sniff(timeout=50)
@@ -678,7 +683,6 @@ if __name__ == "__main__":
     print ds.points
     ds.to_csv('c:\\users\\bob\\pycharmprojects\\loadsim\\files\\python_dsm\\wave.csv')
     '''
-
 
 
 

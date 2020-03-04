@@ -293,6 +293,21 @@ class Channel(object):
         self.tsas.cmd('SOURce:VOLTage:PROTection %s, (@%s)\r' % (voltage, self.index))
         #[SOURce:]CURRent:PROTection[:LEVel] <value> [,(@chanlist)]
 
+    def measurements_get(self):
+        """
+        Returns the current setpoint for the selected channel. Multiple entries are separated by a comma.
+        Returns the voltage setpoint for the selected channel. Multiple entries are separated by a comma.
+
+        This setpoint is only valid in power supply (PS) mode.
+
+        :return: dictionary with power data with keys: 'DC_V', 'DC_I', and 'DC_P'
+        """
+        meas = {'DC_V': float(self.tsas.query('MEASure:SCALar:VOLTage:DC? (@%s)\r' % self.index)),
+                'DC_I': float(self.tsas.query('MEASure:SCALar:CURRent:DC? (@%s)\r' % self.index)),
+                # 'MPPT_Accuracy': float(self.tsas.query('MEASure:SCALar:MPPaccuracy:DC? (@%s)\r' % self.index)),
+                'DC_P': float(self.tsas.query('MEASure:SCALar:POWer:DC? (@%s)\r' % self.index))}
+        return meas
+
 if __name__ == "__main__":
 
     try:

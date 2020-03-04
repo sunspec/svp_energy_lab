@@ -283,5 +283,24 @@ class PVSim(pvsim.PVSim):
         else:
             raise pvsim.PVSimError('PV Sim not initialized')
 
+    def measure_power(self):
+        """
+        Get the current, voltage, and power from the TerraSAS
+        returns: dictionary with power data with keys: 'DC_V', 'DC_I', and 'DC_P'
+        """
+        dc_power_data = {'DC_I': 0., 'DC_V': 0., 'DC_P': 0.}
+        if self.tsas is not None:
+            for c in self.channel:
+                channel = self.tsas.channels[c]
+                chan_data = channel.measurements_get()
+                # self.ts.log_debug('chan_data: %s' % chan_data)
+                dc_power_data['DC_I'] += chan_data['DC_I']
+                dc_power_data['DC_V'] += chan_data['DC_V']
+                dc_power_data['DC_P'] += chan_data['DC_P']
+
+            return dc_power_data
+        else:
+            raise pvsim.PVSimError('PV Sim not initialized')
+
 if __name__ == "__main__":
     pass
