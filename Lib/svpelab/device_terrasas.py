@@ -295,11 +295,7 @@ class Channel(object):
 
     def measurements_get(self):
         """
-        Returns the current setpoint for the selected channel. Multiple entries are separated by a comma.
-        Returns the voltage setpoint for the selected channel. Multiple entries are separated by a comma.
-
-        This setpoint is only valid in power supply (PS) mode.
-
+        Measure the voltage, current, and power of the channel
         :return: dictionary with power data with keys: 'DC_V', 'DC_I', and 'DC_P'
         """
         meas = {'DC_V': float(self.tsas.query('MEASure:SCALar:VOLTage:DC? (@%s)\r' % self.index)),

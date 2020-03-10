@@ -123,6 +123,10 @@ class GridSim(object):
         return self.ts.param_value(self.group_name + '.' + name)
 
     def info(self):
+        """
+        Get the information from the GridSim object - typically using *IDN?
+        :return: string with GridSim information
+        """
         pass
 
     def config(self):
@@ -147,8 +151,9 @@ class GridSim(object):
 
     def current_max(self, current=None):
         """
-        Set the value for max current if provided. If none provided, obtains
-        the value for max current.
+        Set the value for max current if provided. If none provided, obtains the value for max current.
+
+        :param current: current maximum in amps
         """
         if current is not None:
             pass
@@ -158,8 +163,9 @@ class GridSim(object):
 
     def freq(self, freq=None):
         """
-        Set the value for frequency if provided. If none provided, obtains
-        the value for frequency.
+        Set the value for frequency if provided. If none provided, obtains the value for frequency.
+
+        :param freq: frequency in Hz
         """
         if freq is not None:
             pass
@@ -169,9 +175,9 @@ class GridSim(object):
 
     def rocof(self, rocof=None):
         """
-        Set the rate of change of frequency (ROCOF) if provided. If none provided, obtains
-        the ROCOF.
-        The ROCOF unit Hz/s
+        Set the rate of change of frequency (ROCOF) if provided. If none provided, obtains the ROCOF.
+
+        :param rocof: ROCOF in Hz/s
         """
         if rocof is not None:
             pass
@@ -258,6 +264,8 @@ class GridSim(object):
 
     def config_asymmetric_phase_angles(self, mag=None, angle=None):
         """
+        Configure grid simulator to have imbalanced phases
+
         :param mag: list of voltages for the imbalanced test, e.g., [277.2, 277.2, 277.2]
         :param angle: list of phase angles for the imbalanced test, e.g., [0, 120, -120]
         :returns: voltage list and phase list
@@ -265,21 +273,50 @@ class GridSim(object):
         return None, None
 
     def meas_power(self, ph_list=(1,2,3)):
+        """
+        Measure power
+        :param ph_list: list of phases to be measured
+        :return: power on each phase in W
+        """
         return None, None, None
 
     def meas_va(self, ph_list=(1,2,3)):
+        """
+        Measure apparent power
+        :param ph_list: list of phases to be measured
+        :return: apparent power on each phase in VA
+        """
         return None, None, None
 
     def meas_current(self, ph_list=(1,2,3)):
+        """
+        Measure current
+        :param ph_list: list of phases to be measured
+        :return: current on each phase in amps
+        """
         return None, None, None
 
     def meas_voltage(self, ph_list=(1,2,3)):
+        """
+        Measure RMS voltage on each phase
+        :param ph_list: list of phases to be measured
+        :return: voltage in V on each phase
+        """
         return None, None, None
 
     def meas_freq(self):
+        """
+        Measure frequency
+        :return: frequency in Hz on each phase
+        """
         return None, None, None
 
     def meas_pf(self, ph_list=(1,2,3)):
+        """
+        Measure power factors
+        :param ph_list: list of phases to be measured
+        :return: power factor on each phase
+        """
         return None, None, None
 
 def gridsim_scan():
