@@ -65,6 +65,16 @@ class DAS(das.DAS):
     def _param_value(self, name):
         return self.ts.param_value(self.group_name + '.' + GROUP_NAME + '.' + name)
 
+    def set_dc_measurement(self, obj=None):
+        """
+        In the event that DC measurements are taken from another device (e.g., a PV simulator) please add this
+        device to the das object
+        :param obj: The object (e.g., pvsim) that will gather the dc measurements
+        :return: None
+        """
+        # self.ts.log_debug('device: %s, obj: %s' % (self.device, obj))
+        self.device.set_dc_measurement(obj)
+
 
 if __name__ == "__main__":
 

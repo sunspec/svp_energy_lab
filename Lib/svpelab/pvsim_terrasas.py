@@ -214,6 +214,38 @@ class PVSim(pvsim.PVSim):
         else:
             raise pvsim.PVSimError('Irradiance was not changed.')
 
+    def measurements_get(self):
+        """
+        Measure the voltage, current, and power of all channels - calculate the average voltage, total current, and
+        total power
+
+        :return: dictionary with dc power data with keys: 'DC_V', 'DC_I', and 'DC_P'
+        """
+
+        voltage = 0.
+        current = 0.
+        power = 0.
+        n_channels = 0
+
+        if self.tsas is not None:
+            # spread across active channels
+            for c in self.channel:
+                n_channels += 1
+                if c is not None:
+                    channel = self.tsas.channels[c]
+                    meas = channel.measurements_get()
+                    voltage += meas['DC_V']
+                    current += meas['DC_I']
+                    power += meas['DC_P']
+                else:
+                    raise pvsim.PVSimError('No measurement data because there is no channel specified.')
+            avg_voltage = voltage/float(n_channels)
+        else:
+            raise pvsim.PVSimError('Could not collect the current, voltage, or power from the TerraSAS.')
+
+        total_meas = {'DC_V': avg_voltage, 'DC_I': current, 'DC_P': power}
+        return total_meas
+
     def power_set(self, power):
         if self.tsas is not None:
             # spread across active channels
