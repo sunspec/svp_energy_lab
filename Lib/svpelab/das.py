@@ -83,7 +83,7 @@ WFM_STATUS_ACTIVE = 'inactive'
 WFM_STATUS_COMPLETE = 'complete'
 
 points_default = {
-    'AC': ('VRMS', 'IRMS', 'P', 'S', 'Q', 'PF', 'FREQ'),
+    'AC': ('VRMS', 'IRMS', 'P', 'S', 'Q', 'PF', 'FREQ','INC'),
     'DC': ('V', 'I', 'P')
 }
 
@@ -178,6 +178,7 @@ class DAS(object):
             for p in self.sc_data_points:
                 self.data_points.append(p)
                 self.sc[p] = 0
+        # self.ts.log_debug('_init_sc_points datapoints = %s' % self.data_points)
 
         self._ds = dataset.Dataset(self.data_points, ts=self.ts)
 

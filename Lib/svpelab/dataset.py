@@ -88,6 +88,7 @@ class Dataset(object):
 
     def append(self, data):
         dlen = len(data)
+        # self.ts.log_debug('self.data=%s, data=%s' % (self.data, data))
         if len(data) != len(self.data):
             raise DatasetError('Append record point mismatch, dataset contains %s points,'
                                ' appended data contains %s points' % (len(self.data), dlen))

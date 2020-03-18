@@ -224,6 +224,7 @@ class HIL(hil.HIL):
         Close any open communications resources associated with the HIL.
         """
         try:
+            self.stop_simulation()
             RtlabApi.CloseProject()
         except Exception, e:
             self.ts.log_error('Unable to close project. %s' % e)
@@ -625,13 +626,29 @@ class HIL(hil.HIL):
         Get simulation time from the clock signal
         :return: simulation time in sec
         """
-        _, model_name = RtlabApi.GetCurrentModel()
-        model_name = model_name.rstrip('.mdl')
-        sig = model_name + '/SM_Source/Clock1/port1'
-        # self.ts.log_debug('Acquiring the data for %s' % sig)
-        sim_time = RtlabApi.GetSignalsByName(sig)
-        # self.ts.log_debug('Data: %s' % sim_time)
-        return sim_time
+
+        try:
+            if self.model_state() == 'Model Running':
+                _, model_name = RtlabApi.GetCurrentModel()
+                model_name = model_name.rstrip('.mdl').rstrip('.slx')
+
+                # todo: fix this to be generic
+                try:
+                    sig = model_name + '/SM_Source/Clock1/port1'
+                    sim_time = RtlabApi.GetSignalsByName(sig)
+                except Exception, e:
+                    sig = model_name + '/SM_LOHO13/Dynamic Load Landfill/Clock1/port1'
+                    sim_time = RtlabApi.GetSignalsByName(sig)
+
+                return sim_time
+            else:
+                self.ts.log_debug('Can not read simulation time becauase the simulation is not running. Returning 1e6.')
+                sim_time = 1.0e6  # ensures that the simulation loop will stop in the script
+                return sim_time
+        except Exception, e:
+            self.ts.log_debug('Could not get time for simulation. Simulation likely completed. Returning 1e6. %s' % e)
+            sim_time = 1.0e6  # ensures that the simulation loop will stop in the script
+            return sim_time
 
 
 if __name__ == "__main__":
@@ -641,6 +658,7 @@ if __name__ == "__main__":
         print(system_info[i])
     print("OPAL-RT - Platform version {0} (IP address : {1})".format(system_info[1], system_info[6]))
 
+    '''
     projectName = "C:\\Users\\DETLDAQ\\OPAL-RT\\RT-LABv2019.1_Workspace\\" \
                   "IEEE_1547.1_Phase_Jump\\IEEE_1547.1_Phase_Jump.llp"
     RtlabApi.OpenProject(projectName)
@@ -686,7 +704,7 @@ if __name__ == "__main__":
     RtlabApi.SetParametersByName("PF818072_test_model/sm_computation/Rocof/Value", 10.)
     RtlabApi.SetParametersByName("PF818072_test_model/sm_computation/Rocom/Value", 10.)
     sleep(2)
-
+    '''
 
     ''' Change phase and amplitude of sine wave
     # ampl = [2, 2, 2]

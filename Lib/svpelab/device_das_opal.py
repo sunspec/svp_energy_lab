@@ -18,35 +18,35 @@ try:
 except Exception, e:
     print('Opal RT-Lab API not installed. %s' % e)
 
-data_points = [  # 3 phase
-    'TIME',
-    'DC_V',
-    'DC_I',
-    'AC_VRMS_1',
-    'AC_VRMS_2',
-    'AC_VRMS_3',
-    'AC_IRMS_1',
-    'AC_IRMS_2',
-    'AC_IRMS_3',
-    'DC_P',
-    'AC_S_1',
-    'AC_S_2',
-    'AC_S_3',
-    'AC_P_1',
-    'AC_P_2',
-    'AC_P_3',
-    'AC_Q_1',
-    'AC_Q_2',
-    'AC_Q_3',
-    'AC_FREQ_1',
-    'AC_FREQ_2',
-    'AC_FREQ_3',
-    'AC_PF_1',
-    'AC_PF_2',
-    'AC_PF_3',
-    'TRIG',
-    'TRIG_GRID'
-]
+# data_points = [  # 3 phase
+#     'TIME',
+#     'DC_V',
+#     'DC_I',
+#     'AC_VRMS_1',
+#     'AC_VRMS_2',
+#     'AC_VRMS_3',
+#     'AC_IRMS_1',
+#     'AC_IRMS_2',
+#     'AC_IRMS_3',
+#     'DC_P',
+#     'AC_S_1',
+#     'AC_S_2',
+#     'AC_S_3',
+#     'AC_P_1',
+#     'AC_P_2',
+#     'AC_P_3',
+#     'AC_Q_1',
+#     'AC_Q_2',
+#     'AC_Q_3',
+#     'AC_FREQ_1',
+#     'AC_FREQ_2',
+#     'AC_FREQ_3',
+#     'AC_PF_1',
+#     'AC_PF_2',
+#     'AC_PF_3',
+#     'TRIG',
+#     'TRIG_GRID'
+# ]
 
 # Channels to be captured during the waveform capture
 wfm_channels = ['TIME', 'AC_V_1', 'AC_V_2', 'AC_V_3', 'AC_I_1', 'AC_I_2', 'AC_I_3', 'EXT']
@@ -61,7 +61,6 @@ class Device(object):
 
     def __init__(self, params=None):
         self.params = params
-        self.data_points = list(data_points)
         self.points = None
         self.point_indexes = []
 
@@ -105,11 +104,69 @@ class Device(object):
             'TRIG': self.model_name + '/SM_Source/Switch5/port1',
             'TRIG_GRID': self.model_name + '/SM_Source/Switch5/port1'}
 
+        self.opal_map_ekhi = {  # data point : analog channel name
+            'TIME': self.model_name + '/SM_LOHO13/Dynamic Load Landfill/Clock1/port1',
+            'IED2_V_1': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(1)',
+            'IED2_V_2': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(3)',
+            'IED2_V_3': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(5)',
+            'IED2_I_1': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(7)',
+            'IED2_I_2': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(9)',
+            'IED2_I_3': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(11)',
+            'IED2_Frequency': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(13)',
+            'IED5_V_1': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(15)',
+            'IED5_V_2': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(17)',
+            'IED5_V_3': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(19)',
+            'IED5_I_1': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(21)',
+            'IED5_I_2': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(23)',
+            'IED5_I_3': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(25)',
+            'IED5_Frequency': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(27)',
+            'IED9_V_1': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(29)',
+            'IED9_V_2': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(31)',
+            'IED9_V_3': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(33)',
+            'IED9_I_1': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(35)',
+            'IED9_I_2': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(37)',
+            'IED9_I_3': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(39)',
+            'IED9_Frequency': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(41)',
+            'IED13_V_1': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(43)',
+            'IED13_V_2': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(45)',
+            'IED13_V_3': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(47)',
+            'IED13_I_1': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(49)',
+            'IED13_I_2': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(51)',
+            'IED13_I_3': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(53)',
+            'IED13_Frequency': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(55)',
+            'IED17_V_1': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(57)',
+            'IED17_V_2': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(59)',
+            'IED17_V_3': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(61)',
+            'IED17_I_1': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(63)',
+            'IED17_I_2': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(65)',
+            'IED17_I_3': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(67)',
+            'IED17_Frequency': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(69)',
+            'GPS_YEAR': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(71)',
+            'GPS_DAY': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(72)',
+            'GPS_HOUR': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(73)',
+            'GPS_MIN': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(74)',
+            'GPS_SEC': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(75)',
+            # 'GPS_NANOSEC': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(76)',
+            'DC_V': None,
+            'DC_I': None,
+            'DC_P': None}
+
         # Mapping from the  channels to be captured and the names that are used in the Opal environment
         opal_points_map = {
             'Opal_Phase_Jump': self.opal_map_phase_jump,  # For use with the IEEE 1547.1 Phase Jump Tests
-            # 'Opal_New_Map': self.new_map,  # For use with <>
+            'Ekhi': self.opal_map_ekhi,  # For use with Ekhi
         }
+        self.data_points = sorted(list(opal_points_map[self.map].keys()))
+        # self.data_points will be appended with the soft channels, so keep a local version for getting device data
+        self.data_points_device = sorted(list(opal_points_map[self.map].keys()))
+
+        # place time back at the beginning of the list - this order matters for the results file
+        # Note the order of self.data_points and self.data_points_device must be the same or there will be misalignments
+        if 'TIME' in self.data_points:
+            self.data_points.remove('TIME')
+            self.data_points.insert(0, 'TIME')
+            self.data_points_device.remove('TIME')
+            self.data_points_device.insert(0, 'TIME')
         self.data_point_map = opal_points_map[self.map]  # dict with the {data_point: opal signal} map
 
         # After the simulation the data is stored in a .mat file. Matlab is used to convert this to a .csv file.
@@ -120,33 +177,20 @@ class Device(object):
         self.mat_location = self.driver_path + self.wfm_dir + self.data_name
         # location where matlab saves the waveform data (.csv)
         self.csv_location = self.driver_path + self.wfm_dir + 'Results.csv'
-
-        # waveform settings
-        self.wfm_sample_rate = None
-        self.wfm_pre_trigger = None
-        self.wfm_post_trigger = None
-        self.wfm_trigger_level = None
-        self.wfm_trigger_cond = None
-        self.wfm_trigger_channel = None
-        self.wfm_timeout = None
-        self.wfm_channels = None
-        self.wfm_capture_name = None
-        # self.wfm_capture_name_path = r'C:\captured_signals\capture_test.mat'
-
-        self.numberOfSamples = None
-        self.triggerOffset = None
-        self.decimation = 1
-        self.captureSettings = None
-        self.triggerSettings = None
-        self.channelSettings = None
-
         # delete the old data file
         try:
-            import os
             os.remove(self.csv_location)
         except Exception, e:
             # self.ts.log_warning('Could not delete old data file at %s: %s' % (self.csv_location, e))
             pass
+
+        # Delete prior .mat files
+        # self.ts.log_debug('Cleaning up mat files in %s' % (self.driver_path + self.wfm_dir))
+        # for entry in os.listdir(self.driver_path + self.wfm_dir):
+        #     if entry[-4:] == '.mat' and entry[:8] == 'SVP_Data':
+        #         old_mat_file = self.driver_path + self.wfm_dir + entry
+        #         self.ts.log('Deleting: %s' % old_mat_file)
+        #         os.remove(old_mat_file)
 
     def info(self):
         """
@@ -187,8 +231,10 @@ class Device(object):
 
         try:
             data = []
-            for chan in data_points:
+            for chan in self.data_points_device:
+                # self.ts.log_debug('self.data_points = %s' % self.data_points)
                 signal = self.data_point_map[chan]  # get signal name associated with data name
+                # self.ts.log_debug('Chan = %s, signal = %s' % (chan, signal))
                 if signal is None:  # skip the signals that have no mapping to the simulink model
 
                     # search the dc measurement object for the data that isn't in the opal_points_map
@@ -212,8 +258,10 @@ class Device(object):
                 status, _ = RtlabApi.GetModelState()
                 if status == RtlabApi.MODEL_RUNNING:
                     signal_value = RtlabApi.GetSignalsByName(signal)
+                    # self.ts.log_warning('signal_value is %s from Opal' % signal_value)
                 else:
                     signal_value = None
+                    # self.ts.log_warning('Signal_value set to None because Opal isn\'t running')
 
                 # self.ts.log_debug('Signal %s = %s' % (signal, signal_value))
                 # self.ts.log_warning('type(sig) %s' % type(signal_value))
@@ -221,9 +269,12 @@ class Device(object):
                     data.append(signal_value)
                 else:
                     data.append(None)
+
         except Exception, e:
-            self.ts.log_debug('Could not get data. Simulation likely completed. %s' % e)
-            data = [None]*len(data_points)  # Return list of Nones when simulations stops.
+            self.ts.log_debug('Could not get data. Simulation likely completed. Error: %s' % e)
+            # self.ts.log_warning('self.data_points = %s.  Writing all Nones.' % self.data_points)
+            # self.ts.log_warning('self.data_points = %s.  Writing all Nones.' % self.data_points_device)
+            data = [None]*len(self.data_points_device)  # Return list of Nones when simulations stops.
             # todo: this should be fixed in das.py sometime where a None can be returned and not added to the database
 
         # self.ts.log_debug('Data list %s' % data)
@@ -243,14 +294,6 @@ class Device(object):
             'timeout' - Timeout (sec)
             'channels' - Channels to capture - ['AC_V_1', 'AC_V_2', 'AC_V_3', 'AC_I_1', 'AC_I_2', 'AC_I_3', 'EXT']
         """
-        self.wfm_sample_rate = params.get('sample_rate')
-        self.wfm_pre_trigger = params.get('pre_trigger')
-        self.wfm_post_trigger = params.get('post_trigger')
-        self.wfm_trigger_level = params.get('trigger_level')
-        self.wfm_trigger_cond = params.get('trigger_cond')
-        self.wfm_trigger_channel = params.get('trigger_channel')
-        self.wfm_timeout = params.get('timeout')
-        self.wfm_channels = params.get('channels')  # SVP names
         pass
 
     def waveform_capture(self, enable=True, sleep=None):
@@ -309,7 +352,7 @@ class Device(object):
                 # Pull in saved data from the .mat files
                 self.ts.log('Loading %s file in matlab...' % self.mat_location)
                 m_cmd = "load('" + self.mat_location + "')"
-                self.ts.log_debug('Running matlab command: %s' % m_cmd)
+                # self.ts.log_debug('Running matlab command: %s' % m_cmd)
                 # self.ts.log_debug('Matlab: ' + self.matlab_cmd(m_cmd))
                 self.matlab_cmd(m_cmd)
 
