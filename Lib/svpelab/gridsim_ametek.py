@@ -271,6 +271,37 @@ class GridSim(gridsim.GridSim):
         ph3 = float(self.query('inst:coup none;:inst:nsel 3;:phas?\n'))
         return ph1, ph2, ph3
 
+    def config_asymmetric_phase_angles(self, mag=None, angle=None):
+        """
+        :param mag: list of voltages for the imbalanced test, e.g., [277.2, 277.2, 277.2]
+        :param angle: list of phase angles for the imbalanced test, e.g., [0, 120, -120]
+
+        :returns: voltage list and phase list
+        """
+        voltages = []
+        phases = []
+
+        if mag is not None:
+            if type(mag) is not list:
+                raise gridsim.GridSimError('Waveform magnitudes were not provided as list. "mag" type: %s' % type(mag))
+
+        if angle is not None:
+            if type(angle) is list:
+                if angle[2] < 0:  # make positive for Ametek
+                    angle[2] += 360.
+                self.cmd('inst:coup none;:inst:nsel 1;:phas %0.1f;:volt:ac %0.1f;'
+                         ':inst:coup none;:inst:nsel 2;:phas %0.1f;:volt:ac %0.1f;'
+                         ':inst:coup none;:inst:nsel 3;:phas %0.1f;:volt:ac %0.1f\n' % (angle[0], mag[0], angle[1],
+                                                                                       mag[1], angle[2], mag[2]))
+
+                # get phase and voltage measurements to return
+                phases = self.config_phase_angles()
+                voltages = self.voltage()
+            else:
+                raise gridsim.GridSimError('Waveform angles were not provided as list.')
+
+        return voltages, phases
+
     def config(self):
         """
         Perform any configuration for the simulation based on the previously
@@ -742,6 +773,8 @@ class GridSim(gridsim.GridSim):
 if __name__ == "__main__":
 
     grid = GridSim(ts=None, group_name=None)
+
+    grid.config_asymmetric_phase_angles(mag=[276., 277., 278.], angle=[0., 121., 243.])
 
     print grid.meas_current()
     print grid.meas_voltage()
