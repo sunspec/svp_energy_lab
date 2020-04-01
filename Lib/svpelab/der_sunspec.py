@@ -708,8 +708,7 @@ class DER(der.DER):
                 curve = self.inv.volt_var.curve[id]
 
                 if params is not None:
-                    # cybersecurity defense that doesn't work with 1547.1 test curves
-                    # self.validate_volt_var(params=params)
+                    self.validate_volt_var(params=params)
                     dept_ref = params.get('DeptRef')
                     if dept_ref is not None:
                         dept_ref_id = volt_var_dept_ref.get(dept_ref)
@@ -738,7 +737,7 @@ class DER(der.DER):
                             raise der.DERError('Voltage point count out of range: %d' % (v_len))
                         for i in xrange(v_len):  # SunSpec point index starts at 1
                             v_point = 'V%d' % (i + 1)
-                            setattr(curve, v_point, round(v[i], 4))
+                            setattr(curve, v_point, v[i])
                     # set var points
                     var = params.get('var')
                     if var is not None:
@@ -747,7 +746,7 @@ class DER(der.DER):
                             raise der.DERError('VAr point count out of range: %d' % (var_len))
                         for i in xrange(var_len):  # SunSpec point index starts at 1
                             var_point = 'VAr%d' % (i + 1)
-                            setattr(curve, var_point, round(var[i], 4))
+                            setattr(curve, var_point, var[i])
 
                     self.inv.volt_var.write()
                 else:
@@ -791,6 +790,21 @@ class DER(der.DER):
             WinTms - Randomized start time delay in seconds
             RmpTms - Ramp time in seconds to updated output level
             RvrtTms - Reversion time in seconds
+            curve - dict of curve parameters:
+                hz [] - List of frequency curve points
+                w [] - List of power curve points
+                CrvNam - Optional description for curve. (Max 16 chars)
+                RmpPT1Tms - The time of the PT1 in seconds (time to accomplish a change of 95%).
+                RmpDecTmm - Ramp decrement timer
+                RmpIncTmm - Ramp increment timer
+                RmpRsUp - The maximum rate at which the power may be increased after releasing the frozen value of
+                          snap shot function.
+                SnptW - 1=enable snapshot/capture mode
+                WRef - Reference active power (default = WMax).
+                WRefStrHz - Frequency deviation from nominal frequency at the time of the snapshot to start constraining
+                            power output.
+                WRefStopHz - Frequency deviation from nominal frequency at which to release the power output.
+                ReadOnly - 0 = READWRITE, 1 = READONLY
 
         :param params: Dictionary of parameters to be updated.
         :return: Dictionary of active settings for freq/watt control.
@@ -849,7 +863,7 @@ class DER(der.DER):
         return params
 
     def freq_watt_curve(self, id, params=None):
-        """ Get/set volt/var curve
+        """ Get/set freq/watt curve
             hz [] - List of frequency curve points
             w [] - List of power curve points
             CrvNam - Optional description for curve. (Max 16 chars)
@@ -919,7 +933,7 @@ class DER(der.DER):
                             raise der.DERError('Freq point count out of range: %d' % (hz_len))
                         for i in xrange(hz_len):  # SunSpec point index starts at 1
                             hz_point = 'Hz%d' % (i + 1)
-                            setattr(curve, hz_point, round(hz[i], 4))
+                            setattr(curve, hz_point, hz[i])
                     # set watt points
                     w = params.get('w')
                     if w is not None:
@@ -928,7 +942,7 @@ class DER(der.DER):
                             raise der.DERError('Watt point count out of range: %d' % (w_len))
                         for i in xrange(w_len):  # SunSpec point index starts at 1
                             w_point = 'W%d' % (i + 1)
-                            setattr(curve, w_point, round(w[i], 4))
+                            setattr(curve, w_point, w[i])
 
                     self.inv.freq_watt.write()
                 else:
@@ -967,7 +981,7 @@ class DER(der.DER):
 
         Params:
             Ena - Enabled (True/False)
-            HysEna - Enable hysterisis (True/False)
+            HysEna - Enable hysteresis (True/False)
             WGra - The slope of the reduction in the maximum allowed watts output as a function of frequency.
             HzStr - The frequency deviation from nominal frequency (ECPNomHz) at which a snapshot of the instantaneous
                     power output is taken to act as the CAPPED power level (PM) and above which reduction in power
@@ -1062,7 +1076,7 @@ class DER(der.DER):
                     RmpIncTmm - Ramp increment timer
 
         :param params: Dictionary of parameters to be updated.
-        :return: Dictionary of active settings for volt/var control.
+        :return: Dictionary of active settings for volt/watt control.
         """
         if self.inv is None:
             raise der.DERError('DER not initialized')
@@ -1117,23 +1131,23 @@ class DER(der.DER):
 
                         n_pt = int(self.inv.volt_watt.NPt)
                         # set voltage points
-                        v = params.get('curve').get('v')
+                        v = params.get('v')
                         if v is not None:
                             v_len = len(v)
                             if v_len > n_pt:
                                 raise der.DERError('Voltage point count out of range: %d' % (v_len))
                             for i in xrange(v_len):  # SunSpec point index starts at 1
                                 v_point = 'V%d' % (i + 1)
-                                setattr(curve, v_point, round(v[i], 4))
+                                setattr(curve, v_point, v[i])
                         # set watt points
-                        watt = params.get('curve').get('w')
+                        watt = params.get('w')
                         if watt is not None:
                             watt_len = len(watt)
                             if watt_len > n_pt:
                                 raise der.DERError('W point count out of range: %d' % (watt_len))
                             for i in xrange(watt_len):  # SunSpec point index starts at 1
                                 watt_point = 'W%d' % (i + 1)
-                                setattr(curve, watt_point, round(watt[i], 4))
+                                setattr(curve, watt_point, watt[i])
 
                     self.inv.volt_watt.write()
 
@@ -1187,10 +1201,10 @@ class DER(der.DER):
         Params:
             Ena - Enabled (True/False)
             VArPct_Mod - Reactive power mode
-                    # 'None' : 0,
-                    # 'WMax': 1,
-                    # 'VArMax': 2,
-                    # 'VArAval': 3,
+                    'None' : 0,
+                    'WMax': 1,
+                    'VArMax': 2,
+                    'VArAval': 3,
             VArWMaxPct - Reactive power in percent of WMax.
             VArMaxPct - Reactive power in percent of VArMax.
             VArAvalPct - Reactive power in percent of VArAval.

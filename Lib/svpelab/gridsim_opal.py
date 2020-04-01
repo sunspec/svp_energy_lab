@@ -51,7 +51,7 @@ def params(info, group_name):
                      active=gname('mode'),  active_value=mode, glob=True)
     info.param(pname('v_nom'), label='EUT nominal voltage for all 3 phases (V)', default=277.2)
     info.param(pname('f_nom'), label='EUT nominal frequency', default=60.)
-    info.param(pname('p_nom'), label='EUT nominal power (W)', default=34000.)
+    info.param(pname('p_nom'), label='EUT nominal power (W)', default=24000.)
 
     info.param(pname('freq_params'), label='Frequency Block Names in Opal',
                default="Frequency Phase A, Frequency Phase B, Frequency Phase C")
@@ -100,6 +100,8 @@ class GridSim(gridsim.GridSim):
             self.frequency_block_list = [entry.rstrip(' ').lstrip(' ') for entry in tempstring]
             tempstring = self._param_value('volt_params').strip().split(',')
             self.voltage_block_list = [entry.rstrip(' ').lstrip(' ') for entry in tempstring]
+            # self.ts.log_debug('Voltage parameters: %s' % self.voltage_block_list)
+            # self.ts.log_debug('Freq parameters: %s' % self.frequency_block_list)
         except Exception as e:
             ts.log("Failed freq or voltage block names: %s" % e)
             raise e
@@ -107,16 +109,22 @@ class GridSim(gridsim.GridSim):
     def _param_value(self, name):
         return self.ts.param_value(self.group_name + '.' + GROUP_NAME + '.' + name)
 
+    def gridsim_info(self):
+        return opal_info
+
     def config(self, hil_object=None):
         """
         Perform any configuration for the simulation based on the previously
         provided parameters.
         """
+        self.ts.log_debug('Configuring gridsim with Opal parameters...')
         if hil_object is None:
             gridsim.GridSimError('GridSim config requires a Opal HIL object')
         else:
+            self.hil_object = hil_object
             self.model_name = hil_object.rt_lab_model
             self.rt_lab_model_dir = hil_object.rt_lab_model_dir
+            # self.ts.log_debug('model_name = %s, rt_lab_model_dir = %s' % (self.model_name, self.rt_lab_model_dir))
 
         self.config_phase_angles()
         self.freq(freq=self.f_nom)
@@ -130,9 +138,10 @@ class GridSim(gridsim.GridSim):
         :return: None
         """
 
-        for p, v in parameters:
-            self.ts.log_debug('Setting %s = %s' % (p, v))
-            self.hil_object.set_params(p, v)
+        if parameters is not None:
+            for p, v in parameters:
+                self.ts.log_debug('Setting %s = %s' % (p, v))
+                self.hil_object.set_params(p, v)
 
     def config_phase_angles(self):
         """
@@ -143,6 +152,7 @@ class GridSim(gridsim.GridSim):
 
         parameters = []
         # set the phase angles for the 3 phases
+        self.ts.log('type(self.model_name) = %s, self.model_name=%s' % (type(self.model_name), self.model_name))
         if len(self.frequency_block_list) == 1:  # single phase
             # Phase A Switching times and Phase Angles
             parameters.append((self.model_name + '/SM_Source/Switch1/Threshold', 1e10))  # never conduct phase jump
@@ -180,6 +190,7 @@ class GridSim(gridsim.GridSim):
             self.ts.log_warning('Phase angles not set for simulation because the number of grid simulation '
                                 'waveforms is not 1, 2, or 3.')
 
+        # self.ts.log_debug('parameters for config_phase_angles: %s' % parameters)
         self.set_parameters(parameters)
 
     def current(self, current=None):
@@ -247,9 +258,9 @@ class GridSim(gridsim.GridSim):
             parameters = []
             if type(voltage) is not list and type(voltage) is not tuple:
                 self.v = voltage
-                # self.ts.log_debug('        Setting Typhoon AC voltage to %s' % self.v)
                 for volt_block in self.voltage_block_list:
-                    # self.ts.log_debug('Source: %s set to %s V.' % (wave, self.v))
+                    # self.ts.log_debug('self.model_name = %s' % (self.model_name))
+                    # self.ts.log_debug('volt_block = %s' % (volt_block))
                     parameters.append((self.model_name + '/SM_Source/' + volt_block + '/Value', voltage))
                 self.v1 = self.v
                 self.v2 = self.v

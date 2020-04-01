@@ -300,10 +300,10 @@ class module_1547(object):
         elif self.script_name == PRI:
             self.criteria_mode = [False, False, True]
 
-    def set_params(self, curve = 1):
+    def set_params(self, curve=1):
         """
         Configure the parameter specific to the AIF
-        :param nothing:
+        :param curve: curve number from 1547.1
         :return: nothing
         """
 
@@ -354,11 +354,11 @@ class module_1547(object):
                     'f_small': p_small * self.f_nom * 0.05
                 }
             elif curve == 2:
-                self.param[FW][curve]= {
+                self.param[FW][curve] = {
                     'dbf': 0.017,
                     'kof': 0.03,
                     'tr': self.ts.param_value('fw.test_2_tr'),
-                    'f_small': p_small * self.f_nom  * 0.02
+                    'f_small': p_small * self.f_nom * 0.02
                 }
 
             self.ts.log_debug('FW settings: %s' % self.param[FW])
@@ -378,7 +378,7 @@ class module_1547(object):
                     'Q4': round(self.s_rated * -0.44, 2)
                 }
             elif curve == 2:
-                self.param[VV][curve]  = {
+                self.param[VV][curve] = {
                     'V1': round(0.88 * self.v_nom, 2),
                     'V2': round(1.04 * self.v_nom, 2),
                     'V3': round(1.07 * self.v_nom, 2),
@@ -429,7 +429,7 @@ class module_1547(object):
                         'Q3': round(self.var_rated * -1.0, 2)
                     }
                 elif curve == 2:
-                    self.param[WV][curve]= {
+                    self.param[WV][curve] = {
                         'P0': 0,
                         'P1': round(p, 2),
                         'P2': round(0.5 * self.p_rated, 2),
@@ -633,13 +633,13 @@ class module_1547(object):
                 self.x_criteria = ['V']
             elif self.script_name == CRP:
                 self.x_criteria = ['V', 'P']
-            elif self.script_name == CPF or self.script_name == "WV":
+            elif self.script_name == CPF:
                 self.x_criteria = ['V', 'P', 'PF']
-
+            elif self.script_name == "WV":
+                self.x_criteria = ['P']
         elif self.script_name == PRI:
             self.y_criteria = ['P', 'Q']
             self.x_criteria = ['V', 'F']
-
 
     def set_step_label(self, starting_label=None):
         """
@@ -706,7 +706,7 @@ class module_1547(object):
     def get_step_label(self):
         """
         get the step labels and increment in alphabetical order as shown in the standard
-        :param nothing:
+        :param: None
         :return: nothing
         """
         if self.step_label > 90:
@@ -926,7 +926,6 @@ class module_1547(object):
                 daq.sc['%s_TARGET_MAX' % y] = self.get_targ(daq.sc['%s_MEAS' % x] - self.MSA_P * 1.5, pwr_lvl,
                                                             pf=x_target['PF']) \
                                               + 1.5 * self.MSA_Q
-
             elif self.script_name == FW:
                 x = 'F'
                 daq.sc['P_TARGET_MIN'] = self.get_targ(daq.sc['%s_MEAS' % x] + self.MSA_F * 1.5, pwr_lvl, curve) - (
@@ -934,7 +933,6 @@ class module_1547(object):
                 daq.sc['P_TARGET_MAX'] = self.get_targ(daq.sc['%s_MEAS' % x] - self.MSA_F * 1.5, pwr_lvl, curve) + (
                         self.MSA_P * 1.5)
             elif self.script_name == VW:
-
                 v_meas = self.get_measurement_total(data=data, type_meas='V', log=False)
                 y = 'P'
                 daq.sc['%s_TARGET_MIN' % y] = self.get_targ(v_meas + self.MSA_V * 1.5, pwr_lvl, curve) - (
@@ -971,7 +969,6 @@ class module_1547(object):
         x = self.get_x_y_variable('x')
         y = self.get_x_y_variable('y')
 
-
         first_tr = initial_value['timestamp'] + timedelta(seconds=tr)
         tr_list = [first_tr]
         for i in range(number_of_tr - 1):
@@ -996,7 +993,7 @@ class module_1547(object):
                         tr_value[tr_iter]['%s_TARGET' % meas_value] = daq.sc['%s_TARGET' % meas_value]
                         tr_value[tr_iter]['%s_TARGET_MIN' % meas_value] = daq.sc['%s_TARGET_MIN' % meas_value]
                         tr_value[tr_iter]['%s_TARGET_MAX' % meas_value] = daq.sc['%s_TARGET_MAX' % meas_value]
-                    #self.ts.log_debug('Measured value (%s)' % meas_value)
+                    # self.ts.log_debug('Measured value (%s)' % meas_value)
                 except:
                     self.ts.log_debug('Measured value (%s) not recorded' % meas_value)
 
@@ -1103,18 +1100,15 @@ class module_1547(object):
                             analysis['%s_TR_%s_MIN' % (y, tr_iter)],
                             analysis['%s_TR_%s' % (y, tr_iter)],
                             analysis['%s_TR_%s_MAX' % (y, tr_iter)],
-                            analysis['%s_TR_%s_PF' % (y, tr_iter)])
-                    )
+                            analysis['%s_TR_%s_PF' % (y, tr_iter)]))
         return analysis
 
-
-
     def get_params(self, curve=None, aif=None):
-        self.ts.log_debug('Getting params for aif=%s and curve=%s' % (aif,curve))
-        #update params if another curve:
+        self.ts.log_debug('Getting params for aif=%s and curve=%s' % (aif, curve))
+        # update params if another curve:
         if curve is not None:
             self.set_params(curve=curve)
-        #This section is more for script utilizing multiple AIF such as prioritization and lap
+        # This section is for scripts utilizing multiple AIF, such as prioritization and LAP
         if aif is not None and curve is not None:
             return self.param[aif][curve]
         elif aif is not None:
@@ -1240,27 +1234,25 @@ class module_1547(object):
             p_targ *= pwr_lvl
             return p_targ
 
-        elif WV in self.function_used :
+        elif WV in self.function_used:
             if value == self.param[WV][curve]['P0']:
                 q_value = self.param[WV][curve]['Q0']
             elif value < self.param[WV][curve]['P1']:
                 q_value = self.param[WV][curve]['Q1']
             elif value <= self.param[WV][curve]['P2']:
                 q_value = self.param[WV][curve]['Q1'] + (
-                        (self.param[WV][curve]['Q2'] - self.param[VW][curve]['Q1']) /
-                        (self.param[WV][curve]['P2'] - self.param[VW][curve]['P1']) * (value - self.param[VW][curve]['P1']))
+                        (self.param[WV][curve]['Q2'] - self.param[WV][curve]['Q1']) /
+                        (self.param[WV][curve]['P2'] - self.param[WV][curve]['P1']) * (value - self.param[WV][curve]['P1']))
             elif value < self.param[WV][curve]['P3']:
                 q_value = self.param[WV][curve]['Q2'] + (
-                        (self.param[WV][curve]['Q3'] - self.param[VW][curve]['Q2']) /
-                        (self.param[WV][curve]['P3'] - self.param[VW][curve]['P2']) * (value - self.param[VW][curve]['P2']))
+                        (self.param[WV][curve]['Q3'] - self.param[WV][curve]['Q2']) /
+                        (self.param[WV][curve]['P3'] - self.param[WV][curve]['P2']) * (value - self.param[WV][curve]['P2']))
             else:
                 q_value = self.param[WV][curve]['Q3']
             q_value *= pwr_lvl
             return q_value
 
-
-    def process_data(self, daq, tr, step, result_summary,filename,\
-                     pwr_lvl=1.0, curve=1, initial_value=None,\
+    def process_data(self, daq, tr, step, result_summary, filename, pwr_lvl=1.0, curve=1, initial_value=None,
                      x_target=None, y_target=None, aif=None):
 
         if curve is not self.curve:
