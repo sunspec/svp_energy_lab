@@ -38,10 +38,9 @@ import xlsxwriter
 import traceback
 from datetime import datetime, timedelta
 from collections import OrderedDict
-
 import time
 import collections
-
+import numpy as np
 # import sys
 # import os
 # import glob
@@ -50,14 +49,14 @@ import collections
 VERSION = '1.3.0'
 LATEST_MODIFICATION = '4th March 2020'
 
-FW = 'FW'
-CPF = 'CPF'
-VW = 'VW'
-VV = 'VV'
-WV = 'WV'
-CRP = 'CRP'
-LAP = 'LAP'
-PRI = 'PRI'
+FW = 'FW'  # Frequency-Watt
+CPF = 'CPF'  # Constant Power Factor
+VW = 'VW'  # Volt_Watt
+VV = 'VV'  # Volt-Var
+WV = 'WV'  # Watt-Var
+CRP = 'CRP'  # Constant Reactive Power
+LAP = 'LAP'  # Limit Active Power
+PRI = 'PRI'  # Priority
 
 VOLTAGE = 'V'
 FREQUENCY = 'F'
@@ -65,7 +64,7 @@ FULL_NAME = {'V': 'Voltage',
              'P': 'Active Power',
              'Q': 'Reactive Power',
              'F': 'Frequency',
-             'PF': 'PowerFactor'}
+             'PF': 'Power Factor'}
 
 
 class p1547Error(Exception):
@@ -95,7 +94,7 @@ class module_1547(object):
         self.mag = {}
         self.ang = {}
         self.param = {FW: {}, CPF: {}, VW: {}, VV: {}, WV: {}, CRP: {}, PRI: {}}
-        self.target_dict=[]
+        self.target_dict = []
         self.x_criteria = None
         self.y_criteria = None
         self.step_label = None
@@ -104,11 +103,10 @@ class module_1547(object):
         self.meas_values = []
         self.curve = 1
 
-
         """
         According to Table 3-Minimum requirements for manufacturers stated measured and calculated accuracy
         """
-        try :
+        try:
             self.v_nom = ts.param_value('eut.v_nom')
             self.MSA_V = 0.01 * self.v_nom
             self.MSA_Q = 0.05 * ts.param_value('eut.s_rated')
@@ -117,6 +115,9 @@ class module_1547(object):
             self.f_nom = ts.param_value('eut.f_nom')
             self.phases = ts.param_value('eut.phases')
             self.p_rated = ts.param_value('eut.p_rated')
+            self.p_rated_prime = ts.param_value('eut.p_rated_prime')  # absorption power
+            if self.p_rated_prime is None:
+                self.p_rated_prime = -self.p_rated
             self.p_min = ts.param_value('eut.p_min')
             self.var_rated = ts.param_value('eut.var_rated')
             self.s_rated = ts.param_value('eut.s_rated')
@@ -126,6 +127,7 @@ class module_1547(object):
         except Exception as e:
             self.ts.log_error('Incorrect Parameter value : %s' % e)
             raise
+
         self._config()
 
     def _config(self):
@@ -147,7 +149,6 @@ class module_1547(object):
         self.set_criteria_mode()
         # Set the result summary column names
         self.set_result_summary_col_name()
-
 
     """
     Setter functions
@@ -198,11 +199,11 @@ class module_1547(object):
         :return: nothing
         """
 
-        xs = self.get_x_y_variable('x')
-        ys = self.get_x_y_variable('y')
+        xs = self.x_criteria
+        ys = self.y_criteria
         row_data = []
 
-        #Time response criteria will take last placed value of Y variables
+        # Time response criteria will take last placed value of Y variables
         if self.criteria_mode[0]:
             row_data.append('%s_TR_ACC_REQ' % ys[-1])
             row_data.append('TR_REQ')
@@ -233,8 +234,8 @@ class module_1547(object):
         # TODO : The target value are in percentage (0-100) and something in P.U. (0-1.0)
         #       The measure value are in absolute value
 
-        xs = self.get_x_y_variable('x')
-        ys = self.get_x_y_variable('y')
+        xs = self.x_criteria
+        ys = self.y_criteria
         row_data = []
 
         for meas_value in self.meas_values:
@@ -249,7 +250,7 @@ class module_1547(object):
                 row_data.append('%s_TARGET_MAX' % meas_value)
 
         row_data.append('EVENT')
-        self.ts.log_debug('Sc points: %s' %row_data)
+        self.ts.log_debug('Sc points: %s' % row_data)
         self.sc_points['sc'] = row_data
 
     def set_functions(self):
@@ -290,8 +291,8 @@ class module_1547(object):
         [1] Test Results Accuracy on TR 'y' value (TRATR) and
         [2] Test Results Accuracy on final (TRAF) 'y' value.
         """
-        if self.script_name == FW or self.script_name == VW or self.script_name == VV\
-                or self.script_name == CPF or self.script_name == LAP or self.script_name == WV  :
+        if self.script_name == FW or self.script_name == VW or self.script_name == VV \
+                or self.script_name == CPF or self.script_name == LAP or self.script_name == WV:
             self.criteria_mode = [True, True, True]
 
         elif self.script_name == CRP:
@@ -323,7 +324,7 @@ class module_1547(object):
                 }
 
             elif curve == 3:
-                self.param[VW][curve]= {
+                self.param[VW][curve] = {
                     'V1': round(1.09 * self.v_nom, 2),
                     'V2': round(1.10 * self.v_nom, 2),
                     'P1': round(self.p_rated, 2)
@@ -335,13 +336,13 @@ class module_1547(object):
                 if curve == 1:
                     self.param[VW][curve]['P2'] = 0
                 elif curve == 2:
-                    self.param[VW][curve]['P2'] = self.absorb['p_rated_prime']
+                    self.param[VW][curve]['P2'] = self.p_rated_prime
             else:
                 self.param[VW][curve]['P2'] = int(self.p_min)
 
             self.ts.log_debug('VW settings: %s' % self.param[VW])
 
-        #if self.script_name == FW or (self.script_name == LAP and self.get_x_y_variable('x') == 'F' ):
+        # if self.script_name == FW or (self.script_name == LAP and self.x_criteria == 'F' ):
         if FW in self.function_used:
             p_small = self.ts.param_value('eut_fw.p_small')
             if p_small is None:
@@ -363,7 +364,7 @@ class module_1547(object):
 
             self.ts.log_debug('FW settings: %s' % self.param[FW])
 
-        #elif self.script_name == VV:
+        # elif self.script_name == VV:
         if VV in self.function_used:
             if curve == 1:
                 self.param[VV][curve] = {
@@ -371,7 +372,6 @@ class module_1547(object):
                     'V2': round(0.98 * self.v_nom, 2),
                     'V3': round(1.02 * self.v_nom, 2),
                     'V4': round(1.08 * self.v_nom, 2),
-                     #'V4': round(1.08 * self.v_nom, 2),
                     'Q1': round(self.s_rated * 0.44, 2),
                     'Q2': round(self.s_rated * 0.0, 2),
                     'Q3': round(self.s_rated * 0.0, 2),
@@ -402,98 +402,79 @@ class module_1547(object):
 
             self.ts.log_debug('VV settings: %s' % self.param[VV])
 
-        #Two sets of value depending if EUT can absorb power or not
-        #elif self.script_name == "WV":
         if WV in self.function_used:
-            if self.absorb is not "Yes":
-                self.ts.log('EUT able to absorb: No, P values loaded for characteristic curve')
-                self.ts.log('p_min={}'.format(self.p_min))
-                self.ts.log('0.2p_rated={}'.format(0.2 * self.p_rated))
-
-                if self.p_min > 0.2 * self.p_rated:
-                    p = self.p_min
-                    self.ts.log('p_min')
-                else:
-                    p = 0.2 * self.p_rated
-                    self.ts.log('20%p_rated')
-                #Added another Q(P) points since EUT looks to be asking for 4 pts
-                if curve == 1:
-                    self.param[WV][curve] = {
-                        'P0': 0,
-                        'P1': round(p, 2),
-                        'P2': round(0.5 * self.p_rated, 2),
-                        'P3': round(1.0 * self.p_rated, 2),
-                        'Q0': round(self.var_rated * 0.0, 2),
-                        'Q1': round(self.var_rated * 0.0, 2),
-                        'Q2': round(self.var_rated * 0.0, 2),
-                        'Q3': round(self.var_rated * -1.0, 2)
-                    }
-                elif curve == 2:
-                    self.param[WV][curve] = {
-                        'P0': 0,
-                        'P1': round(p, 2),
-                        'P2': round(0.5 * self.p_rated, 2),
-                        'P3': round(1.0 * self.p_rated, 2),
-                        'Q0': round(self.var_rated * 0.0, 2),
-                        'Q1': round(self.var_rated * -0.5, 2),
-                        'Q2': round(self.var_rated * -0.5, 2),
-                        'Q3': round(self.var_rated * -1.0, 2)
-                    }
-                elif curve == 3:
-                    self.param[WV][curve] = {
-                        'P0': 0,
-                        'P1': round(p, 2),
-                        'P2': round(0.5 * self.p_rated, 2),
-                        'P3': round(1.0 * self.p_rated, 2),
-                        'Q0': round(self.var_rated * 0.0, 2),
-                        'Q1': round(self.var_rated * 0.0, 2),
-                        'Q2': round(self.var_rated * -1.0, 2),
-                        'Q3': round(self.var_rated * -1.0, 2)
-                    }
-
+            if self.p_min > 0.2 * self.p_rated:
+                p = self.p_min
+                self.ts.log('P1 power is set using p_min')
             else:
-                self.ts.log('EUT able to absorb: Yes, P prime values loaded for characteristic curve')
-                if self.p_min < 0.2 * self.p_rated:
-                    p = self.p_min
-                else:
-                    p = 0.2 * self.p_rated
+                p = 0.2 * self.p_rated
+                self.ts.log('P1 power is set using 20% p_rated')
 
-                if curve == 1:
-                    self.param[WV][curve] = {
-                        'P1': round(p, 2),
-                        'P2': round(0.5 * self.p_rated, 2),
-                        'P3': round(1.0 * self.p_rated, 2),
-                        'Q1': 0,
-                        'Q2': 0,
-                        'Q3': round(-0.44 * self.var_rated, 2)
-                    }
+            # Added another Q(P) points since EUT looks to be asking for 4 pts
+            if curve == 1:
+                self.param[WV][curve] = {
+                    'P0': 0,
+                    'P1': round(p, 2),
+                    'P2': round(0.5 * self.p_rated, 2),
+                    'P3': round(1.0 * self.p_rated, 2),
+                    'Q0': round(self.s_rated * 0.0, 2),
+                    'Q1': round(self.s_rated * 0.0, 2),
+                    'Q2': round(self.s_rated * 0.0, 2),
+                    'Q3': round(self.s_rated * -0.44, 2)
+                }
+                if self.absorb is "Yes":
+                    self.ts.log('Adding EUT Absorption Points (P1_prime-P3_prime, Q1_prime-Q3_prime)')
+                    self.param[WV][curve]['P1_prime'] = round(-p, 2)
+                    self.param[WV][curve]['P2_prime'] = round(0.5 * self.p_rated_prime, 2)
+                    self.param[WV][curve]['P3_prime'] = round(1.0 * self.p_rated_prime, 2)
+                    self.param[WV][curve]['Q1_prime'] = 0
+                    self.param[WV][curve]['Q2_prime'] = 0
+                    self.param[WV][curve]['Q3_prime'] = round(0.44 * self.s_rated, 2)
 
-                elif curve == 2:
-                    self.param[WV][curve] = {
-                        'P1': round(p, 2),
-                        'P2': round(0.5 * self.p_rated, 2),
-                        'P3': round(1.0 * self.p_rated, 2),
-                        'Q1': round(-0.22 * self.var_rated, 2),
-                        'Q2': round(-0.22 * self.var_rated, 2),
-                        'Q3': round(-0.44 * self.var_rated, 2)
-                    }
-
-                elif curve == 3:
-                    self.param[curve][WV] = {
-                        'P1': round(p, 2),
-                        'P2': round(0.5 * self.p_rated, 2),
-                        'P3': round(1.0 * self.p_rated, 2),
-                        'Q1': round(0 * self.var_rated, 2),
-                        'Q2': round(-0.44 * self.var_rated, 2),
-                        'Q3': round(-0.44 * self.var_rated, 2)
-                    }
-
+            elif curve == 2:
+                self.param[WV][curve] = {
+                    'P0': 0,
+                    'P1': round(p, 2),
+                    'P2': round(0.5 * self.p_rated, 2),
+                    'P3': round(1.0 * self.p_rated, 2),
+                    'Q0': round(self.s_rated * 0.0, 2),
+                    'Q1': round(self.s_rated * -0.22, 2),
+                    'Q2': round(self.s_rated * -0.22, 2),
+                    'Q3': round(self.s_rated * -0.44, 2)
+                }
+                if self.absorb is "Yes":
+                    self.ts.log('Adding EUT Absorption Points (P1_prime-P3_prime, Q1_prime-Q3_prime)')
+                    self.param[WV][curve]['P1_prime'] = round(-p, 2)
+                    self.param[WV][curve]['P2_prime'] = round(0.5 * self.p_rated_prime, 2)
+                    self.param[WV][curve]['P3_prime'] = round(1.0 * self.p_rated_prime, 2)
+                    self.param[WV][curve]['Q1_prime'] = round(0.22 * self.s_rated, 2)
+                    self.param[WV][curve]['Q2_prime'] = round(0.22 * self.s_rated, 2)
+                    self.param[WV][curve]['Q3_prime'] = round(0.44 * self.s_rated, 2)
+            elif curve == 3:
+                self.param[WV][curve] = {
+                    'P0': 0,
+                    'P1': round(p, 2),
+                    'P2': round(0.5 * self.p_rated, 2),
+                    'P3': round(1.0 * self.p_rated, 2),
+                    'Q0': round(self.s_rated * 0.0, 2),
+                    'Q1': round(self.s_rated * 0.0, 2),
+                    'Q2': round(self.s_rated * -0.44, 2),
+                    'Q3': round(self.s_rated * -0.44, 2)
+                }
+                if self.absorb is "Yes":
+                    self.ts.log('Adding EUT Absorption Points (P1_prime-P3_prime, Q1_prime-Q3_prime)')
+                    self.param[WV][curve]['P1_prime'] = round(-p, 2)
+                    self.param[WV][curve]['P2_prime'] = round(0.5 * self.p_rated_prime, 2)
+                    self.param[WV][curve]['P3_prime'] = round(1.0 * self.p_rated_prime, 2)
+                    self.param[WV][curve]['Q1_prime'] = 0
+                    self.param[WV][curve]['Q2_prime'] = round(0.44 * self.s_rated, 2)
+                    self.param[WV][curve]['Q3_prime'] = round(0.44 * self.s_rated, 2)
             self.ts.log_debug('WV settings: %s' % self.param[WV])
 
         if PRI in self.function_used:
-            p_rated=self.p_rated
-            q_rated=self.var_rated
-            self.target_dict =\
+            p_rated = self.p_rated
+            q_rated = self.var_rated
+            self.target_dict = \
                 [
                     {'P': 0.5 * p_rated, VV: 0.00 * q_rated, CRP: 0.44 * q_rated, CPF: 0.9 * q_rated, WV: 0},
                     {'P': 0.4 * p_rated, VV: -0.44 * q_rated, CRP: 0.44 * q_rated, CPF: 0.9 * q_rated, WV: 0},
@@ -505,20 +486,6 @@ class module_1547(object):
                     {'P': 0.7 * p_rated, VV: 0.00 * q_rated, CRP: 0.44 * q_rated, CPF: 0.9 * q_rated, WV: 0.10 * q_rated}
                 ]
             self.param[PRI] = self.target_dict
-
-    def get_x_y_variable(self, letter):
-        """
-        A simple getter that return the x or y value of the corresponding AIF
-
-        :param letter:   A string (x or y)
-        :return: A string
-        """
-        if letter == 'x':
-            return self.x_criteria
-        elif letter == 'y':
-            return self.y_criteria
-        else:
-            raise p1547Error("Error in get_x_y_variable(). Must be either 'x' or 'y' as argument")
 
     def set_grid_asymmetric(self, grid, case):
         """
@@ -537,13 +504,14 @@ class module_1547(object):
 
     def set_imbalance_config(self, imbalance_angle_fix=None):
         """
-        Initiliaze the case possibility for imbalance test either with fix 120 degrees for the angle or
+        Initialize the case possibility for imbalance test either with fix 120 degrees for the angle or
         with a calculated angles that would result in a null sequence zero
+
         :param imbalance_angle_fix:   string (Yes or No)
         if Yes, angle are fix at 120 degrees for both cases.
         if No, resulting sequence zero will be null for both cases.
 
-        :return: nothing
+        :return: None
         """
 
         '''
@@ -626,8 +594,7 @@ class module_1547(object):
                 else:
                     self.x_criteria = "None"
             '''
-        elif self.script_name == CPF or self.script_name == VV or \
-                self.script_name == WV or self.script_name == CRP:
+        elif self.script_name == CPF or self.script_name == VV or self.script_name == WV or self.script_name == CRP:
             self.y_criteria = ['Q']
             if self.script_name == VV:
                 self.x_criteria = ['V']
@@ -644,7 +611,7 @@ class module_1547(object):
     def set_step_label(self, starting_label=None):
         """
         Write step labels in alphabetical order as shown in the standard
-        :param nothing:
+        :param starting_label:
         :return: nothing
         """
         self.double_letter_label = False
@@ -658,27 +625,27 @@ class module_1547(object):
         """
         Combines the analysis results, the step label and the filenamoe to return
         a row that will go in result_summary.csv
-        :param analysis: Dictionnary with all the information for result summary
+        :param analysis: Dictionary with all the information for result summary
         :param step:   test procedure step letter or number (e.g "Step G")
-        :param filename: the dataset filname use for analysis
+        :param filename: the dataset filename use for analysis
         :return: row_data a string with all the information for result_summary.csv
         """
 
         try:
 
-            xs = self.get_x_y_variable('x')
-            ys = self.get_x_y_variable('y')
+            xs = self.x_criteria
+            ys = self.y_criteria
             first_iter = analysis['FIRST_ITER']
             last_iter = analysis['LAST_ITER']
             row_data = []
 
-            #Time response criteria will take last placed value of Y variables
+            # Time response criteria will take last placed value of Y variables
             if self.criteria_mode[0]:
                 row_data.append(str(analysis['%s_TR_%s_PF' % (ys[-1], first_iter)]))
                 row_data.append(str(analysis['TR_90_%_PF']))
                 row_data.append(str(analysis['%s_TR_%s_PF' % (ys[-1], last_iter)]))
 
-            #Default measured values are V,P and Q (F can be added) refer to set_meas_variable function
+            # Default measured values are V,P and Q (F can be added) refer to set_meas_variable function
             for meas_value in self.meas_values:
                 row_data.append(str(analysis['%s_TR_%d' % (meas_value, last_iter)]))
                 # Variables needed for variations
@@ -849,8 +816,6 @@ class module_1547(object):
         self.set_x_y_variable(step=step)
         initial = {}
         initial['timestamp'] = datetime.now()
-        x = self.get_x_y_variable('x')
-        y = self.get_x_y_variable('y')
         daq.data_sample()
         data = daq.data_capture_read()
 
@@ -873,9 +838,9 @@ class module_1547(object):
         :param daq:         (object) data acquisition object from svpelab library
         :param pwr_lvl:     (float) Multiplier value for different power level of test
         :param curve:       (int) By default, curve=1 but can be changed for another curve depending on script
-        :param x_target:    (dictionnary) This should include the variable that is causing the variation with
+        :param x_target:    (dictionary) This should include the variable that is causing the variation with
                             key as type of value
-        :param y_target:    (dictionnary) This should be a dictionnary of target value for the desired variable
+        :param y_target:    (dictionary) This should be a dictionary of target value for the desired variable
                             (P or/and Q)
         :param data:        (object) This should be included if we need measured value to use with function
                             total_measurement()
@@ -906,49 +871,42 @@ class module_1547(object):
                 y = 'Q'
                 v_meas = self.get_measurement_total(data=data, type_meas='V', log=False)
                 daq.sc['%s_TARGET' % y] = self.get_targ(daq.sc['V_TARGET'])
-                daq.sc['%s_TARGET_MIN' % y] = self.get_targ(v_meas + self.MSA_V * 1.5, pwr_lvl, curve) - (self.MSA_Q * 1.5)
-                daq.sc['%s_TARGET_MAX' % y] = self.get_targ(v_meas - self.MSA_V * 1.5, pwr_lvl, curve) + (self.MSA_Q * 1.5)
-
+                daq.sc['%s_TARGET_MIN' % y] = self.get_targ(v_meas + self.MSA_V * 1.5, pwr_lvl, curve)-(self.MSA_Q*1.5)
+                daq.sc['%s_TARGET_MAX' % y] = self.get_targ(v_meas - self.MSA_V * 1.5, pwr_lvl, curve)+(self.MSA_Q*1.5)
             elif self.script_name == LAP:
                 v_meas = self.get_measurement_total(data=data, type_meas='V', log=False)
-                #P target for step F specifically but will be calculated for all of it
+                # P target for step F specifically but will be calculated for all of it
                 daq.sc['P_TARGET'] = self.get_targ(v_meas)
-                #P target min & max for steps D and E
+                # P target min & max for steps D and E
                 daq.sc['P_TARGET_MIN'] = self.get_targ(daq.sc['F_MEAS'], variable='F')
                 daq.sc['P_TARGET_MAX'] = self.get_targ(daq.sc['F_MEAS'], variable='F')
-
             elif self.script_name == CPF:
                 x = 'Q'
                 y = 'P'
-                daq.sc['%s_TARGET_MIN' % y] = self.get_targ(daq.sc['%s_MEAS' % x] + self.MSA_P * 1.5, pwr_lvl,
-                                                            pf=x_target['PF']) \
-                                              - 1.5 * self.MSA_Q
-                daq.sc['%s_TARGET_MAX' % y] = self.get_targ(daq.sc['%s_MEAS' % x] - self.MSA_P * 1.5, pwr_lvl,
-                                                            pf=x_target['PF']) \
-                                              + 1.5 * self.MSA_Q
+                daq.sc['%s_TARGET_MIN' % y] = \
+                    self.get_targ(daq.sc['%s_MEAS' % x] + self.MSA_P * 1.5, pwr_lvl, pf=x_target['PF']) - 1.5*self.MSA_Q
+                daq.sc['%s_TARGET_MAX' % y] = \
+                    self.get_targ(daq.sc['%s_MEAS' % x] - self.MSA_P * 1.5, pwr_lvl, pf=x_target['PF']) + 1.5*self.MSA_Q
             elif self.script_name == FW:
                 x = 'F'
-                daq.sc['P_TARGET_MIN'] = self.get_targ(daq.sc['%s_MEAS' % x] + self.MSA_F * 1.5, pwr_lvl, curve) - (
-                        self.MSA_P * 1.5)
-                daq.sc['P_TARGET_MAX'] = self.get_targ(daq.sc['%s_MEAS' % x] - self.MSA_F * 1.5, pwr_lvl, curve) + (
-                        self.MSA_P * 1.5)
+                daq.sc['P_TARGET_MIN'] = \
+                    self.get_targ(daq.sc['%s_MEAS' % x] + self.MSA_F * 1.5, pwr_lvl, curve) - (self.MSA_P * 1.5)
+                daq.sc['P_TARGET_MAX'] = \
+                    self.get_targ(daq.sc['%s_MEAS' % x] - self.MSA_F * 1.5, pwr_lvl, curve) + (self.MSA_P * 1.5)
             elif self.script_name == VW:
                 v_meas = self.get_measurement_total(data=data, type_meas='V', log=False)
                 y = 'P'
-                daq.sc['%s_TARGET_MIN' % y] = self.get_targ(v_meas + self.MSA_V * 1.5, pwr_lvl, curve) - (
-                        self.MSA_P * 1.5)
-                daq.sc['%s_TARGET_MAX' % y] = self.get_targ(v_meas - self.MSA_V * 1.5, pwr_lvl, curve) + (
-                        self.MSA_P * 1.5)
+                daq.sc['%s_TARGET_MIN' % y] = self.get_targ(v_meas + self.MSA_V*1.5, pwr_lvl, curve) - (self.MSA_P*1.5)
+                daq.sc['%s_TARGET_MAX' % y] = self.get_targ(v_meas - self.MSA_V*1.5, pwr_lvl, curve) + (self.MSA_P*1.5)
             elif self.script_name == WV:
                 y = 'Q'
                 x = 'P'
-                daq.sc['%s_TARGET_MIN' % y] = self.get_targ(daq.sc['%s_MEAS' % x] + self.MSA_P * 1.5,
-                                                            pwr_lvl, curve) - (self.MSA_Q * 1.5)
-                daq.sc['%s_TARGET_MAX' % y] = self.get_targ(daq.sc['%s_MEAS' % x] - self.MSA_P * 1.5,
-                                                        pwr_lvl, curve) + (self.MSA_Q * 1.5)
+                daq.sc['%s_TARGET_MIN' % y] = \
+                    self.get_targ(daq.sc['%s_MEAS' % x] + self.MSA_P * 1.5, pwr_lvl, curve) - (self.MSA_Q * 1.5)
+                daq.sc['%s_TARGET_MAX' % y] = \
+                    self.get_targ(daq.sc['%s_MEAS' % x] - self.MSA_P * 1.5, pwr_lvl, curve) + (self.MSA_Q * 1.5)
 
-        #Don't remove
-        daq.data_sample()
+        daq.data_sample()  # Don't remove
 
     def get_tr_value(self, daq, initial_value, tr, step, number_of_tr=2, pwr_lvl=1.0, curve=1, x_target=None,
                      y_target=None, aif =None):
@@ -956,23 +914,46 @@ class module_1547(object):
         Get the data from a specific time response (tr) corresponding to x and y values returns a dictionary
         but also writes in the soft channels of the DAQ system
         :param daq:             data acquisition object from svpelab library
-        :param initial_value:   the dictionnary with the initial values (X, Y and timestamp)
-        :param pwr_lvl:     The input power level in p.u.
-        :param curve:       The characteristic curve number
-        :param x_target:      The target value of X value (e.g. FW -> f_step)
-        :param y_target:      The target value of Y value (e.g. LAP -> act_pwrs_limits)
-        :param number_of_tr:  1547.1 : Specify two (2) time response in order to validate steady state values
+        :param initial_value:   the dictionary with the initial values (X, Y and timestamp)
+        :param pwr_lvl:         The input power level in p.u.
+        :param curve:           The characteristic curve number
+        :param x_target:        The target value of X value (e.g. FW -> f_step)
+        :param y_target:        The target value of Y value (e.g. LAP -> act_pwrs_limits)
+        :param number_of_tr:    The number of time responses used to validate the response and steady state values
 
         :return: returns a dictionary with the timestamp, event and total EUT reactive power
         """
+
+        '''
+        For voltage-reactive power, voltage-active power, active power-reactive power, and frequency droop:
+        
+        Unless otherwise specified in the type tests, the DER performance shall be within 150% of the minimum
+        required measurement accuracy (MRA), as specified in Table 3 of IEEE Std 1547-2018 for steady-state
+        conditions. For control functions where the DER regulates an output parameter, Y, in response to a 
+        measured input parameter, X, the output parameter measured by the test lab, Ymeas, shall meet 2 Equation (1):
+        
+            Ymin <= Ymeas <= Ymax
+
+        where
+            Ymin is Y(Xmeas + 1.5 * MRA(X)) - 1.5 * MRA(Y)
+            Ymax is Y(Xmeas - 1.5 * MRA(X)) + 1.5 * MRA(Y)
+            Y(X) is a mathematical function defining the target DER output parameter (active or reactive power) in 
+            terms of the input (voltage, frequency, or active power)
+            Xmeas is the input parameter as measured by the test lab
+            MRA(a) is the DER's minimum required steady-state measurement accuracy of a per Table 3 in IEEE Std 
+            1547-2018, where a is an input or output parameter under test (voltage, reactive power, active power, 
+            or frequency)
+        '''
+
         tr_value = collections.OrderedDict()
-        x = self.get_x_y_variable('x')
-        y = self.get_x_y_variable('y')
+        x = self.x_criteria
+        y = self.y_criteria
 
         first_tr = initial_value['timestamp'] + timedelta(seconds=tr)
         tr_list = [first_tr]
         for i in range(number_of_tr - 1):
             tr_list.append(tr_list[i] + timedelta(seconds=tr))
+
         tr_iter = 1
         for tr_ in tr_list:
             now = datetime.now()
@@ -986,16 +967,20 @@ class module_1547(object):
             for meas_value in self.meas_values:
                 try:
                     tr_value[tr_iter]['%s_MEAS' % meas_value] = daq.sc['%s_MEAS' % meas_value]
-                    self.ts.log('Value %s: %s' % (meas_value, daq.sc['%s_MEAS' % meas_value]))
+                    # self.ts.log('Value %s: %s' % (meas_value, daq.sc['%s_MEAS' % meas_value]))
                     if meas_value in x:
                         tr_value[tr_iter]['%s_TARGET' % meas_value] = daq.sc['%s_TARGET' % meas_value]
+                        # self.ts.log('X Value (%s) = %s' % (meas_value, daq.sc['%s_MEAS' % meas_value]))
                     elif meas_value in y:
                         tr_value[tr_iter]['%s_TARGET' % meas_value] = daq.sc['%s_TARGET' % meas_value]
                         tr_value[tr_iter]['%s_TARGET_MIN' % meas_value] = daq.sc['%s_TARGET_MIN' % meas_value]
                         tr_value[tr_iter]['%s_TARGET_MAX' % meas_value] = daq.sc['%s_TARGET_MAX' % meas_value]
+                        # self.ts.log('Y Value (%s) = %s. Pass/fail bounds = [%s, %s]' %
+                        #             (meas_value, daq.sc['%s_MEAS' % meas_value],
+                        #              daq.sc['%s_TARGET_MIN' % meas_value], daq.sc['%s_TARGET_MAX' % meas_value]))
                     # self.ts.log_debug('Measured value (%s)' % meas_value)
-                except:
-                    self.ts.log_debug('Measured value (%s) not recorded' % meas_value)
+                except Exception, e:
+                    self.ts.log_debug('Measured value (%s) not recorded: %s' % (meas_value, e))
 
             self.update_target_value(
                 daq=daq,
@@ -1026,14 +1011,14 @@ class module_1547(object):
         """
 
         analysis = {}
-        xs = self.get_x_y_variable('x')
-        ys = self.get_x_y_variable('y')
+        xs = self.x_criteria
+        ys = self.y_criteria
 
         if isinstance(ys, list):
             for y in ys:
                 analysis['%s_INITIAL' % y] = initial_value['%s_MEAS' % y]
         for tr_iter, tr_value in tr_values.items():
-            #self.ts.log_debug('Tr value=%s' % tr_value)
+            # self.ts.log_debug('Tr value=%s' % tr_value)
             for meas_value in self.meas_values:
                 analysis['%s_TR_%s' % (meas_value, tr_iter)] = tr_value['%s_MEAS' % meas_value]
 
@@ -1065,8 +1050,8 @@ class module_1547(object):
                     if self.criteria_mode[0]:
 
                         last_tr_value = tr_values[next(reversed(tr_values.keys()))]
-                        #self.ts.log_debug('Last TR value: %s' % last_tr_value)
-                        #tr_diff = last_tr_value[ys]['y_value'] - analysis['%s_INITIAL' % ys]
+                        # self.ts.log_debug('Last TR value: %s' % last_tr_value)
+                        # tr_diff = last_tr_value[ys]['y_value'] - analysis['%s_INITIAL' % ys]
                         tr_diff = last_tr_value['%s_MEAS' % meas_value] - analysis['%s_INITIAL' % meas_value]
 
                         p_tr_target = ((0.9 * tr_diff) + analysis['%s_INITIAL' % meas_value])
@@ -1088,8 +1073,10 @@ class module_1547(object):
         if self.criteria_mode[1] or self.criteria_mode[2]:
             for y in ys:
                 for tr_iter, tr_dic in tr_values.items():
-                    if (analysis['FIRST_ITER'] == tr_iter and self.criteria_mode[1]) or (analysis['LAST_ITER'] == tr_iter and self.criteria_mode[2]):
-                        if analysis['%s_TR_%s_MIN' % (y, tr_iter)] <= analysis['%s_TR_%s' % (y, tr_iter)] <= analysis['%s_TR_%s_MAX' % (y, tr_iter)]:
+                    if (analysis['FIRST_ITER'] == tr_iter and self.criteria_mode[1]) or \
+                            (analysis['LAST_ITER'] == tr_iter and self.criteria_mode[2]):
+                        if analysis['%s_TR_%s_MIN' % (y, tr_iter)] <= \
+                                analysis['%s_TR_%s' % (y, tr_iter)] <= analysis['%s_TR_%s_MAX' % (y, tr_iter)]:
                             analysis['%s_TR_%s_PF' % (y, tr_iter)] = 'Pass'
                         else:
                             analysis['%s_TR_%s_PF' % (y, tr_iter)] = 'Fail'
@@ -1105,9 +1092,11 @@ class module_1547(object):
 
     def get_params(self, curve=None, aif=None):
         self.ts.log_debug('Getting params for aif=%s and curve=%s' % (aif, curve))
+
         # update params if another curve:
         if curve is not None:
             self.set_params(curve=curve)
+
         # This section is for scripts utilizing multiple AIF, such as prioritization and LAP
         if aif is not None and curve is not None:
             return self.param[aif][curve]
@@ -1120,8 +1109,8 @@ class module_1547(object):
 
     def get_rslt_param_plot(self):
 
-        y_variables = self.get_x_y_variable('y')
-        y2_variables = self.get_x_y_variable('x')
+        y_variables = self.y_criteria
+        y2_variables = self.x_criteria
 
         # For VV, VW and FW
 
@@ -1167,11 +1156,13 @@ class module_1547(object):
         This functions calculate the target value if there is any special equations to be used with.
         Otherwise, it would be preferred to just enter the target_value while calling process data
 
-        :param value:   A dictionary with measurements before a step
-        :param pwr_lvl:       A dictionary with measurements after one time response cycle
+        :param value: A dictionary with measurements before a step
+        :param pwr_lvl: A dictionary with measurements after one time response cycle
         :return: returns a dictionary with pass fail criteria that will be use in the
         result_summary.csv file.
         """
+
+        # todo: replace all the linear interpolation steps with a numpy or scipy command
 
         p_targ = None
         if self.script_name == LAP and variable is not 'F':
@@ -1196,22 +1187,11 @@ class module_1547(object):
             return round(p_targ, 2)
 
         elif VV in self.function_used:
-            if value <= self.param[VV][curve]['V1']:
-                q_value = self.param[VV][curve]['Q1']
-            elif value < self.param[VV][curve]['V2']:
-                q_value = self.param[VV][curve]['Q1'] + (
-                        (self.param[VV][curve]['Q2'] - self.param[VV][curve]['Q1']) /
-                        (self.param[VV][curve]['V2'] - self.param[VV][curve]['V1']) * (value - self.param[VV][curve]['V1']))
-            elif value == self.param[VV][curve]['V2']:
-                q_value = self.param[VV][curve]['Q2']
-            elif value <= self.param[VV][curve]['V3']:
-                q_value = self.param[VV][curve]['Q3']
-            elif value < self.param[VV][curve]['V4']:
-                q_value = self.param[VV][curve]['Q3'] + (
-                        (self.param[VV][curve]['Q4'] - self.param[VV][curve]['Q3']) /
-                        (self.param[VV][curve]['V4'] - self.param[VV][curve]['V3']) * (value - self.param[VV][curve]['V3']))
-            else:
-                q_value = self.param[VV][curve]['Q4']
+            x = [self.param[VV][curve]['V1'], self.param[VV][curve]['V2'],
+                 self.param[VV][curve]['V3'], self.param[VV][curve]['V4']]
+            y = [self.param[VV][curve]['Q1'], self.param[VV][curve]['Q2'],
+                 self.param[VV][curve]['Q3'], self.param[VV][curve]['Q4']]
+            q_value = float(np.interp(value, x, y))
             q_value *= pwr_lvl
             return round(q_value, 1)
 
@@ -1220,40 +1200,24 @@ class module_1547(object):
             return round(q_value, 1)
 
         elif VW in self.function_used or variable == "V":
-
-            if value <= self.param[VW][curve]['V1']:
-                p_targ = self.param[VW][curve]['P1']
-            elif value < self.param[VW][curve]['V2']:
-                p_targ = self.param[VW][curve]['P1'] + (
-                        (self.param[VW][curve]['P2'] - self.param[VW][curve]['P1']) /
-                        (self.param[VW][curve]['V2'] - self.param[VW][curve]['V1']) *
-                        (value - self.param[VW][curve]['V1']))
-            else:
-                p_targ = self.param[VW][curve]['P2']
-
+            x = [self.param[VW][curve]['V1'], self.param[VW][curve]['V2'], self.param[VW][curve]['V3']]
+            y = [self.param[VW][curve]['P1'], self.param[VW][curve]['P2'], self.param[VW][curve]['P3']]
+            p_targ = float(np.interp(value, x, y))
             p_targ *= pwr_lvl
             return p_targ
 
         elif WV in self.function_used:
-            if value == self.param[WV][curve]['P0']:
-                q_value = self.param[WV][curve]['Q0']
-            elif value < self.param[WV][curve]['P1']:
-                q_value = self.param[WV][curve]['Q1']
-            elif value <= self.param[WV][curve]['P2']:
-                q_value = self.param[WV][curve]['Q1'] + (
-                        (self.param[WV][curve]['Q2'] - self.param[WV][curve]['Q1']) /
-                        (self.param[WV][curve]['P2'] - self.param[WV][curve]['P1']) * (value - self.param[WV][curve]['P1']))
-            elif value < self.param[WV][curve]['P3']:
-                q_value = self.param[WV][curve]['Q2'] + (
-                        (self.param[WV][curve]['Q3'] - self.param[WV][curve]['Q2']) /
-                        (self.param[WV][curve]['P3'] - self.param[WV][curve]['P2']) * (value - self.param[WV][curve]['P2']))
-            else:
-                q_value = self.param[WV][curve]['Q3']
+            x = [self.param[WV][curve]['P0'], self.param[WV][curve]['P1'],
+                 self.param[WV][curve]['P2'], self.param[WV][curve]['P3']]
+            y = [self.param[WV][curve]['Q0'], self.param[WV][curve]['Q1'],
+                 self.param[WV][curve]['Q2'], self.param[WV][curve]['Q3']]
+            q_value = float(np.interp(value, x, y))
             q_value *= pwr_lvl
+            # self.ts.log_debug('Power value: %s --> q_target: %s' % (value, q_value))
             return q_value
 
     def process_data(self, daq, tr, step, result_summary, filename, pwr_lvl=1.0, curve=1, initial_value=None,
-                     x_target=None, y_target=None, aif=None):
+                     x_target=None, y_target=None, aif=None, number_of_tr=2):
 
         if curve is not self.curve:
             self.curve = curve
@@ -1264,22 +1228,20 @@ class module_1547(object):
             initial_value=initial_value,
             tr=tr,
             step=step,
+            number_of_tr=number_of_tr,
             curve=curve,
             pwr_lvl=pwr_lvl,
             x_target=x_target,
             y_target=y_target,
             aif=aif
         )
-        analysis = self.get_analysis(
-            initial_value=initial_value,
-            tr_values=tr_values
-        )
+        # self.ts.log_debug('tr_values: %s' % tr_values)
 
-        result_summary.write(self.write_rslt_sum(
-            analysis=analysis,
-            step=step,
-            filename=filename
-        ))
+        # get pass-fail criteria for this test step
+        analysis = self.get_analysis(initial_value=initial_value, tr_values=tr_values)
+        # self.ts.log_debug('analysis: %s' % analysis)
+
+        result_summary.write(self.write_rslt_sum(analysis=analysis, step=step, filename=filename))
         return
 
 

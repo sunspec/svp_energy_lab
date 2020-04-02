@@ -708,7 +708,7 @@ class DER(der.DER):
                 curve = self.inv.volt_var.curve[id]
 
                 if params is not None:
-                    self.validate_volt_var(params=params)
+                    # self.validate_volt_var(params=params)
                     dept_ref = params.get('DeptRef')
                     if dept_ref is not None:
                         dept_ref_id = volt_var_dept_ref.get(dept_ref)

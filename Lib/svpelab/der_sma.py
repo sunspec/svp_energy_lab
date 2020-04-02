@@ -597,8 +597,8 @@ class DER(der.DER):
             1978 = Power in percentages of Pmax
             1979 = Power in percentages of frozen active power
             2272 = cos Phi (EEI convention)
-
         """
+
         if id == 1:  # curve 1
             NPTS = {'02.02.30.R': 40262, '02.84.01.R': 41023, '02.83.03.R': 41023, '02.63.33.S': 40262}
             TIME_CHAR = {'02.02.30.R': 41017, '02.84.01.R': 41017, '02.83.03.R': 41017, '02.63.33.S': 41017}
@@ -631,6 +631,9 @@ class DER(der.DER):
             Y4 = {'02.02.30.R': None, '02.84.01.R': 41091, '02.83.03.R': 41091, '02.63.33.S': 40360}
         else:  # id == 3
             NPTS = {'02.02.30.R': None, '02.84.01.R': None, '02.83.03.R': None, '02.63.33.S': None}
+            TIME_CHAR = {'02.02.30.R': 41065, '02.84.01.R': 41065, '02.83.03.R': 41065, '02.63.33.S': 41065}
+            RAMP_UP = {'02.02.30.R': 41067, '02.84.01.R': 41067, '02.83.03.R': 41067, '02.63.33.S': 41067}
+            RAMP_DOWN = {'02.02.30.R': 41069, '02.84.01.R': 41069, '02.83.03.R': 41069, '02.63.33.S': 41069}
             X_UNITS = {'02.02.30.R': 40981, '02.84.01.R': None, '02.83.03.R': 40981, '02.63.33.S': 40981}
             X1 = {'02.02.30.R': None, '02.84.01.R': None, '02.83.03.R': None, '02.63.33.S': 40378}
             X2 = {'02.02.30.R': None, '02.84.01.R': None, '02.83.03.R': None, '02.63.33.S': 40380}
@@ -642,8 +645,8 @@ class DER(der.DER):
             Y3 = {'02.02.30.R': None, '02.84.01.R': None, '02.83.03.R': None, '02.63.33.S': 40406}
             Y4 = {'02.02.30.R': None, '02.84.01.R': None, '02.83.03.R': None, '02.63.33.S': 40408}
 
-        return {'NPts': NPTS, 'x_units': X_UNITS, 'y_units': Y_UNITS, 'x1': X1, 'x2': X2, 'x3': X3, 'x4': X4,
-                'y1': Y1, 'y2': Y2, 'y3': Y3, 'y4': Y4}
+        return {'NPts': NPTS, 'x_units': X_UNITS, 'y_units': Y_UNITS, 'x1': X1, 'x2': X2, 'x3': X3, 'x4': X4, 'y1': Y1,
+                'y2': Y2, 'y3': Y3, 'y4': Y4, 'TIME_CHAR': TIME_CHAR, 'RAMP_UP': RAMP_UP, 'RAMP_DOWN': RAMP_DOWN}
 
     def volt_watt(self, params=None):
         """volt/watt control
@@ -824,6 +827,9 @@ class DER(der.DER):
                 self.inv.write(q_mode_ena[self.firmware], util.u32_to_data(303))
             if params.get('NPt') is not None:
                 self.inv.write(n_pts[self.firmware], util.u32_to_data(params['NPt']))
+            if params.get('RmpTms') is not None:
+                time_const = params['RmpTms']
+                self.inv.write(reg['TIME_CHAR'][self.firmware], util.u32_to_data(int(round(time_const*10))))
 
             if params.get('curve') is not None:
                 w = params['curve'].get('w')
@@ -852,6 +858,7 @@ class DER(der.DER):
                 params['Ena'] = False
 
             params['NPt'] = util.data_to_u32(self.inv.read(n_pts[self.firmware], 2))
+            params['RmpTms'] = util.data_to_u32(self.inv.read(reg['TIME_CHAR'][self.firmware], 2))/10.
             params['ActCrv'] = 2
             params['NCrv'] = 3
 
