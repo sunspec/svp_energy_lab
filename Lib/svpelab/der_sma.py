@@ -714,10 +714,10 @@ class DER(der.DER):
             else:
                 self.inv.write(active_crv_activation[self.firmware], util.u32_to_data(303))
                 self.inv.write(q_mode_ena[self.firmware], util.u32_to_data(303))
-            if params['NPt'] is not None:
+            if params.get('NPt') is not None:
                 self.inv.write(n_pts[self.firmware], util.u32_to_data(params['NPt']))
-            if params['curve'] is not None:
-                if params['curve']['v'] is not None:
+            if params.get('curve') is not None:
+                if params['curve'].get('v') is not None:
                     v = [params['curve']['v'][0], params['curve']['v'][1]]
                     if len(v) != 2:
                         self.ts.log_warning('Only two VW voltage points used!')
@@ -725,7 +725,7 @@ class DER(der.DER):
                         self.inv.write(v_adrs[0], util.s32_to_data(int(v[0]*1000)))
                     if params['curve']['v'][1] is not None:
                         self.inv.write(v_adrs[1], util.s32_to_data(int(v[1]*1000)))
-                if params['curve']['w'] is not None:
+                if params['curve'].get('w') is not None:
                     w = [params['curve']['w'][0], params['curve']['w'][1]]
                     if len(w) != 2:
                         self.ts.log_warning('Only two VW power points used!')
@@ -940,7 +940,7 @@ class DER(der.DER):
                 self.inv.write(active_crv_activation[self.firmware], util.u32_to_data(303))
                 self.inv.write(q_mode_ena[self.firmware], util.u32_to_data(303))
 
-            if params['NPt'] is not None:
+            if params.get('NPt') is not None:
                 self.inv.write(n_pts[self.firmware], util.u32_to_data(params['NPt']))
 
         else:
@@ -954,7 +954,7 @@ class DER(der.DER):
             params['ActCrv'] = 2
 
             params['NCrv'] = 3  # SMA supports 3 curves (...or sometimes 2)
-            if params['ActCrv'] is not None:
+            if params.get('ActCrv') is not None:
                 params['curve'] = self.volt_var_curve(id=params['ActCrv'])
 
         return params
@@ -1119,10 +1119,10 @@ class DER(der.DER):
             else:
                 self.inv.write(active_crv_activation[self.firmware], util.u32_to_data(303))
                 self.inv.write(q_mode_ena[self.firmware], util.u32_to_data(303))
-            if params['NPt'] is not None:
+            if params.get('NPt') is not None:
                 self.inv.write(n_pts[self.firmware], util.u32_to_data(params['NPt']))
 
-            if params['curve'] is not None:
+            if params.get('curve') is not None:
                 curve = params['curve']
 
                 # set freq points
@@ -1236,7 +1236,7 @@ class DER(der.DER):
             else:
                 self.inv.write(fdroop_ena[self.firmware], util.u32_to_data(int(303)))       # off
 
-            if params['dbOF'] is not None:
+            if params.get('dbOF') is not None:
                 dbf_set = int(round(params['dbOF'], 2)*100)
                 self.inv.write(dbf1[self.firmware], util.u32_to_data(dbf_set))      # dbf
                 if dbf2[self.firmware] is not None:
@@ -1244,7 +1244,7 @@ class DER(der.DER):
                 # set the return curve to be the same
                 self.inv.write(dbf_return[self.firmware], util.u32_to_data(dbf_return))         # dbf
 
-            if params['kOF'] is not None:
+            if params.get('kOF') is not None:
                 kof_set = int(1/(params['kOF']))
                 self.inv.write(kof[self.firmware], util.u32_to_data(kof_set))  # dbf
                 # set the return curve to be the same

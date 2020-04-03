@@ -103,15 +103,38 @@ class module_1547(object):
         self.meas_values = []
         self.curve = 1
 
-        """
-        According to Table 3-Minimum requirements for manufacturers stated measured and calculated accuracy
-        """
         try:
             self.v_nom = ts.param_value('eut.v_nom')
-            self.MSA_V = 0.01 * self.v_nom
-            self.MSA_Q = 0.05 * ts.param_value('eut.s_rated')
-            self.MSA_P = 0.05 * ts.param_value('eut.s_rated')
-            self.MSA_F = 0.01
+            '''
+            Minimum required accuracy (MRA) (per Table 3 of IEEE Std 1547-2018)
+            
+            Table 3 - Minimum measurement and calculation accuracy requirements for manufacturers
+            ______________________________________________________________________________________________
+            Time frame                  Steady-state measurements      
+            Parameter       Minimum measurement accuracy    Measurement window      Range
+            ______________________________________________________________________________________________        
+            Voltage, RMS    (+/- 1% Vnom)                   10 cycles               0.5 p.u. to 1.2 p.u.
+            Frequency       10 mHz                          60 cycles               50 Hz to 66 Hz
+            Active Power    (+/- 5% Srated)                 10 cycles               0.2 p.u. < P < 1.0
+            Reactive Power  (+/- 5% Srated)                 10 cycles               0.2 p.u. < Q < 1.0
+            Time            1% of measured duration         N/A                     5 s to 600 s 
+            ______________________________________________________________________________________________
+                                        Transient measurements
+            Parameter       Minimum measurement accuracy    Measurement window      Range
+            Voltage, RMS    (+/- 2% Vnom)                   5 cycles                0.5 p.u. to 1.2 p.u.
+            Frequency       100 mHz                         5 cycles                50 Hz to 66 Hz
+            Time            2 cycles                        N/A                     100 ms < 5 s
+            ______________________________________________________________________________________________
+            '''
+            self.MRA_V = 0.01 * self.v_nom
+            self.MRA_Q = 0.05 * ts.param_value('eut.s_rated')
+            self.MRA_P = 0.05 * ts.param_value('eut.s_rated')
+            self.MRA_F = 0.01
+            self.MRA_T = 0.01
+            self.MRA_V_trans = 0.02 * self.v_nom
+            self.MRA_F_trans = 0.1
+            self.MRA_T_trans = 2./60.
+
             self.f_nom = ts.param_value('eut.f_nom')
             self.phases = ts.param_value('eut.phases')
             self.p_rated = ts.param_value('eut.p_rated')
@@ -168,8 +191,10 @@ class module_1547(object):
             self.meas_values.append('Q')
         if self.script_name == CPF or self.script_name == CRP:
             self.meas_values.append('PF')
+        if self.script_name == WV:
+            self.meas_values.remove('V')
 
-        self.ts.log('measured values variables to be initialized: %s' % self.meas_values)
+        self.ts.log('Measured values variables to be initialized: %s' % self.meas_values)
 
     def set_complete_test_name(self):
         """
@@ -204,10 +229,12 @@ class module_1547(object):
         row_data = []
 
         # Time response criteria will take last placed value of Y variables
-        if self.criteria_mode[0]:
-            row_data.append('%s_TR_ACC_REQ' % ys[-1])
-            row_data.append('TR_REQ')
-            row_data.append('%s_FINAL_ACC_REQ' % ys[-1])
+        if self.criteria_mode[0]:  # transient response pass/fail
+            row_data.append('90%_BY_TR=1')
+        if self.criteria_mode[1]:
+            row_data.append('WITHIN_BOUNDS_BY_TR=1')
+        if self.criteria_mode[2]:  # steady-state accuracy
+            row_data.append('WITHIN_BOUNDS_BY_TR=%s' % ys[-1])
 
         for meas_value in self.meas_values:
             row_data.append('%s_MEAS' % meas_value)
@@ -228,8 +255,8 @@ class module_1547(object):
     def set_sc_points(self):
         """
         Set SC points for DAS depending on which measured variables initialized and targets
-        :param nothing:
-        :return: nothing
+
+        :return: None
         """
         # TODO : The target value are in percentage (0-100) and something in P.U. (0-1.0)
         #       The measure value are in absolute value
@@ -286,15 +313,18 @@ class module_1547(object):
     def set_criteria_mode(self):
         """
         This functions set the criteria mode required for different functions.
-        :return: returns a list with the activated mode
         [0] Open Loop Time Response (OLTR) (90% of (y_final-y_intiial) + y_initial),
-        [1] Test Results Accuracy on TR 'y' value (TRATR) and
+        [1] Test Results Accuracy on Tr 'y' value (TRATR) and
         [2] Test Results Accuracy on final (TRAF) 'y' value.
+
+        :return: returns a binary list with the activated mode, e.g., [True, True, True]
+
         """
         if self.script_name == FW or self.script_name == VW or self.script_name == VV \
-                or self.script_name == CPF or self.script_name == LAP or self.script_name == WV:
+                or self.script_name == CPF or self.script_name == LAP:
             self.criteria_mode = [True, True, True]
-
+        elif self.script_name == WV:
+            self.criteria_mode = [True, False, True]
         elif self.script_name == CRP:
             self.criteria_mode = [True, True, True]
 
@@ -413,11 +443,9 @@ class module_1547(object):
             # Added another Q(P) points since EUT looks to be asking for 4 pts
             if curve == 1:
                 self.param[WV][curve] = {
-                    'P0': 0,
                     'P1': round(p, 2),
                     'P2': round(0.5 * self.p_rated, 2),
                     'P3': round(1.0 * self.p_rated, 2),
-                    'Q0': round(self.s_rated * 0.0, 2),
                     'Q1': round(self.s_rated * 0.0, 2),
                     'Q2': round(self.s_rated * 0.0, 2),
                     'Q3': round(self.s_rated * -0.44, 2)
@@ -433,11 +461,9 @@ class module_1547(object):
 
             elif curve == 2:
                 self.param[WV][curve] = {
-                    'P0': 0,
                     'P1': round(p, 2),
                     'P2': round(0.5 * self.p_rated, 2),
                     'P3': round(1.0 * self.p_rated, 2),
-                    'Q0': round(self.s_rated * 0.0, 2),
                     'Q1': round(self.s_rated * -0.22, 2),
                     'Q2': round(self.s_rated * -0.22, 2),
                     'Q3': round(self.s_rated * -0.44, 2)
@@ -452,11 +478,9 @@ class module_1547(object):
                     self.param[WV][curve]['Q3_prime'] = round(0.44 * self.s_rated, 2)
             elif curve == 3:
                 self.param[WV][curve] = {
-                    'P0': 0,
                     'P1': round(p, 2),
                     'P2': round(0.5 * self.p_rated, 2),
                     'P3': round(1.0 * self.p_rated, 2),
-                    'Q0': round(self.s_rated * 0.0, 2),
                     'Q1': round(self.s_rated * 0.0, 2),
                     'Q2': round(self.s_rated * -0.44, 2),
                     'Q3': round(self.s_rated * -0.44, 2)
@@ -469,6 +493,7 @@ class module_1547(object):
                     self.param[WV][curve]['Q1_prime'] = 0
                     self.param[WV][curve]['Q2_prime'] = round(0.44 * self.s_rated, 2)
                     self.param[WV][curve]['Q3_prime'] = round(0.44 * self.s_rated, 2)
+
             self.ts.log_debug('WV settings: %s' % self.param[WV])
 
         if PRI in self.function_used:
@@ -576,7 +601,6 @@ class module_1547(object):
         :param step:   The step of the test since now it change sometimes during the test
         :return: Nothing
         """
-        #self.ts.log_debug("Set_x_y_variables: %s" % step)
         if self.script_name == VW or self.script_name == FW or self.script_name == LAP:
             self.y_criteria = ['P']
             if self.script_name == VW:
@@ -602,7 +626,7 @@ class module_1547(object):
                 self.x_criteria = ['V', 'P']
             elif self.script_name == CPF:
                 self.x_criteria = ['V', 'P', 'PF']
-            elif self.script_name == "WV":
+            elif self.script_name == WV:
                 self.x_criteria = ['P']
         elif self.script_name == PRI:
             self.y_criteria = ['P', 'Q']
@@ -626,45 +650,47 @@ class module_1547(object):
         Combines the analysis results, the step label and the filenamoe to return
         a row that will go in result_summary.csv
         :param analysis: Dictionary with all the information for result summary
+
         :param step:   test procedure step letter or number (e.g "Step G")
         :param filename: the dataset filename use for analysis
+
         :return: row_data a string with all the information for result_summary.csv
         """
 
-        try:
+        xs = self.x_criteria
+        ys = self.y_criteria
+        first_iter = analysis['FIRST_ITER']
+        last_iter = analysis['LAST_ITER']
+        row_data = []
 
-            xs = self.x_criteria
-            ys = self.y_criteria
-            first_iter = analysis['FIRST_ITER']
-            last_iter = analysis['LAST_ITER']
-            row_data = []
+        # Time response criteria will take last placed value of Y variables
+        if self.criteria_mode[0]:
+            row_data.append(str(analysis['TR_90_%_PF']))
+        if self.criteria_mode[1]:
+            row_data.append(str(analysis['%s_TR_%s_PF' % (ys[-1], first_iter)]))
+        if self.criteria_mode[2]:
+            row_data.append(str(analysis['%s_TR_%s_PF' % (ys[-1], last_iter)]))
 
-            # Time response criteria will take last placed value of Y variables
-            if self.criteria_mode[0]:
-                row_data.append(str(analysis['%s_TR_%s_PF' % (ys[-1], first_iter)]))
-                row_data.append(str(analysis['TR_90_%_PF']))
-                row_data.append(str(analysis['%s_TR_%s_PF' % (ys[-1], last_iter)]))
+        # Default measured values are V, P and Q (F can be added) refer to set_meas_variable function
+        for meas_value in self.meas_values:
+            row_data.append(str(analysis['%s_TR_%d' % (meas_value, last_iter)]))
+            # Variables needed for variations
+            if meas_value in xs:
+                row_data.append(str(analysis['%s_TR_TARG_%d' % (meas_value, last_iter)]))
+            # Variables needed for criteria verifications with min max passfail
+            if meas_value in ys:
+                row_data.append(str(analysis['%s_TR_TARG_%s' % (meas_value, last_iter)]))
+                row_data.append(str(analysis['%s_TR_%s_MIN' % (meas_value, last_iter)]))
+                row_data.append(str(analysis['%s_TR_%s_MAX' % (meas_value, last_iter)]))
 
-            # Default measured values are V,P and Q (F can be added) refer to set_meas_variable function
-            for meas_value in self.meas_values:
-                row_data.append(str(analysis['%s_TR_%d' % (meas_value, last_iter)]))
-                # Variables needed for variations
-                if meas_value in xs:
-                    row_data.append(str(analysis['%s_TR_TARG_%d' % (meas_value, last_iter)]))
-                # Variables needed for criteria verifications with min max passfail
-                if meas_value in ys:
-                    row_data.append(str(analysis['%s_TR_TARG_%s' % (meas_value, last_iter)]))
-                    row_data.append(str(analysis['%s_TR_%s_MIN' % (meas_value, last_iter)]))
-                    row_data.append(str(analysis['%s_TR_%s_MAX' % (meas_value, last_iter)]))
+        row_data.append(step)
+        row_data.append(str(filename))
+        row_data_str = ','.join(row_data)+'\n'
 
-            row_data.append(step)
-            row_data.append(str(filename))
-            row_data_str = ','.join(row_data)+'\n'
+        return row_data_str
 
-            return row_data_str
-
-        except Exception as e:
-            raise p1547Error('Error in write_rslt_sum() : %s' % (str(e)))
+        # except Exception as e:
+        #     raise p1547Error('Error in write_rslt_sum() : %s' % (str(e)))
 
     """
     Getter functions
@@ -711,9 +737,10 @@ class module_1547(object):
 
     def get_measurement_label(self, type_meas):
         """
-        Sum the EUT reactive power from all phases
-        :param type_meas:   Either V, P, PF, I, F, VA, or Q
-        :return:            List of labeled measurements
+        Returns the measurement label for a measurement type
+
+        :param type_meas:   (str) Either V, P, PF, I, F, VA, or Q
+        :return:            (list of str) List of labeled measurements, e.g., ['AC_VRMS_1', 'AC_VRMS_2', 'AC_VRMS_3']
         """
         meas_label = None
         if type_meas == 'V':
@@ -742,7 +769,8 @@ class module_1547(object):
 
     def get_measurement_total(self, data, type_meas, log):
         """
-        Sum the EUT reactive power from all phases
+        Sum or average the EUT values from all phases
+
         :param data:        dataset from data acquisition object
         :param type_meas:   Either V,P or Q
         :param log:         Boolean variable to disable or enable logging
@@ -750,7 +778,6 @@ class module_1547(object):
         """
         value = None
         nb_phases = None
-
 
         try:
             if self.phases == 'Single phase':
@@ -790,11 +817,9 @@ class module_1547(object):
         if type_meas == 'V' or type_meas == 'PF':
             # average value of V or PF
             value = value / nb_phases
-
         elif type_meas == 'F':
             # No need to do data average for frequency
             value = data.get(self.get_measurement_label(type_meas)[0])
-
         elif type_meas == 'P':
             # TODO need to handle energy storage systems that will have negative power values
             value = abs(value)
@@ -806,13 +831,16 @@ class module_1547(object):
 
     def get_initial_value(self, daq, step):
         """
-        Sum the EUT reactive power from all phases
+        Sum the EUT phases for given parameter (power, reactive power, etc.) from all phases
         :param daq:         data acquisition object from svpelab library
         :param step:        test procedure step letter or number (e.g "Step G")
-        :return: returns a dictionary with the timestamp, event and total EUT reactive power
+        :return: returns a dictionary with the timestamp, event, and total EUT phase, e.g.,
+            {'timestamp': datetime.datetime(2020, 4, 3, 10, 23, 21, 786000),
+            'Y_MEAS': 60.998,
+            'X_MEAS': 2088.702}
         """
         # TODO : In a more sophisticated approach, get_initial['timestamp'] will come from a
-        #  reliable secure thread or data acquisition timestamp
+        # reliable secure thread or data acquisition timestamp
         self.set_x_y_variable(step=step)
         initial = {}
         initial['timestamp'] = datetime.now()
@@ -821,11 +849,7 @@ class module_1547(object):
 
         daq.sc['event'] = step
         for meas_value in self.meas_values:
-            initial['%s_MEAS' % meas_value] = self.get_measurement_total(
-                data=data,
-                type_meas=meas_value,
-                log=False
-            )
+            initial['%s_MEAS' % meas_value] = self.get_measurement_total(data=data, type_meas=meas_value, log=False)
             daq.sc['%s_MEAS' % meas_value] = initial['%s_MEAS' % meas_value]
 
         daq.data_sample()
@@ -834,7 +858,29 @@ class module_1547(object):
 
     def update_target_value(self, daq, pwr_lvl=1.0, curve=1, x_target=None, y_target=None, data=None, aif=None):
         """
-        Function to update target value depending on script name
+        Function to update target values depending on script name
+
+        ----------------------------------------------------------------
+        For voltage-reactive power, voltage-active power, active power-reactive power, and frequency droop:
+
+        Unless otherwise specified in the type tests, the DER performance shall be within 150% of the minimum
+        required measurement accuracy (MRA), as specified in Table 3 of IEEE Std 1547-2018 for steady-state
+        conditions. For control functions where the DER regulates an output parameter, Y, in response to a
+        measured input parameter, X, the output parameter measured by the test lab, Ymeas, shall meet 2 Equation (1):
+
+            Ymin <= Ymeas <= Ymax
+
+        where
+            Ymin is Y(Xmeas + 1.5 * MRA(X)) - 1.5 * MRA(Y)
+            Ymax is Y(Xmeas - 1.5 * MRA(X)) + 1.5 * MRA(Y)
+            Y(X) is a mathematical function defining the target DER output parameter (active or reactive power) in
+            terms of the input (voltage, frequency, or active power)
+            Xmeas is the input parameter as measured by the test lab
+            MRA(a) is the DER's minimum required steady-state measurement accuracy of a per Table 3 in IEEE Std
+            1547-2018, where a is an input or output parameter under test (voltage, reactive power, active power,
+            or frequency)
+        ----------------------------------------------------------------
+
         :param daq:         (object) data acquisition object from svpelab library
         :param pwr_lvl:     (float) Multiplier value for different power level of test
         :param curve:       (int) By default, curve=1 but can be changed for another curve depending on script
@@ -844,11 +890,9 @@ class module_1547(object):
                             (P or/and Q)
         :param data:        (object) This should be included if we need measured value to use with function
                             total_measurement()
-        :param aif:
+        :param aif:         (str) advanced inverter function, e.g., 'PF'
         :return:
         """
-
-        # TODO : This is returning the MIN and Max but not the target value
 
         if isinstance(x_target, dict):
             for x_meas_variable, x_meas_value in x_target.iteritems():
@@ -857,54 +901,54 @@ class module_1547(object):
         if isinstance(y_target, dict):
             for y_meas_variable, y_meas_value in y_target.iteritems():
                 daq.sc['%s_TARGET' % y_meas_variable] = y_meas_value
+
+                # get MRA for the y parameter
                 if y_meas_variable == 'P':
-                    msa = self.MSA_P
+                    mra = self.MRA_P
                 elif y_meas_variable == 'Q':
-                    msa = self.MSA_Q
+                    mra = self.MRA_Q
                 else:
-                    msa = 0
+                    mra = 0
+                # apply MRA to the y parameter for the min and max
                 if y_meas_value is not None:
-                    daq.sc['%s_TARGET_MIN' % y_meas_variable] = y_meas_value - msa * 1.5
-                    daq.sc['%s_TARGET_MAX' % y_meas_variable] = y_meas_value + msa * 1.5
+                    daq.sc['%s_TARGET_MIN' % y_meas_variable] = y_meas_value - (mra * 1.5)
+                    daq.sc['%s_TARGET_MAX' % y_meas_variable] = y_meas_value + (mra * 1.5)
         else:
             if self.script_name == VV:
-                y = 'Q'
                 v_meas = self.get_measurement_total(data=data, type_meas='V', log=False)
-                daq.sc['%s_TARGET' % y] = self.get_targ(daq.sc['V_TARGET'])
-                daq.sc['%s_TARGET_MIN' % y] = self.get_targ(v_meas + self.MSA_V * 1.5, pwr_lvl, curve)-(self.MSA_Q*1.5)
-                daq.sc['%s_TARGET_MAX' % y] = self.get_targ(v_meas - self.MSA_V * 1.5, pwr_lvl, curve)+(self.MSA_Q*1.5)
+                daq.sc['Q_TARGET'] = self.get_targ(v_meas, pwr_lvl, curve)
+                daq.sc['Q_TARGET_MIN'] = self.get_targ(v_meas + self.MRA_V * 1.5, pwr_lvl, curve)-(self.MRA_Q*1.5)
+                daq.sc['Q_TARGET_MAX'] = self.get_targ(v_meas - self.MRA_V * 1.5, pwr_lvl, curve)+(self.MRA_Q*1.5)
             elif self.script_name == LAP:
-                v_meas = self.get_measurement_total(data=data, type_meas='V', log=False)
+                p_meas = self.get_measurement_total(data=data, type_meas='P', log=False)
                 # P target for step F specifically but will be calculated for all of it
-                daq.sc['P_TARGET'] = self.get_targ(v_meas)
+                daq.sc['P_TARGET'] = self.get_targ(p_meas)
                 # P target min & max for steps D and E
                 daq.sc['P_TARGET_MIN'] = self.get_targ(daq.sc['F_MEAS'], variable='F')
                 daq.sc['P_TARGET_MAX'] = self.get_targ(daq.sc['F_MEAS'], variable='F')
             elif self.script_name == CPF:
-                x = 'Q'
-                y = 'P'
-                daq.sc['%s_TARGET_MIN' % y] = \
-                    self.get_targ(daq.sc['%s_MEAS' % x] + self.MSA_P * 1.5, pwr_lvl, pf=x_target['PF']) - 1.5*self.MSA_Q
-                daq.sc['%s_TARGET_MAX' % y] = \
-                    self.get_targ(daq.sc['%s_MEAS' % x] - self.MSA_P * 1.5, pwr_lvl, pf=x_target['PF']) + 1.5*self.MSA_Q
+                daq.sc['Q_TARGET'] = self.get_targ(daq.sc['Q_MEAS'], pwr_lvl, pf=x_target['PF'])
+                daq.sc['Q_TARGET_MIN'] = \
+                    self.get_targ(daq.sc['Q_MEAS'] + self.MRA_P * 1.5, pwr_lvl, pf=x_target['PF']) - 1.5*self.MRA_Q
+                daq.sc['Q_TARGET_MAX'] = \
+                    self.get_targ(daq.sc['Q_MEAS'] - self.MRA_P * 1.5, pwr_lvl, pf=x_target['PF']) + 1.5*self.MRA_Q
             elif self.script_name == FW:
-                x = 'F'
+                daq.sc['P_TARGET'] = self.get_targ(daq.sc['%s_MEAS' % x], pwr_lvl, curve)
                 daq.sc['P_TARGET_MIN'] = \
-                    self.get_targ(daq.sc['%s_MEAS' % x] + self.MSA_F * 1.5, pwr_lvl, curve) - (self.MSA_P * 1.5)
+                    self.get_targ(daq.sc['F_MEAS'] + self.MRA_F * 1.5, pwr_lvl, curve) - (self.MRA_P * 1.5)
                 daq.sc['P_TARGET_MAX'] = \
-                    self.get_targ(daq.sc['%s_MEAS' % x] - self.MSA_F * 1.5, pwr_lvl, curve) + (self.MSA_P * 1.5)
+                    self.get_targ(daq.sc['F_MEAS'] - self.MRA_F * 1.5, pwr_lvl, curve) + (self.MRA_P * 1.5)
             elif self.script_name == VW:
                 v_meas = self.get_measurement_total(data=data, type_meas='V', log=False)
-                y = 'P'
-                daq.sc['%s_TARGET_MIN' % y] = self.get_targ(v_meas + self.MSA_V*1.5, pwr_lvl, curve) - (self.MSA_P*1.5)
-                daq.sc['%s_TARGET_MAX' % y] = self.get_targ(v_meas - self.MSA_V*1.5, pwr_lvl, curve) + (self.MSA_P*1.5)
+                daq.sc['P_TARGET'] = self.get_targ(v_meas, pwr_lvl, curve)
+                daq.sc['P_TARGET_MIN'] = self.get_targ(v_meas + self.MRA_V*1.5, pwr_lvl, curve) - (self.MRA_P*1.5)
+                daq.sc['P_TARGET_MAX'] = self.get_targ(v_meas - self.MRA_V*1.5, pwr_lvl, curve) + (self.MRA_P*1.5)
             elif self.script_name == WV:
-                y = 'Q'
-                x = 'P'
-                daq.sc['%s_TARGET_MIN' % y] = \
-                    self.get_targ(daq.sc['%s_MEAS' % x] + self.MSA_P * 1.5, pwr_lvl, curve) - (self.MSA_Q * 1.5)
-                daq.sc['%s_TARGET_MAX' % y] = \
-                    self.get_targ(daq.sc['%s_MEAS' % x] - self.MSA_P * 1.5, pwr_lvl, curve) + (self.MSA_Q * 1.5)
+                daq.sc['Q_TARGET'] = self.get_targ(daq.sc['P_MEAS'], pwr_lvl, curve)
+                daq.sc['Q_TARGET_MIN'] = \
+                    self.get_targ(daq.sc['P_MEAS'] + self.MRA_P * 1.5, pwr_lvl, curve) - (self.MRA_Q * 1.5)
+                daq.sc['Q_TARGET_MAX'] = \
+                    self.get_targ(daq.sc['P_MEAS'] - self.MRA_P * 1.5, pwr_lvl, curve) + (self.MRA_Q * 1.5)
 
         daq.data_sample()  # Don't remove
 
@@ -924,27 +968,6 @@ class module_1547(object):
         :return: returns a dictionary with the timestamp, event and total EUT reactive power
         """
 
-        '''
-        For voltage-reactive power, voltage-active power, active power-reactive power, and frequency droop:
-        
-        Unless otherwise specified in the type tests, the DER performance shall be within 150% of the minimum
-        required measurement accuracy (MRA), as specified in Table 3 of IEEE Std 1547-2018 for steady-state
-        conditions. For control functions where the DER regulates an output parameter, Y, in response to a 
-        measured input parameter, X, the output parameter measured by the test lab, Ymeas, shall meet 2 Equation (1):
-        
-            Ymin <= Ymeas <= Ymax
-
-        where
-            Ymin is Y(Xmeas + 1.5 * MRA(X)) - 1.5 * MRA(Y)
-            Ymax is Y(Xmeas - 1.5 * MRA(X)) + 1.5 * MRA(Y)
-            Y(X) is a mathematical function defining the target DER output parameter (active or reactive power) in 
-            terms of the input (voltage, frequency, or active power)
-            Xmeas is the input parameter as measured by the test lab
-            MRA(a) is the DER's minimum required steady-state measurement accuracy of a per Table 3 in IEEE Std 
-            1547-2018, where a is an input or output parameter under test (voltage, reactive power, active power, 
-            or frequency)
-        '''
-
         tr_value = collections.OrderedDict()
         x = self.x_criteria
         y = self.y_criteria
@@ -959,10 +982,17 @@ class module_1547(object):
             now = datetime.now()
             if now <= tr_:
                 time_to_sleep = tr_ - datetime.now()
+                self.ts.log('Waiting %s seconds to get the next Tr data for analysis...' %
+                            time_to_sleep.total_seconds())
                 self.ts.sleep(time_to_sleep.total_seconds())
             data = daq.data_capture_read()
             daq.sc['EVENT'] = "{0}_TR_{1}".format(step, tr_iter)
 
+            # update daq.sc values for Y_TARGET, Y_TARGET_MIN, and Y_TARGET_MAX
+            self.update_target_value(daq=daq, pwr_lvl=pwr_lvl, curve=curve, x_target=x_target, y_target=y_target,
+                                     data=data)
+
+            # store the daq.sc['Y_TARGET'], daq.sc['Y_TARGET_MIN'], and daq.sc['Y_TARGET_MAX'] in tr_value
             tr_value[tr_iter] = {}
             for meas_value in self.meas_values:
                 try:
@@ -978,19 +1008,8 @@ class module_1547(object):
                         # self.ts.log('Y Value (%s) = %s. Pass/fail bounds = [%s, %s]' %
                         #             (meas_value, daq.sc['%s_MEAS' % meas_value],
                         #              daq.sc['%s_TARGET_MIN' % meas_value], daq.sc['%s_TARGET_MAX' % meas_value]))
-                    # self.ts.log_debug('Measured value (%s)' % meas_value)
                 except Exception, e:
                     self.ts.log_debug('Measured value (%s) not recorded: %s' % (meas_value, e))
-
-            self.update_target_value(
-                daq=daq,
-                pwr_lvl=pwr_lvl,
-                curve=curve,
-                x_target=x_target,
-                y_target=y_target,
-                data=data#,
-                #aif=aif
-            )
 
             tr_value[tr_iter]["timestamp"] = tr_
             tr_iter = tr_iter + 1
@@ -1000,25 +1019,141 @@ class module_1547(object):
         # except Exception as e:
         #    raise p1547Error('Error in get_tr_data(): %s' % (str(e)))
 
-    def get_analysis(self, initial_value, tr_values):
+    def get_open_loop_value(self, y0, y_ss, duration, tr):
         """
-        This functions get the analysis results from three pass-fail criteria.
+        Calculated the anticipated Y(Tr +/- MRA_T) values based on duration and Tr
 
-        :param initial_value:   A dictionary with measurements before a step
-        :param tr_values:       A dictionary with measurements after one time response cycle
-        :return: returns a dictionary with pass fail criteria that will be use in the
-        result_summary.csv file.
+        Note: for a unit step response Y(t) = 1 - exp(-t/tau) where tau is the time constant
+        Once the
+
+        :param y0: initial Y(0) value
+        :param y_ss: steady-state solution, e.g., Y(infinity)
+        :param duration: time since the change in the input parameter that the output should be calculated
+        :param tr: open loop response time (90% change or 2.3 * time constant)
+
+        :return: output Y(duration) anticipated based on the open loop response function
+        """
+
+        time_const = tr/(-(math.log(0.1)))  # ~2.3 * time constants to reach the open loop response time in seconds
+        number_of_taus = duration / time_const  # number of time constants into the response
+        resp_fraction = 1-math.exp(-number_of_taus)  # fractional response after the duration
+        resp = y0 + (y_ss+y0)*resp_fraction  # interpolate
+
+        return resp
+
+    def get_analysis(self, initial_value, tr_values, tr):
+        """
+        Get the analysis results of the pass-fail criteria.
+
+        Two pass/fail results based on the data from the Tr's collected with get_tr_value(). The first is a TRANSIENT
+        requirement using the temporal response of the system and the other is a STEADY-STATE evaluation based on the
+        AIF
+
+        TRANSIENT:
+            After 1*Tr, the Y must be 90% * (Y_final - Y_initial) + Y_initial.
+            Accuracy requirements are from 1547.1 4.2 (Ymin <= Ymeas <= Ymax) with X = Tr, Y = Y(Tr)
+
+            ^                                      Y(Tr+MRA_t)            _________________
+            |                           Y(Tr)     ____+_________________/
+            |                             ______/
+            |          Y(Tr-MRA_t)  ____/ |
+            |                  +__/       |
+        Y(t)|                _/           |
+            |              /              |
+            |            /                |
+            |          /                  |
+            |        /                    |
+            |------/                      |
+            _______|______________________|________________________|___________________________>
+                  t_initial              Tr     time (sec)        2*Tr
+
+            Ymin <= Ymeas <= Ymax
+            Ymin is Y(Tr_meas + 1.5 * MRA(time)) - 1.5 * MRA(Y)
+            Ymax is Y(Tr_meas - 1.5 * MRA(time)) + 1.5 * MRA(Y)
+
+        STEADY-STATE:
+            At steady state (i.e., after 2*Tr), the Y must be within the MRA of the X-Y curve
+            Accuracy requirements are from 1547.1 4.2 (Ymin <= Ymeas <= Ymax) with X = X_final, Y = Y_final
+
+            Assuming the curve has a negative slope the following is used to determine Ymin and Ymax
+            Ymin is Y(Xmeas + 1.5 * MRA(X)) - 1.5 * MRA(Y)
+            Ymax is Y(Xmeas - 1.5 * MRA(X)) + 1.5 * MRA(Y)
+
+            Ymax -------------->   \ * (x_value - 1.5*x_mra, y1 + 1.5*y_mra)
+                                      \
+                                       . (x_value - 1.5*x_msa, y1)
+                                        \
+                                         x (x_value, y_target)
+                                          \
+                                           . (x_value + 1.5*x_msa, y2)
+                                            \
+            Ymin ---------------------->   * \  (x_value + 1.5*x_msa, y2 - 1.5*y_mra)
+
+        :param initial_value: A dictionary with measurements before a step, e.g.,
+                {'timestamp': datetime.datetime(2020, 4, 3, 10, 23, 21, 786000),
+                'Y_MEAS': 60.998,
+                'X_MEAS': 2088.702}
+
+        :param tr_values: An ordered dictionary with measurements after each time response cycle, e.g.,
+                OrderedDict([
+                    (1,{  # Results from the first Tr
+                        'Y_MEAS': 2532.715,
+                        'Y_TARGET': 100,
+                        'Y_TARGET_MAX': 1800.0,
+                        'Y_TARGET_MIN': -3841.43,
+                        'X_TARGET': 18000.0,
+                        'X_MEAS': 16520.606,
+                        'timestamp': datetime.datetime(2020, 4, 3, 9, 40, 55, 793000)
+                        }),
+                    (2,{  # Results after 2*Tr
+                        'Y_MEAS': 2532.715,
+                        'Y_TARGET': 100,
+                        'Y_TARGET_MAX': 1800.0,
+                        'Y_TARGET_MIN': -3841.43,
+                        'X_TARGET': 18000.0,
+                        'X_MEAS': 16520.606,
+                        'timestamp': datetime.datetime(2020, 4, 3, 9, 40, 55, 793000)
+                        })
+                ])
+
+        :param tr: (float) time response in sec
+
+        :return: returns a dictionary with pass fail criteria that will be use in the result_summary.csv file, e.g.,
+                 {'FIRST_ITER': 1,      # The first time response used for pass/fail evaluation
+                 'Y_INITIAL': 60.998,   # value of the y-value at the start of the step
+                 'Y_TR_TARG_1': 100,    # the target y-value at Tr=1
+                 'Y_TR_1': 60.998,      # the y-value at Tr=1
+                 'Y_TR_1_MAX': -6659.,  # the maximum passing y-value at Tr=1
+                 'Y_TR_1_MIN': -12360,  # the minimum passing y-value at Tr=1
+                 'X_TR_TARG_1': 2400.0, # the x-value target at Tr=1
+                 'X_TR_1': 2088.702,    # the x-value at Tr=1
+                 'TR_90_%_PF': 'Pass',  # the 90% pass/fail score
+                 'Y_TR_1_PF': 'Fail',   # the 1 Tr pass/fail score (optional)
+
+                 'LAST_ITER': 2,        # the final Tr where the steady-state results are evaluated
+                 'Y_TR_2': 60.998       # the y-value at Tr=2(last)
+                 'Y_TR_TARG_2': 100,    # the y-value at Tr=2(last)
+                 'Y_TR_2_MAX': 1800.0,  # the maximum passing y-value at Tr=2(last)
+                 'Y_TR_2_MIN': -1800.0, # the minimum passing y-value at Tr=2(last)
+                 'X_TR_TARG_2': 3000.0, # the x-value target at Tr=2(last)
+                 'X_TR_2': 2088.702,    # the x-value at Tr=2(last)
+                 'Y_TR_2_PF': 'Pass',   # the final Tr pass/fail score
+                 }
         """
 
         analysis = {}
         xs = self.x_criteria
         ys = self.y_criteria
 
+        analysis['FIRST_ITER'] = next(iter(tr_values.keys()))
+        analysis['LAST_ITER'] = len(tr_values)
+
         if isinstance(ys, list):
             for y in ys:
                 analysis['%s_INITIAL' % y] = initial_value['%s_MEAS' % y]
+
         for tr_iter, tr_value in tr_values.items():
-            # self.ts.log_debug('Tr value=%s' % tr_value)
+            # self.ts.log_debug('tr_iter=%s, Tr value=%s' % (tr_iter, tr_value))
             for meas_value in self.meas_values:
                 analysis['%s_TR_%s' % (meas_value, tr_iter)] = tr_value['%s_MEAS' % meas_value]
 
@@ -1035,42 +1170,55 @@ class module_1547(object):
                         analysis['%s_TR_%s_MIN' % (meas_value, tr_iter)] = None
                         analysis['%s_TR_%s_MAX' % (meas_value, tr_iter)] = None
 
+                    # TRANSIENT: Open Loop Time Response (OLTR) = 90% of (y_final-y_initial) + y_initial
                     """
-                          The variable y_tr is the value use to verify the time response requirement.
-                          |----------|----------|----------|----------|
-                                     1st tr     2nd tr     3rd tr     4th tr            
-                          |          |          |
-                          y_initial  y_tr       y_final_tr    
-        
-                          (1547.1)After each step, the open loop response time, Tr , is evaluated. 
-                          The expected output, Y (T r ), at one times the open loop response time,
-                          is calculated as 90% x (Y_final_tr - Y_initial ) + Y_initial
+                        The variable y_tr is the value used to verify the time response requirement.
+                        |----------|----------|----------|----------|
+                                 1st tr     2nd tr     3rd tr     4th tr            
+                        |          |          |
+                        y_initial  y_tr       y_final_tr    
+                        
+                        (1547.1)After each step, the open loop response time, Tr, is evaluated. 
+                        The expected output, Y(Tr), at one times the open loop response time,
+                        is calculated as 90%*(Y_final_tr - Y_initial ) + Y_initial
                     """
-                    # [0] Open Loop Time Response (OLTR) (90% of (y_final-y_intiial) + y_initial),
-                    if self.criteria_mode[0]:
+                    # Only evaluate the 90% criterion after the first Tr
+                    if tr_iter == 1 and self.criteria_mode[0]:
+                        if self.script_name == VV or self.script_name == CPF or self.script_name == WV:
+                            mra_y = self.MRA_Q
+                        else:  # self.script_name == LAP or self.script_name == FW or self.script_name == VW:
+                            mra_y = self.MRA_P
 
-                        last_tr_value = tr_values[next(reversed(tr_values.keys()))]
-                        # self.ts.log_debug('Last TR value: %s' % last_tr_value)
-                        # tr_diff = last_tr_value[ys]['y_value'] - analysis['%s_INITIAL' % ys]
-                        tr_diff = last_tr_value['%s_MEAS' % meas_value] - analysis['%s_INITIAL' % meas_value]
+                        duration = tr_value['timestamp'] - initial_value['timestamp']
+                        duration = duration.total_seconds()
+                        self.ts.log('Calculating pass/fail for Tr = %s sec, with a target of %s sec' % (duration, tr))
+                        mra_t = self.MRA_T*duration  # MRA(X) = MRA(time) = 0.01*duration
 
-                        p_tr_target = ((0.9 * tr_diff) + analysis['%s_INITIAL' % meas_value])
+                        # Given that Y(time) is defined by an open loop response characteristic, use that curve to
+                        # calculated the target, minimum, and max, based on the open loop response expectation
+                        y_start = analysis['%s_INITIAL' % meas_value]
+                        y_ss = tr_value['%s_TARGET' % meas_value]
+                        y_target = self.get_open_loop_value(y0=y_start, y_ss=y_ss, duration=duration, tr=tr)
+                        y_meas = analysis['%s_TR_%s' % (meas_value, tr_iter)]
 
-                        if tr_diff < 0:
-                            if analysis['%s_TR_1' % meas_value] <= p_tr_target:
-                                analysis['TR_90_%_PF'] = 'Pass'
-                            else:
-                                analysis['TR_90_%_PF'] = 'Fail'
-                        elif tr_diff >= 0:
-                            if analysis['%s_TR_1' % meas_value] >= p_tr_target:
-                                analysis['TR_90_%_PF'] = 'Pass'
-                            else:
-                                analysis['TR_90_%_PF'] = 'Fail'
-                last_tr = tr_iter
+                        # Y(time) = open loop curve, so locate the Y(time) valve on the curve
+                        y_min = self.get_open_loop_value(y0=y_start, y_ss=y_ss, duration=duration-1.5*mra_t,
+                                                         tr=tr) - 1.5 * mra_y
 
-        analysis['FIRST_ITER'] = next(iter(tr_values.keys()))
-        analysis['LAST_ITER'] = last_tr
-        if self.criteria_mode[1] or self.criteria_mode[2]:
+                        # Determine maximum value based on the open loop response expectation
+                        y_max = self.get_open_loop_value(y0=y_start, y_ss=y_ss, duration=duration+1.5*mra_t,
+                                                         tr=tr) + 1.5 * mra_y
+                        # Pass/Fail: Ymin <= Ymeas <= Ymax
+                        if y_min <= y_meas <= y_max:
+                            analysis['TR_90_%_PF'] = 'Pass'
+                        else:
+                            analysis['TR_90_%_PF'] = 'Fail'
+
+                        self.ts.log_debug('y_targ = %s, y_min [%s] <= y_meas [%s] <= y_max [%s] = %s' %
+                                          (y_target, y_min, y_meas, y_max, analysis['TR_90_%_PF']))
+
+        # Note: Note sure where criteria_mode[1] is used in IEEE 1547.1
+        if self.criteria_mode[1] or self.criteria_mode[2]:  # STEADY-STATE pass/fail evaluation
             for y in ys:
                 for tr_iter, tr_dic in tr_values.items():
                     if (analysis['FIRST_ITER'] == tr_iter and self.criteria_mode[1]) or \
@@ -1091,9 +1239,18 @@ class module_1547(object):
         return analysis
 
     def get_params(self, curve=None, aif=None):
+        """
+        Gets the parameters for the test for a given AIF and curve number
+
+        If curve provided, this will update the curve using set_params()
+
+        :param curve: int, Curve number
+        :param aif: str, Advanced inverter function, e.g., 'VV', 'WV'
+        :return: (X, Y) pairs of the curves in a list, e.g., [P1, P2, P3, V1, V2, V3]
+        """
         self.ts.log_debug('Getting params for aif=%s and curve=%s' % (aif, curve))
 
-        # update params if another curve:
+        # update params if curve number is provided
         if curve is not None:
             self.set_params(curve=curve)
 
@@ -1154,21 +1311,25 @@ class module_1547(object):
     def get_targ(self, value, pwr_lvl=1.0, curve=1, pf=None, variable=None):
         """
         This functions calculate the target value if there is any special equations to be used with.
-        Otherwise, it would be preferred to just enter the target_value while calling process data
 
-        :param value: A dictionary with measurements before a step
-        :param pwr_lvl: A dictionary with measurements after one time response cycle
-        :return: returns a dictionary with pass fail criteria that will be use in the
-        result_summary.csv file.
+        In the case of the curve-based functions, this interpolates the value
+
+        :param value: (float) input value, as measured during the test
+        :param pwr_lvl: (float) DC power level the test was conducted, this is used to scale expected results
+        :param curve: (int) curve number
+        :param pf: (float) power factor, used in the CPF tests
+        :param variable: (str) the name of input 'value', e.g., V for the VV test
+
+        :return: (float) EUT target
         """
 
-        # todo: replace all the linear interpolation steps with a numpy or scipy command
-
-        p_targ = None
+        # limit active power evaluation
         if self.script_name == LAP and variable is not 'F':
             p_targ = self.p_rated - (self.p_rated-self.param[VW][curve]['P2'])*((value/self.v_nom)-1.06)/0.04
             return p_targ
-        if FW in self.function_used or variable == 'F':
+
+        if FW in self.function_used or variable == 'F':  # frequency-based evaluations, e.g., FW
+            p_targ = None
             f_dob = self.f_nom + self.param[FW][curve]['dbf']
             f_dub = self.f_nom - self.param[FW][curve]['dbf']
             p_db = self.p_rated * pwr_lvl
@@ -1207,10 +1368,8 @@ class module_1547(object):
             return p_targ
 
         elif WV in self.function_used:
-            x = [self.param[WV][curve]['P0'], self.param[WV][curve]['P1'],
-                 self.param[WV][curve]['P2'], self.param[WV][curve]['P3']]
-            y = [self.param[WV][curve]['Q0'], self.param[WV][curve]['Q1'],
-                 self.param[WV][curve]['Q2'], self.param[WV][curve]['Q3']]
+            x = [self.param[WV][curve]['P1'], self.param[WV][curve]['P2'], self.param[WV][curve]['P3']]
+            y = [self.param[WV][curve]['Q1'], self.param[WV][curve]['Q2'], self.param[WV][curve]['Q3']]
             q_value = float(np.interp(value, x, y))
             q_value *= pwr_lvl
             # self.ts.log_debug('Power value: %s --> q_target: %s' % (value, q_value))
@@ -1218,6 +1377,71 @@ class module_1547(object):
 
     def process_data(self, daq, tr, step, result_summary, filename, pwr_lvl=1.0, curve=1, initial_value=None,
                      x_target=None, y_target=None, aif=None, number_of_tr=2):
+        """
+        Processing the data is done in two steps
+
+        1. get_tr_value()
+            Collects the values from each of the Tr's of interest
+
+            returns tr_values dict of the form:
+                OrderedDict([
+                    (1,{  # Results from the first Tr
+                        'Y_MEAS': 2532.715,
+                        'Y_TARGET': 100,
+                        'Y_TARGET_MAX': 1800.0,
+                        'Y_TARGET_MIN': -3841.4389599999995,
+                        'X_TARGET': 18000.0,
+                        'X_MEAS': 16520.606,
+                        'timestamp': datetime.datetime(2020, 4, 3, 9, 40, 55, 793000)
+                        }),
+                    (2,{  # Results after 2*Tr
+                        'Y_MEAS': 2532.715,
+                        'Y_TARGET': 100,
+                        'Y_TARGET_MAX': 1800.0,
+                        'Y_TARGET_MIN': -3841.4389599999995,
+                        'X_TARGET': 18000.0,
+                        'X_MEAS': 16520.606,
+                        'timestamp': datetime.datetime(2020, 4, 3, 9, 40, 55, 793000)
+                        })
+                ])
+
+        2. get_analysis()
+            Determines the pass/fail results based on the data from the Tr's collected with get_tr_value()
+
+            After 1*Tr, the Y must be 90% * (Y_final - Y_initial) + Y_initial.
+            Accuracy requirements are from 1547.1 4.2 (Ymin <= Ymeas <= Ymax) with X = Tr, Y = Y(Tr)
+
+            After 2*Tr, the Y must be within the MRA of the X-Y curve
+            Accuracy requirements are from 1547.1 4.2 (Ymin <= Ymeas <= Ymax) with X = X_final, Y = Y_final
+
+            returns analysis dict of the form:
+                {'Q_INITIAL': 356.574,
+                'P_TR_1': 5930.334,
+                'Q_TR_1_PF': 'Pass',
+                'TR_90_%_PF': 'Pass',
+                'P_TR_TARG_1': 6600.0,
+                'LAST_ITER': 1,
+                'Q_TR_1_MIN': -1800.0,
+                'Q_TR_1_MAX': 1800.0,
+                'FIRST_ITER': 1,
+                'Q_TR_TARG_1': 100,
+                'Q_TR_1': 356.574,
+                'V_TR_1': 279.733}
+
+        :param daq: Data acquisition system object
+        :param tr: programmed time response (sec)
+        :param step: Step label, e.g., STEP H
+        :param result_summary: SVP result summary (.csv) handle
+        :param filename: result filename, e.g., VV_1
+        :param pwr_lvl: DC power level used for the test (used as curve multiplier for expected results)
+        :param curve: dict with curve used for the test
+        :param initial_value: the starting value for the step from lib_1547.get_initial_value()
+        :param x_target: input parameter target
+        :param y_target: EUT output target based on the function (e.g. LAP -> act_pwrs_limits)
+        :param aif: advanced inverter function name
+        :param number_of_tr: number of time responses used to validate the response and steady state values
+        :return: None
+        """
 
         if curve is not self.curve:
             self.curve = curve
@@ -1238,7 +1462,7 @@ class module_1547(object):
         # self.ts.log_debug('tr_values: %s' % tr_values)
 
         # get pass-fail criteria for this test step
-        analysis = self.get_analysis(initial_value=initial_value, tr_values=tr_values)
+        analysis = self.get_analysis(initial_value=initial_value, tr_values=tr_values, tr=tr)
         # self.ts.log_debug('analysis: %s' % analysis)
 
         result_summary.write(self.write_rslt_sum(analysis=analysis, step=step, filename=filename))

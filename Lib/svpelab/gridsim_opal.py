@@ -272,7 +272,10 @@ class GridSim(gridsim.GridSim):
                 for volt_block in self.voltage_block_list:
                     phase += 1
                     v_sum += voltage[phase - 1]
-                    eval('self.v%d = voltage[phase - 1]' % phase)
+                    # eval('self.v%d = voltage[phase - 1]' % phase)
+                    self.v1 = voltage[0]
+                    self.v2 = voltage[1]
+                    self.v3 = voltage[2]
                     parameters.append((self.model_name + '/SM_Source/' + volt_block + '/Value', voltage[phase-1]))
                 self.v = v_sum/phase
 
