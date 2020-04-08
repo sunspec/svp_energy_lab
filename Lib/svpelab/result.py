@@ -63,11 +63,11 @@ def find_result(results_dir, result_dir):
     r_target = r.find(path)
     return r_target
 
-def result_workbook(file, results_dir, result_dir, index=True):
+def result_workbook(file, results_dir, result_dir, index=True, ts=None):
     r = find_result(results_dir, result_dir)
     if r is not None:
         r.to_xlsx(filename=os.path.join(results_dir, result_dir, file), results_dir=results_dir, index=index,
-                  index_row=0)
+                  index_row=0, ts=ts)
     else:
         raise ResultError('Error creating summary workbook - resource not found: %s %s' % (results_dir, result_dir))
 
@@ -78,7 +78,7 @@ class ResultError(Exception):
 
 class Result(object):
 
-    def __init__(self, name=None, type=None, status=None, filename=None, params=None, result_path=None):
+    def __init__(self, name=None, type=None, status=None, filename=None, params=None, result_path=None, ts=None):
         self.name = name
         self.type = type
         self.status = status
@@ -87,6 +87,7 @@ class Result(object):
         self.result_path = result_path
         self.ref = None
         self.results_index = 0
+        self.ts = ts
         if params is not None:
             self.params = params
         else:
@@ -222,11 +223,11 @@ class Result(object):
         else:
             print xml
 
-    def to_xlsx(self, wb=None, filename=None, results_dir=None, index=True, index_row=0):
+    def to_xlsx(self, wb=None, filename=None, results_dir=None, index=True, index_row=0, ts=None):
         print 'to_xlsx: %s %s' % (wb, filename)
         result_wb = wb
         if result_wb is None:
-            result_wb = ResultWorkbook(filename=filename)
+            result_wb = ResultWorkbook(filename=filename, ts=self.ts)
             if index:
                 result_wb.add_index()
                 index_row = 1
@@ -249,8 +250,9 @@ class Result(object):
 
 class ResultWorkbook(object):
 
-    def __init__(self, filename):
+    def __init__(self, filename, ts=None):
         self.wb = xlsxwriter.Workbook(filename)
+        self.ts = ts
         self.ws_index = None
         self.hdr_format = self.wb.add_format()
         self.link_format = self.wb.add_format({'color': 'blue', 'underline': 1})
@@ -307,6 +309,10 @@ class ResultWorkbook(object):
                 y2_points = [x.strip() for x in points.split(',')]
 
         title = params.get('plot.title', '')
+        # if the excel sheet name is greater than 31 char it can't be added to excel. Truncate it here.
+        if len(title) > 31:
+            title = title[:31]
+
         # chartsheet = self.wb.add_chartsheet(title)
         ws_chart = self.wb.add_worksheet(title)
         if index_row is not None:
@@ -362,7 +368,7 @@ class ResultWorkbook(object):
                     series = {
                         'name': name,
                         'categories': categories,
-                        'values': [ws_name, 1, col, count, col],
+                        'values': [ws_name, 2, col, count, col],
                         # 'line': {'color': line_color, 'width': 1.5},
                         'line': {'width': 1.5},
                         'marker': marker,
@@ -376,8 +382,8 @@ class ResultWorkbook(object):
                             'type': 'custom',
                             'direction': 'both',
                             # 'value': 10
-                            'plus_values': [ws_name, 1, max_col, count, max_col],
-                            'minus_values': [ws_name, 1, min_col, count, min_col],
+                            'plus_values': [ws_name, 2, max_col, count, max_col],
+                            'minus_values': [ws_name, 2, min_col, count, min_col],
                             'categories_data': [],
                             'values_data':     []
                         }
@@ -404,7 +410,7 @@ class ResultWorkbook(object):
                     chart.add_series({
                         'name': name,
                         'categories': categories,
-                        'values': [ws_name, 1, col, count, col],
+                        'values': [ws_name, 2, col, count, col],
                         # 'line': {'color': line_color, 'width': 1.5},
                         'line': {'width': 1.5},
                         'marker': marker,
@@ -422,6 +428,9 @@ class ResultWorkbook(object):
         print 'add_csv_file: %s' % (title)
         col_width = []
         line = 1
+        # if the excel sheet name is greater than 31 char it can't be added to excel. Truncate it here.
+        if len(title) > 31:
+            title = title[:31]
         ws = self.wb.add_worksheet(title)
         if index_row is not None:
             index_row = self.add_index_entry(title, index_row)
