@@ -49,12 +49,9 @@ except Exception, e:
 # ]
 
 # Channels to be captured during the waveform capture
-wfm_channels = ['TIME', 'AC_V_1', 'AC_V_2', 'AC_V_3', 'AC_I_1', 'AC_I_2', 'AC_I_3', 'EXT']
-
-event_map = {'Rising_Edge': 'Rising edge',
-             'Rising Edge': 'Rising edge',
-             'Falling_Edge': 'Falling edge',
-             'Falling Edge': 'Falling edge'}
+WFM_CHANNELS = {'Generic': ['TIME', 'AC_V_1', 'AC_V_2', 'AC_V_3', 'AC_I_1', 'AC_I_2', 'AC_I_3', 'EXT'],
+                'PhaseJump': ['TIME', 'AC_V_1', 'AC_V_2', 'AC_V_3', 'AC_I_1', 'AC_I_2', 'AC_I_3', 'Trigger',
+                              'Total_RMS_Current', 'Time_Below_80pct_Current', 'Time_Phase_Misalignment']}
 
 
 class Device(object):
@@ -72,7 +69,16 @@ class Device(object):
         self.wfm_dir = self.params['wfm_dir']
         self.data_name = self.params['data_name']
         self.dc_measurement_device = None
+        self.wfm_channels = WFM_CHANNELS.get(self.params['wfm_chan_list'])
         # _, self.model_name = RtlabApi.GetCurrentModel()
+
+        # optional parameters for interfacing with other SVP devices
+        self.hil = self.params['hil']
+        self.gridsim = self.params['gridsim']
+        self.dc_measurement_device = self.params['dc_measurement_device']
+
+        self.ts.log_debug('DAS connected to with HIL: %s, DC meas: %s, and gridsim: %s' %
+                          (self.hil, self.dc_measurement_device, self.gridsim))
 
         # Mapping from the  channels to be captured and the names that are used in the Opal environment
         self.opal_map_phase_jump = {  # data point : analog channel name
@@ -358,7 +364,7 @@ class Device(object):
 
                 # Add the header to the data in Matlab
                 self.ts.log('Adding Data Header')
-                m_cmd = "header = {" + str(wfm_channels)[1:-1] + "};"
+                m_cmd = "header = {" + str(self.wfm_channels)[1:-1] + "};"
                 '''
                 self.ts.log_debug('Matlab: ' + self.matlab_cmd(m_cmd))
                 self.ts.log_debug('Matlab: ' + self.matlab_cmd("[x, y] = size(Data);"))
@@ -381,9 +387,9 @@ class Device(object):
                 self.ts.log('Saving the waveform data as .csv file in %s' % self.csv_location)
                 m_cmd = "fid = fopen('" + self.csv_location + "', 'wt');"
                 m_cmd += "if fid > 0\n"
-                m_cmd += "fprintf(fid, '" + "%s,"*(len(wfm_channels)-1) + "%s\\n', data_w_header{1,:});\n"
+                m_cmd += "fprintf(fid, '" + "%s,"*(len(self.wfm_channels)-1) + "%s\\n', data_w_header{1,:});\n"
                 m_cmd += "for k=2:size(data_w_header, 1)\n"
-                m_cmd += "fprintf(fid, '" + "%f,"*(len(wfm_channels)-1) + "%f\\n', data_w_header{k,:});\n"
+                m_cmd += "fprintf(fid, '" + "%f,"*(len(self.wfm_channels)-1) + "%f\\n', data_w_header{k,:});\n"
                 m_cmd += "end\n"
                 m_cmd += "fclose(fid);\n"
                 m_cmd += "end\n"
@@ -429,6 +435,8 @@ class Device(object):
 
     def set_dc_measurement(self, obj=None):
         """
+        DEPRECATED
+
         In the event that DC measurements are taken from another device (e.g., a PV simulator) please add this
         device to the das object
         :param obj: The object (e.g., pvsim) that will gather the dc measurements

@@ -35,6 +35,7 @@ def params(info, group_name=None):
                                                                      'IEEE_1547.1_Phase_Jump\\models\\'
                                                                      'Phase_Jump_A_B_A\\phase_jump_a_b_a_sm_source\\'
                                                                      'OpREDHAWKtarget\\')
+    info.param(pname('wfm_chan_list'), label='Waveform Channel List', default='PhaseJump')
     info.param(pname('data_name'), label='Waveform Data File Name (.mat)', default='SVP_Data.mat')
 
 
@@ -43,15 +44,20 @@ GROUP_NAME = 'opal'
 
 class DAS(das.DAS):
 
-    def __init__(self, ts, group_name, points=None, sc_points=None):
-        das.DAS.__init__(self, ts, group_name, points=points, sc_points=sc_points)
+    def __init__(self, ts, group_name, points=None, sc_points=None, support_interfaces=None):
+        das.DAS.__init__(self, ts, group_name, points=points, sc_points=sc_points,
+                         support_interfaces=support_interfaces)
         self.params['ts'] = ts
         self.params['map'] = self._param_value('map')
         self.params['target_name'] = self._param_value('target_name')
         self.params['sample_interval'] = self._param_value('sample_interval')
         self.params['model_name'] = self._param_value('model_name')
         self.params['wfm_dir'] = self._param_value('wfm_dir')
+        self.params['wfm_chan_list'] = self._param_value('wfm_chan_list')
         self.params['data_name'] = self._param_value('data_name')
+        self.params['hil'] = self.hil
+        self.params['gridsim'] = self.gridsim
+        self.params['dc_measurement_device'] = self.dc_measurement_device
 
         self.device = device_das_opal.Device(self.params)
         self.data_points = self.device.data_points
@@ -67,6 +73,8 @@ class DAS(das.DAS):
 
     def set_dc_measurement(self, obj=None):
         """
+        DEPRECATED
+
         In the event that DC measurements are taken from another device (e.g., a PV simulator) please add this
         device to the das object
         :param obj: The object (e.g., pvsim) that will gather the dc measurements

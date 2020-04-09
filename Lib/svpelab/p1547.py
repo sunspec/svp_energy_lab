@@ -770,7 +770,7 @@ class module_1547(object):
 
         return meas_label
 
-    def get_measurement_total(self, data, type_meas, log):
+    def get_measurement_total(self, data, type_meas, log=False):
         """
         Sum or average the EUT values from all phases
 
@@ -946,10 +946,10 @@ class module_1547(object):
             elif self.script_name == CRP:
                 q_meas = self.get_measurement_total(data=data, type_meas='Q', log=False)
                 daq.sc['Q_MEAS'] = q_meas
-                # regardless of the power level, the EUT should return the full reactive power
-                daq.sc['Q_TARGET'] = y_target - 1.5 * self.MRA_Q
-                daq.sc['Q_TARGET_MIN'] = q_meas - 1.5*self.MRA_Q
-                daq.sc['Q_TARGET_MAX'] = q_meas + 1.5*self.MRA_Q
+                # regardless of the power level, the EUT should produce target reactive power
+                daq.sc['Q_TARGET'] = y_target
+                daq.sc['Q_TARGET_MIN'] = daq.sc['Q_TARGET'] - 1.5*self.MRA_Q
+                daq.sc['Q_TARGET_MAX'] = daq.sc['Q_TARGET'] + 1.5*self.MRA_Q
             elif self.script_name == FW:
                 p_meas = self.get_measurement_total(data=data, type_meas='P', log=False)
                 daq.sc['P_MEAS'] = p_meas
@@ -1264,22 +1264,21 @@ class module_1547(object):
                             if self.script_name == CRP:  # 1-sided analysis
                                 # Pass: Ymin <= Ymeas when increasing y output
                                 # Pass: Ymeas <= Ymax when decreasing y output
-                                if y_min <= y_meas and increasing:
-                                    analysis['TR_90_%_PF'] = 'Pass'
-                                    self.ts.log_debug('Transient y_targ = %s, y_min [%s] <= y_meas [%s] = %s'
-                                                      % (y_target, y_min, y_meas, analysis['TR_90_%_PF']))
-                                if y_meas <= y_max and not increasing:
-                                    analysis['TR_90_%_PF'] = 'Pass'
+                                if increasing:
+                                    if y_min <= y_meas:
+                                        analysis['TR_90_%_PF'] = 'Pass'
+                                    else:
+                                        analysis['TR_90_%_PF'] = 'Fail'
+                                    self.ts.log_debug('Transient y_targ = %s, y_min [%s] <= y_meas [%s] = %s' %
+                                                      (y_target, y_min, y_meas, analysis['TR_90_%_PF']))
+                                else:  # decreasing
+                                    if y_meas <= y_max:
+                                        analysis['TR_90_%_PF'] = 'Pass'
+                                    else:
+                                        analysis['TR_90_%_PF'] = 'Fail'
                                     self.ts.log_debug('Transient y_targ = %s, y_meas [%s] <= y_max [%s] = %s'
                                                       % (y_target, y_meas, y_max, analysis['TR_90_%_PF']))
-                                else:
-                                    analysis['TR_90_%_PF'] = 'Fail'
-                                    if increasing:
-                                        self.ts.log_debug('Transient y_targ = %s, y_min [%s] <= y_meas [%s] = %s' %
-                                                          (y_target, y_min, y_meas, analysis['TR_90_%_PF']))
-                                    else:
-                                        self.ts.log_debug('Transient y_targ = %s, y_meas [%s] <= y_max [%s] = %s' %
-                                                          (y_target, y_meas, y_max, analysis['TR_90_%_PF']))
+
                             else:  # 2-sided analysis
                                 # Pass/Fail: Ymin <= Ymeas <= Ymax
                                 if y_min <= y_meas <= y_max:

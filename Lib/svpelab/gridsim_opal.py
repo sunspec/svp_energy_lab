@@ -74,8 +74,8 @@ class GridSim(gridsim.GridSim):
       freq
       profile_name
     """
-    def __init__(self, ts, group_name):
-        gridsim.GridSim.__init__(self, ts, group_name)
+    def __init__(self, ts, group_name, support_interfaces=None):
+        gridsim.GridSim.__init__(self, ts, group_name, support_interfaces=support_interfaces)
 
         self.ts = ts
         self.p_nom = self._param_value('p_nom')
@@ -90,10 +90,18 @@ class GridSim(gridsim.GridSim):
         self.f_nom = self._param_value('f_nom')
         self.f = self.f_nom
 
-        # To be populated using config()
-        self.hil_object = None
-        self.model_name = None
-        self.rt_lab_model_dir = None
+        # optional interfaces to other SVP abstraction layers/device drivers
+        self.dc_measurement_device = self._param_value('dc_measurement_device')
+
+        self.hil_object = self.hil
+        self.ts.log_debug('Configuring gridsim with Opal hil parameters...using %s' % self.hil_object.info())
+        self.ts.log_debug('hil %s' % self.hil_object)
+        if self.hil_object is None:
+            gridsim.GridSimError('GridSim config requires a Opal HIL object')
+        else:
+            self.model_name = self.hil_object.rt_lab_model
+            self.rt_lab_model_dir = self.hil_object.rt_lab_model_dir
+            self.ts.log_debug('model_name = %s, rt_lab_model_dir = %s' % (self.model_name, self.rt_lab_model_dir))
 
         try:
             tempstring = self._param_value('freq_params').strip().split(',')
@@ -106,6 +114,9 @@ class GridSim(gridsim.GridSim):
             ts.log("Failed freq or voltage block names: %s" % e)
             raise e
 
+        if self.auto_config == 'Enabled':
+            self.config()
+
     def _param_value(self, name):
         return self.ts.param_value(self.group_name + '.' + GROUP_NAME + '.' + name)
 
@@ -117,15 +128,7 @@ class GridSim(gridsim.GridSim):
         Perform any configuration for the simulation based on the previously
         provided parameters.
         """
-        self.ts.log_debug('Configuring gridsim with Opal parameters...')
-        if hil_object is None:
-            gridsim.GridSimError('GridSim config requires a Opal HIL object')
-        else:
-            self.hil_object = hil_object
-            self.model_name = hil_object.rt_lab_model
-            self.rt_lab_model_dir = hil_object.rt_lab_model_dir
-            # self.ts.log_debug('model_name = %s, rt_lab_model_dir = %s' % (self.model_name, self.rt_lab_model_dir))
-
+        self.ts.log('Configuring phase angles, frequencies, and voltages for gridsim')
         self.config_phase_angles()
         self.freq(freq=self.f_nom)
         self.voltage(voltage=self.v_nom)

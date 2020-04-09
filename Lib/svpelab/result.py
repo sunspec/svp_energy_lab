@@ -286,7 +286,6 @@ class ResultWorkbook(object):
             self.ws_index.write(index_row, INDEX_COL_NOTES, notes)
         return index_row + 1
 
-
     def add_chart(self, ws, params=None, index_row=None):
         print 'add chart'
         # get fieldnames in first row of worksheet

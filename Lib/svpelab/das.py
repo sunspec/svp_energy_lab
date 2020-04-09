@@ -109,7 +109,7 @@ def params(info, id=None, label='Data Acquisition System', group_name=None, acti
 DAS_DEFAULT_ID = 'das'
 
 
-def das_init(ts, id=None, points=None, sc_points=None, group_name=None):
+def das_init(ts, id=None, points=None, sc_points=None, group_name=None, support_interfaces=None):
     """
     Function to create specific das implementation instances.
     """
@@ -124,7 +124,8 @@ def das_init(ts, id=None, points=None, sc_points=None, group_name=None):
     if mode != 'Disabled':
         sim_module = das_modules.get(mode)
         if sim_module is not None:
-            sim = sim_module.DAS(ts, group_name, points=points, sc_points=sc_points)
+            sim = sim_module.DAS(ts, group_name, points=points, sc_points=sc_points,
+                                 support_interfaces=support_interfaces)
         else:
             raise DASError('Unknown data acquisition system mode: %s' % mode)
 
@@ -144,7 +145,17 @@ class DAS(object):
     independent grid simulator classes can be created containing the methods contained in this class.
     """
 
-    def __init__(self, ts, group_name, points=None, sc_points=None):
+    def __init__(self, ts, group_name, points=None, sc_points=None, support_interfaces=None):
+        """
+        Initialize the DAS object with the following parameters
+
+        :param ts: test script with logging capability
+        :param group_name: name used when there are multiple instances
+        :param points: data points ('AC_P_1', etc.)
+        :param sc_points: soft channel points
+        :param support_interfaces: dictionary with keys 'pvsim', 'gridsim', 'hil', etc.
+        """
+
         self.ts = ts
         self.group_name = group_name
         self.points = points
@@ -158,6 +169,22 @@ class DAS(object):
         self._timer = None
         self._ds = None
         self._last_datarec = []
+
+        # optional interfaces to other SVP abstraction layers/device drivers
+        if support_interfaces.get('pvsim') is not None:
+            self.dc_measurement_device = support_interfaces.get('pvsim')
+        elif support_interfaces.get('dcsim') is not None:
+            self.dc_measurement_device = support_interfaces.get('dcsim')
+        else:
+            self.dc_measurement_device = None
+        if support_interfaces.get('hil') is not None:
+            self.hil = support_interfaces.get('hil')
+        else:
+            self.hil = None
+        if support_interfaces.get('gridsim') is not None:
+            self.gridsim = support_interfaces.get('gridsim')
+        else:
+            self.gridsim = None
 
         if self.points is None:
             self.points = dict(points_default)
