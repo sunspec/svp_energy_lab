@@ -102,7 +102,6 @@ class PVSim(pvsim.PVSim):
         self.tsas = None
 
         try:
-
             self.ipaddr = self._param_value('ipaddr')
             self.curve_type = self._param_value('curve_type')
             self.v_overvoltage = self._param_value('overvoltage')
@@ -182,7 +181,8 @@ class PVSim(pvsim.PVSim):
 
                 if self.curve_type == 'EN50530':
                     # re-add EN50530 curve with active parameters
-                    self.ts.log('Initializing PV Simulator with Pmp = %d and Vmp = %d.' % (self.pmp, self.vmp))
+                    self.ts.log('Initializing PV Simulator (Channel %s) with Pmp = %d and Vmp = %d.' %
+                                (c, self.pmp, self.vmp))
                     self.tsas.curve_en50530(pmp=pmp, vmp=vmp)
                     channel.curve_set(terrasas.EN_50530_CURVE)
                 else:
@@ -276,7 +276,7 @@ class PVSim(pvsim.PVSim):
                 for c in self.channel:
                     channel = self.tsas.channels[c]
                     channel.profile_set(profile_name)
-                    self.ts.log('TerraSAS Profile is configured.')
+                    self.ts.log('TerraSAS Profile is configured on Channel %d' % c)
             else:
                 raise pvsim.PVSimError('TerraSAS Profile was not changed.')
         else:
@@ -311,7 +311,19 @@ class PVSim(pvsim.PVSim):
                 for c in self.channel:
                     channel = self.tsas.channels[c]
                     channel.profile_start()
-                    self.ts.log('Starting PV profile')
+                    self.ts.log('Starting PV profile on Channel %d' % c)
+        else:
+            raise pvsim.PVSimError('PV Sim not initialized')
+
+    def profile_stop(self):
+        if self.tsas is not None:
+            for c in self.channel:
+                channel = self.tsas.channels[c]
+                if channel.profile_is_active():
+                    channel.profile_abort()
+                    self.ts.log('Stopping PV profile on Channel %d' % c)
+                else:
+                    self.ts.log('Did not stop PV profile because it was not running on Channel %d' % c)
         else:
             raise pvsim.PVSimError('PV Sim not initialized')
 

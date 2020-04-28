@@ -62,19 +62,20 @@ def params(info, group_name=None):
     info.param_group(gname(GROUP_NAME), label='%s Parameters' % mode, active=gname('mode'),
                      active_value=mode, glob=True)
 
-    info.param(pname('target_name'), label='Target name in RT-LAB', default="RTserver")
-
-    info.param(pname('project_name'), label='RT-LAB project name (.llp)', default="PHIL_Phase_Jump.llp")
-    info.param(pname('project_dir'), label='Project Directory',
-               default="C:\\Users\\DETLDAQ\\OPAL-RT\\RT-LABv2019.1_Workspace\\PHIL_Phase_Jump")
-
-    info.param(pname('rt_lab_model'), label='RT-LAB model name (Set to "None" if using current model)',
-               default='None')
+    info.param(pname('target_name'), label='Target name in RT-LAB', default="Target_3")
+    info.param(pname('project_name'), label='RT-LAB project name (.llp)', default="IEEE 1547.1 Phase Jump.llp")
+    info.param(pname('project_dir'), label='Project Directory', default="\\OpalRT\\IEEE_1547.1_Phase_Jump\\")
+    info.param(pname('rt_lab_model'), label='RT-LAB model name', default='3PhaseGeneric')
     info.param(pname('rt_lab_model_dir'), label='RT-LAB Model Directory',
-               default="C:\\Users\\DETLDAQ\\OPAL-RT\\RT-LABv2019.1_Workspace\\PHIL_Phase_Jump\\models\\")
+               default="\\OpalRT\\IEEE_1547.1_Phase_Jump\\models")
 
-    # info.param(pname('rt_lab_python_dir'), label='RT-LAB Python Directory',
-    #            default="C:\\OPAL-RT\\RT-LAB\\2019.1\\common\\python")
+    info.param(pname('hil_config'), label='Configure HIL in init', default='False', values=['True', 'False'])
+    info.param(pname('hil_config_open'), label='Open Project?', default="Yes", values=["Yes", "No"])
+    info.param(pname('hil_config_compile'), label='Compilation needed?', default="No", values=["Yes", "No"])
+    info.param(pname('hil_config_stop_sim'), label='Stop the simulation before loading/execution?',
+               default="Yes", values=["Yes", "No"])
+    info.param(pname('hil_config_load'), label='Load the model to target?', default="Yes", values=["Yes", "No"])
+    info.param(pname('hil_config_execute'), label='Execute the model on target?', default="Yes", values=["Yes", "No"])
 
 
 GROUP_NAME = 'opal'
@@ -110,15 +111,42 @@ class HIL(hil.HIL):
         # self.ts.log_debug(self.info())
         # self.open()
 
+        self.hil_config_open = self._param_value('hil_config_open')
+        self.hil_config_compile = self._param_value('hil_config_compile')
+        self.hil_config_stop_sim = self._param_value('hil_config_stop_sim')
+        self.hil_config_load = self._param_value('hil_config_load')
+        self.hil_config_execute = self._param_value('hil_config_execute')
+
+        if self._param_value('hil_config') == 'True':
+            self.config()
+
     def _param_value(self, name):
         return self.ts.param_value(self.group_name + '.' + GROUP_NAME + '.' + name)
+
+    def hil_info(self):
+        return opalrt_info
 
     def config(self):
         """
         Perform any configuration for the simulation based on the previously
         provided parameters.
         """
-        pass
+        self.ts.log("{}".format(self.info()))
+        if self._param_value('hil_config_open') == 'Yes':
+            self.open()
+        self.ts.log('Setting the simulation stop time for 2 hours to run experiment.')
+        self.set_stop_time(3600 * 2)
+        if self.hil_config_compile == 'Yes':
+            self.ts.sleep(1)
+            self.ts.log("    Model ID: {}".format(self.compile_model().get("modelId")))
+        if self.hil_config_stop_sim == 'Yes':
+            self.ts.sleep(1)
+            self.ts.log("    {}".format(self.stop_simulation()))
+        if self.hil_config_load == 'Yes':
+            self.ts.sleep(1)
+            self.ts.log("    {}".format(self.load_model_on_hil()))
+        if self.hil_config_execute == 'Yes':
+            self.ts.log("    {}".format(self.start_simulation()))
 
     def command(self, ownerId=None, command=None, attributes=None, values=None):
         """
@@ -134,7 +162,6 @@ class HIL(hil.HIL):
 
         :return: outputId - The ID corresponding to the object directly affected by the command. If no other object
                             than the parent is affected, the parent ID is returned.
-
 
         Examples:
 
@@ -201,12 +228,24 @@ class HIL(hil.HIL):
         Open the communications resources associated with the HIL.
         """
         self.ts.log('Opening Project: %s' % self.project_name)
-        proj_path = self.project_dir + '\\' + self.project_name
+        if self.project_name[1] == ':':
+            self.ts.log('Assuming project name is an absolute path to .llp file')
+            proj_path = self.project_name
+        elif self.project_dir[1] == ':':
+            self.ts.log('Assuming project directory + project name is an absolute path to .llp file')
+            self.project_dir.rstrip('\\') + '\\' + self.project_name
+            proj_path = self.project_dir.rstrip('\\') + '\\' + self.project_name
+        else:
+            self.ts.log('Assuming project directory and .llp file are located in svpelab directory')
+            svpelab_dir = os.path.abspath(os.path.dirname(__file__))
+            proj_path = svpelab_dir + self.project_dir.rstrip('\\') + '\\' + self.project_name
+
         if proj_path[:-4] != '.llp':
             proj_path += '.llp'
         try:
             # projectId = RtlabApi.OpenProject(project='', functionalBlock=None,
             #                                  controlPriority=OP_CTRL_PRIO_NORMAL, returnOnAmbiguity=False)
+            self.ts.log('Opening project: %s' % proj_path)
             RtlabApi.OpenProject(proj_path)
         except Exception, e:
             self.ts.log_warning('Could not open the project %s: %s' % (proj_path, e))
@@ -224,6 +263,7 @@ class HIL(hil.HIL):
         Close any open communications resources associated with the HIL.
         """
         try:
+            self.stop_simulation()
             RtlabApi.CloseProject()
         except Exception, e:
             self.ts.log_error('Unable to close project. %s' % e)
@@ -422,7 +462,12 @@ class HIL(hil.HIL):
             realTimeMode = RtlabApi.HARD_SYNC_MODE
             # Also possible to use SIM_MODE, SOFT_SIM_MODE, SIM_W_NO_DATA_LOSS_MODE or SIM_W_LOW_PRIO_MODE
             timeFactor = 1
-            RtlabApi.Load(realTimeMode, timeFactor)
+            try:
+                RtlabApi.Load(realTimeMode, timeFactor)
+            except Exception, e:
+                self.ts.log_warning('Model failed to load. Recommend opening and rebuilding the model in RT-Lab. '
+                                    '%s' % e)
+                raise
             return "The model is loaded."
         else:
             self.ts.log_warning('Model was not loaded because the status is:  %s' % self.model_state())
@@ -625,13 +670,29 @@ class HIL(hil.HIL):
         Get simulation time from the clock signal
         :return: simulation time in sec
         """
-        _, model_name = RtlabApi.GetCurrentModel()
-        model_name = model_name.rstrip('.mdl')
-        sig = model_name + '/SM_Source/Clock1/port1'
-        # self.ts.log_debug('Acquiring the data for %s' % sig)
-        sim_time = RtlabApi.GetSignalsByName(sig)
-        # self.ts.log_debug('Data: %s' % sim_time)
-        return sim_time
+
+        try:
+            if self.model_state() == 'Model Running':
+                _, model_name = RtlabApi.GetCurrentModel()
+                model_name = model_name.rstrip('.mdl').rstrip('.slx')
+
+                # todo: fix this to be generic
+                try:
+                    sig = model_name + '/SM_Source/Clock1/port1'
+                    sim_time = RtlabApi.GetSignalsByName(sig)
+                except Exception, e:
+                    sig = model_name + '/SM_LOHO13/Dynamic Load Landfill/Clock1/port1'
+                    sim_time = RtlabApi.GetSignalsByName(sig)
+
+                return sim_time
+            else:
+                self.ts.log_debug('Can not read simulation time becauase the simulation is not running. Returning 1e6.')
+                sim_time = 1.0e6  # ensures that the simulation loop will stop in the script
+                return sim_time
+        except Exception, e:
+            self.ts.log_debug('Could not get time for simulation. Simulation likely completed. Returning 1e6. %s' % e)
+            sim_time = 1.0e6  # ensures that the simulation loop will stop in the script
+            return sim_time
 
 
 if __name__ == "__main__":
@@ -641,6 +702,7 @@ if __name__ == "__main__":
         print(system_info[i])
     print("OPAL-RT - Platform version {0} (IP address : {1})".format(system_info[1], system_info[6]))
 
+    '''
     projectName = "C:\\Users\\DETLDAQ\\OPAL-RT\\RT-LABv2019.1_Workspace\\" \
                   "IEEE_1547.1_Phase_Jump\\IEEE_1547.1_Phase_Jump.llp"
     RtlabApi.OpenProject(projectName)
@@ -686,7 +748,7 @@ if __name__ == "__main__":
     RtlabApi.SetParametersByName("PF818072_test_model/sm_computation/Rocof/Value", 10.)
     RtlabApi.SetParametersByName("PF818072_test_model/sm_computation/Rocom/Value", 10.)
     sleep(2)
-
+    '''
 
     ''' Change phase and amplitude of sine wave
     # ampl = [2, 2, 2]
