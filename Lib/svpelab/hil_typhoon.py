@@ -40,7 +40,6 @@ try:
     import typhoon.api.pv_generator as pv
 except Exception, e:
     print('Typhoon HIL API not installed. %s' % e)
-    raise e
 
 typhoon_info = {
     'name': os.path.splitext(os.path.basename(__file__))[0],
