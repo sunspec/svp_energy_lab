@@ -51,7 +51,15 @@ except Exception, e:
 # Channels to be captured during the waveform capture
 WFM_CHANNELS = {'Generic': ['TIME', 'AC_V_1', 'AC_V_2', 'AC_V_3', 'AC_I_1', 'AC_I_2', 'AC_I_3', 'EXT'],
                 'PhaseJump': ['TIME', 'AC_V_1', 'AC_V_2', 'AC_V_3', 'AC_I_1', 'AC_I_2', 'AC_I_3', 'Trigger',
-                              'Total_RMS_Current', 'Time_Below_80pct_Current', 'Time_Phase_Misalignment']}
+                              'Total_RMS_Current', 'Time_Below_80pct_Current', 'Time_Phase_Misalignment',
+                              'Ph_Del_A', 'Ph_Del_B', 'Ph_Del_C'],
+                'PhaseJumpOld': ['TIME', 'AC_V_1', 'AC_V_2', 'AC_V_3', 'AC_I_1', 'AC_I_2', 'AC_I_3', 'Trigger',
+                                 'Total_RMS_Current', 'Time_Below_80pct_Current', 'Time_Phase_Misalignment'],
+                }
+
+
+class MatlabException(Exception):
+    pass
 
 
 class Device(object):
@@ -110,6 +118,37 @@ class Device(object):
             'TRIG': self.model_name + '/SM_Source/Switch5/port1',
             'TRIG_GRID': self.model_name + '/SM_Source/Switch5/port1'}
 
+        self.opal_map_phase_jump_w_phase_realign = {  # data point : analog channel name
+            'TIME': self.model_name + '/SM_Source/Clock1/port1',
+            'AC_VRMS_1': self.model_name + '/SM_Source/AC_VRMS_1/Switch/port1',
+            'AC_VRMS_2': self.model_name + '/SM_Source/AC_VRMS_2/Switch/port1',
+            'AC_VRMS_3': self.model_name + '/SM_Source/AC_VRMS_3/Switch/port1',
+            'AC_IRMS_1': self.model_name + '/SM_Source/AC_IRMS_1/Switch/port1',
+            'AC_IRMS_2': self.model_name + '/SM_Source/AC_IRMS_2/Switch/port1',
+            'AC_IRMS_3': self.model_name + '/SM_Source/AC_IRMS_3/Switch/port1',
+            'AC_P_1': self.model_name + '/SM_Source/AC_P_1/port1(2)',
+            'AC_P_2': self.model_name + '/SM_Source/AC_P_2/port1(2)',
+            'AC_P_3': self.model_name + '/SM_Source/AC_P_3/port1(2)',
+            'AC_Q_1': self.model_name + '/SM_Source/AC_Q_1/port1(2)',
+            'AC_Q_2': self.model_name + '/SM_Source/AC_Q_2/port1(2)',
+            'AC_Q_3': self.model_name + '/SM_Source/AC_Q_3/port1(2)',
+            'AC_S_1': self.model_name + '/SM_Source/AC_S_1/port1(2)',
+            'AC_S_2': self.model_name + '/SM_Source/AC_S_2/port1(2)',
+            'AC_S_3': self.model_name + '/SM_Source/AC_S_3/port1(2)',
+            'AC_PF_1': self.model_name + '/SM_Source/AC_PF_3/port1(2)',
+            'AC_PF_2': self.model_name + '/SM_Source/AC_PF_2/port1(2)',
+            'AC_PF_3': self.model_name + '/SM_Source/AC_PF_3/port1(2)',
+            'AC_FREQ_1': self.model_name + '/SM_Source/AC_FREQ_1/port1',
+            'AC_FREQ_2': self.model_name + '/SM_Source/AC_FREQ_2/port1',
+            'AC_FREQ_3': self.model_name + '/SM_Source/AC_FREQ_3/port1',
+            'DC_V': None,
+            'DC_I': None,
+            'DC_P': None,
+            'TRIG': self.model_name + '/SM_Source/Switch5/port1',
+            'TRIG_GRID': self.model_name + '/SM_Source/Switch5/port1',
+            'T_Phase_Realign': self.model_name + '/SM_Source/T_Phase_Realign/port1',
+            'T_Curr_80': self.model_name + '/SM_Source/T_Curr_80/port1'}
+
         self.opal_map_ekhi = {  # data point : analog channel name
             'TIME': self.model_name + '/SM_LOHO13/Dynamic Load Landfill/Clock1/port1',
             'IED2_V_1': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(1)',
@@ -160,6 +199,7 @@ class Device(object):
         # Mapping from the  channels to be captured and the names that are used in the Opal environment
         opal_points_map = {
             'Opal_Phase_Jump': self.opal_map_phase_jump,  # For use with the IEEE 1547.1 Phase Jump Tests
+            'Opal_Phase_Jump_Realign': self.opal_map_phase_jump_w_phase_realign,  # Phase Jump Tests with Realignment
             'Ekhi': self.opal_map_ekhi,  # For use with Ekhi
         }
         self.data_points = sorted(list(opal_points_map[self.map].keys()))
@@ -360,7 +400,10 @@ class Device(object):
                 m_cmd = "load('" + self.mat_location + "')"
                 # self.ts.log_debug('Running matlab command: %s' % m_cmd)
                 # self.ts.log_debug('Matlab: ' + self.matlab_cmd(m_cmd))
-                self.matlab_cmd(m_cmd)
+                if isinstance(self.matlab_cmd(m_cmd), MatlabException):
+                    self.ts.log_warning('Matlab command failed. Waiting 10 sec and retrying...')
+                    self.ts.sleep(10)
+                    self.matlab_cmd(m_cmd)
 
                 # Add the header to the data in Matlab
                 self.ts.log('Adding Data Header')
@@ -372,7 +415,10 @@ class Device(object):
                 self.ts.log_debug('Matlab: ' + self.matlab_cmd("data_w_header(1,:) = header;"))
                 self.ts.log_debug('Matlab: ' + self.matlab_cmd("data_w_header(2:y+1,:) = num2cell(Data');"))
                 '''
-                self.matlab_cmd(m_cmd)
+                if isinstance(self.matlab_cmd(m_cmd), MatlabException):
+                    self.ts.log_warning('Matlab command failed. Waiting 10 sec and retrying...')
+                    self.ts.sleep(10)
+                    self.matlab_cmd(m_cmd)
                 self.matlab_cmd("[x, y] = size(Data);")
                 self.matlab_cmd("data_w_header = cell(y+1,x);")
                 self.matlab_cmd("data_w_header(1,:) = header;")
@@ -395,7 +441,10 @@ class Device(object):
                 m_cmd += "end\n"
                 print(m_cmd)
                 # self.ts.log_debug('Matlab: ' + self.matlab_cmd(m_cmd))
-                self.matlab_cmd(m_cmd)
+                if self.matlab_cmd(m_cmd) == '':
+                    self.ts.log_warning('Matlab command failed. Waiting 10 sec and retrying...')
+                    self.ts.sleep(10)
+                    self.matlab_cmd(m_cmd)
 
                 # read csv file and convert to ds
                 ds = dataset.Dataset()
@@ -431,7 +480,7 @@ class Device(object):
             return result
         except Exception, e:
             self.ts.log_warning('Cannot execute Matlab command: %s' % e)
-            return ''
+            return MatlabException(e)
 
     def set_dc_measurement(self, obj=None):
         """
@@ -509,7 +558,5 @@ if __name__ == "__main__":
     # plt.figure(1)
     # plt.plot(time_data, v_data)
     # plt.show()
-
-
 
 
