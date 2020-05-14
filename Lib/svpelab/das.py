@@ -171,20 +171,20 @@ class DAS(object):
         self._last_datarec = []
 
         # optional interfaces to other SVP abstraction layers/device drivers
-        if support_interfaces.get('pvsim') is not None:
-            self.dc_measurement_device = support_interfaces.get('pvsim')
-        elif support_interfaces.get('dcsim') is not None:
-            self.dc_measurement_device = support_interfaces.get('dcsim')
-        else:
-            self.dc_measurement_device = None
-        if support_interfaces.get('hil') is not None:
-            self.hil = support_interfaces.get('hil')
-        else:
-            self.hil = None
-        if support_interfaces.get('gridsim') is not None:
-            self.gridsim = support_interfaces.get('gridsim')
-        else:
-            self.gridsim = None
+        self.dc_measurement_device = None
+        self.hil = None
+        self.gridsim = None
+        if support_interfaces is not None:
+            if support_interfaces.get('pvsim') is not None:
+                self.dc_measurement_device = support_interfaces.get('pvsim')
+            elif support_interfaces.get('dcsim') is not None:
+                self.dc_measurement_device = support_interfaces.get('dcsim')
+
+            if support_interfaces.get('hil') is not None:
+                self.hil = support_interfaces.get('hil')
+
+            if support_interfaces.get('gridsim') is not None:
+                self.gridsim = support_interfaces.get('gridsim')
 
         if self.points is None:
             self.points = dict(points_default)

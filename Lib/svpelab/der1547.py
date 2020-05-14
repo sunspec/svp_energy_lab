@@ -111,7 +111,13 @@ class DER1547(object):
         """ Close any open communications resources associated with the grid simulator. """
         pass
 
-    def get_nameplate(self, params=None):
+    def info(self):
+        """
+        :return: string with information on the IEEE 1547 DER type.
+        """
+        pass
+
+    def get_nameplate(self):
         """
         Get/Set Nameplate information
         ______________________________________________________________________________________________
@@ -144,6 +150,10 @@ class DER1547(object):
         20. Serial number                                       np_serial_number
         21. Version                                             np_version
         """
+        pass
+
+    def set_nameplate(self):
+        """ See parameters in get_nameplate()."""
         pass
 
     def get_monitoring(self):

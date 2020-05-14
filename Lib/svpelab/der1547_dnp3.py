@@ -3,9 +3,10 @@ DER1547 methods defined for the DNP3 devices
 '''
 
 import os
-import time
 import der1547
-import svpdnp3.device_der_dnp3 as device_der_dnp3
+import svpdnp3.device_der_dnp3 as dnp3_agent
+import subprocess
+import socket
 
 dnp3_info = {
     'name': os.path.splitext(os.path.basename(__file__))[0],
@@ -25,13 +26,13 @@ def params(info, group_name):
     info.param_group(gname(GROUP_NAME), label='%s Parameters' % mode,
                      active=gname('mode'), active_value=mode, glob=True)
     info.param(pname('ipaddr'), label='Agent IP Address', default='127.0.0.1')
-    info.param(pname('ipport'), label='Agent IP Port', default=0)
+    info.param(pname('ipport'), label='Agent IP Port', default=10000)
     info.param(pname('out_ipaddr'), label='Outstation IP Address', default='127.0.0.1')
-    info.param(pname('out_ipport'), label='Outstation IP Port', default=0)
-    info.param(pname('outstation_addr'), label='Outstation Local Address', default=0)
-    info.param(pname('master_addr'), label='Master Local Address', default=0)
-    info.param(pname('oid'), label='OID', default=0)
-    info.param(pname('rid'), label='Request ID', default=0)
+    info.param(pname('out_ipport'), label='Outstation IP Port', default=20000)
+    info.param(pname('outstation_addr'), label='Outstation Local Address', default=100)
+    info.param(pname('master_addr'), label='Master Local Address', default=101)
+    info.param(pname('oid'), label='OID', default=1)
+    info.param(pname('rid'), label='Request ID', default=1234)
 
 
 GROUP_NAME = 'dnp3'
@@ -55,55 +56,100 @@ class DER1547(der1547.DER1547):
         return self.ts.param_value(self.group_name + '.' + GROUP_NAME + '.' + name)
 
     def config(self):
-        pass
+        self.start_agent()
+        self.ts.sleep(6)
+        self.ts.log('Adding outstation: %s' % self.add_out())
+        self.ts.log('DNP3 Agent Status: %s' % self.status())
 
     def add_out(self):
-        agent = device_der_dnp3.AgentClient(self.ipaddr, self.ipport)
+        agent = dnp3_agent.AgentClient(self.ipaddr, self.ipport)
         agent.connect(self.ipaddr, self.ipport)
         outstation = agent.add_outstation(self.out_ipaddr, self.out_ipport, self.outstation_addr, self.master_addr)
         return outstation
 
     def del_out(self):
-        agent = device_der_dnp3.AgentClient(self.ipaddr, self.ipport)
+        agent = dnp3_agent.AgentClient(self.ipaddr, self.ipport)
         agent.connect(self.ipaddr, self.ipport)
         outstation = agent.delete_outstation(self.oid, self.rid)
         return outstation
 
-    def stop_agent(self):
-        agent = device_der_dnp3.AgentClient(self.ipaddr, self.ipport)
-        agent.connect(self.ipaddr, self.ipport)
-        agent_end = agent.stop_agent(self.rid)
-        os.system('taskkill /F /IM dnp3_agent.exe')
-        return agent_end
-
     def status(self):
-        agent = device_der_dnp3.AgentClient(self.ipaddr, self.ipport)
-        agent.connect(self.ipaddr, self.ipport)
+        agent = dnp3_agent.AgentClient(self.ipaddr, self.ipport)
+        try:
+            agent.connect(self.ipaddr, self.ipport)
+        except Exception, e:
+            self.ts.log_warning('Agent Status Error: %s' % e)
+            return 'No Agent'
         agent_stat = agent.status(self.rid)
         res = eval(agent_stat[1:-1])
         return res
 
     def scan(self, scan_type):
-        agent = device_der_dnp3.AgentClient(self.ipaddr, self.ipport)
+        agent = dnp3_agent.AgentClient(self.ipaddr, self.ipport)
         agent.connect(self.ipaddr, self.ipport)
         agent_scan = agent.scan_outstation(self.oid, self.rid, scan_type)
         res = eval(agent_scan[1:-1])
         return res
+
+    def start_agent(self):
+        """
+        Starts the DNP3 agent in a subprocess.  This agent acts as middleman between SVP and the DNP3 outstation.
+
+        :return: None
+        """
+        running = True
+
+        try:
+            agent = dnp3_agent.AgentClient(self.ipaddr, self.ipport)
+            agent.connect(self.ipaddr, self.ipport)
+            status = eval(agent.status(self.rid)[1:-1])
+
+            if status == 'ERROR':
+                self.ts.log_warning('Unable to start the agent. Another process may be running at the configured '
+                        'IP address and port')
+
+        except socket.error as e:
+            running = False
+
+        if not running:
+            file_path = os.path.abspath(__file__ + '\\..\\..\\svpdnp3\\dnp3_agent.exe')
+            self.ts.log_debug('file_path: %s' % file_path)
+            in_new_window = True
+            if in_new_window:
+                win_command = file_path + ' -ip ' + self.ipaddr + ' -p ' + str(self.ipport)
+                # self.ts.log_debug('win_command: %s' % win_command)
+                subprocess.Popen(win_command, creationflags=subprocess.CREATE_NEW_CONSOLE)
+            else:  # hidden process
+                args = [file_path, '-ip', self.ipaddr, '-p', str(self.ipport)]
+                subprocess.Popen(args)
+
+        else:
+            self.ts.log_error("The system doesn't support this agent")
+
+    def stop_agent(self):
+        agent = dnp3_agent.AgentClient(self.ipaddr, self.ipport)
+        agent.connect(self.ipaddr, self.ipport)
+        agent_end = agent.stop_agent(self.rid)
+        os.system('taskkill /F /IM dnp3_agent.exe')
+        return agent_end
+
+    def info(self):
+        return 'DNP3 der1547 instantiation.'
 
     def get_nameplate(self):
         '''
         This information is indicative of the as-built characteristics of the DER.
         This information may be read
         '''
-        agent = device_der_dnp3.AgentClient(self.ipaddr, self.ipport)
+        agent = dnp3_agent.AgentClient(self.ipaddr, self.ipport)
         agent.connect(self.ipaddr, self.ipport)
         nameplate_pts = nameplate_data.copy()
         nameplate_sprt_pts = nameplate_support.copy()
 
         points = {'ai': {}, 'bi': {}}
-        false = False
-        true = True
-        null = None
+        false = False  # Don't remove - required for eval of read_outstation data
+        true = True  # Don't remove - required for eval of read_outstation data
+        null = None   # Don't remove - required for eval of read_outstation data
         for key, values in nameplate_pts.items():
             key1 = list(values.keys())  # (ai and np_support...)
             val1 = list(values.values())  # (points for ai and '{'bi': {'31': None}}' for bi)
@@ -126,7 +172,11 @@ class DER1547(der1547.DER1547):
                         if x == 'bi':
                             points['bi'][y] = None
 
+        # self.ts.log_debug('self.status(): %s' % self.status())
+        # self.ts.log_debug('self.oid=%s, self.rid=%s, points=%s' % (self.oid, self.rid, points))
         nameplate_read = agent.read_outstation(self.oid, self.rid, points)
+        # self.ts.log_debug('nameplate_read %s' % nameplate_read)
+
         res = eval(nameplate_read[1:-1])
         if 'params' in res.keys():
             resp = res['params']
@@ -168,16 +218,17 @@ class DER1547(der1547.DER1547):
             nameplate_pts['np_supported_ctrl_mode_func']['np_support_watt_var'] = resp['bi']['49']['value']
             nameplate_pts['np_supported_ctrl_mode_func']['np_support_pf_correction'] = resp['bi']['50']['value']
             nameplate_pts['np_supported_ctrl_mode_func']['np_support_pricing'] = resp['bi']['51']['value']
-            res['params'] = nameplate_pts
+        else:
+            self.ts.log_warning('Outstation read of nameplate data failed!')
 
-        return res
+        return nameplate_pts
 
     def get_monitoring(self):
         '''
         This information is indicative of the present operating conditions of the
         DER. This information may be read.
         '''
-        agent = device_der_dnp3.AgentClient(self.ipaddr, self.ipport)
+        agent = dnp3_agent.AgentClient(self.ipaddr, self.ipport)
         agent.connect(self.ipaddr, self.ipport)
         # Getting dictionaries containing the points to be read
         monitoring_pts = monitoring_data.copy()
@@ -186,9 +237,9 @@ class DER1547(der1547.DER1547):
         alarm_pts = alarm_state.copy()
 
         points = {'ai': {}, 'bi': {}}
-        false = False
-        true = True
-        null = None
+        false = False  # Don't remove - required for eval of read_outstation data
+        true = True  # Don't remove - required for eval of read_outstation data
+        null = None   # Don't remove - required for eval of read_outstation data
         # Creating a points dictionary of format:
         # {'ai': {'PT1': None, 'PT2': None}, 'bi': {'PT3': None}} for the read func.
         for key, values in monitoring_pts.items():
@@ -269,9 +320,8 @@ class DER1547(der1547.DER1547):
             monitoring_pts['mn_alm']['mn_alm_storage_chg_depleted'] = resp['bi']['7']['value']
             monitoring_pts['mn_alm']['mn_alm_internal_temp_high'] = resp['bi']['8']['value']
             monitoring_pts['mn_alm']['mn_alm_internal_temp_low'] = resp['bi']['9']['value']
-            res['params'] = monitoring_pts
 
-        return res
+        return monitoring_pts
 
     def get_fixed_pf(self):
         '''
@@ -279,14 +329,14 @@ class DER1547(der1547.DER1547):
         Fixed Power Factor Mode. This information may be read.
         '''
 
-        agent = device_der_dnp3.AgentClient(self.ipaddr, self.ipport)
+        agent = dnp3_agent.AgentClient(self.ipaddr, self.ipport)
         agent.connect(self.ipaddr, self.ipport)
         fixed_pf_pts = fixed_pf.copy()
 
         points = {'ai': {}, 'bi': {}}
-        false = False
-        true = True
-        null = None
+        false = False  # Don't remove - required for eval of read_outstation data
+        true = True  # Don't remove - required for eval of read_outstation data
+        null = None   # Don't remove - required for eval of read_outstation data
 
         for key, values in fixed_pf_pts.items():
             keys1 = list(values.keys())
@@ -308,20 +358,18 @@ class DER1547(der1547.DER1547):
             resp = res['params']
 
             # Writing the point values and flags in the fixed_pf dictionary for response
-
             fixed_pf_pts['pf_enable'] = resp['bi']['80']['value']
             fixed_pf_pts['pf'] = resp['ai']['288']['value']
             fixed_pf_pts['pf_excitation'] = resp['bi']['29']['value']
-            res['params'] = fixed_pf_pts
 
-        return res
+        return fixed_pf_pts
 
-    def set_fixed_pf(self, params):
+    def set_fixed_pf(self, params=None):
         '''
         This information is used to update functional and mode settings for the
         Fixed Power Factor Mode. This information may be written.
         '''
-        agent = device_der_dnp3.AgentClient(self.ipaddr, self.ipport)
+        agent = dnp3_agent.AgentClient(self.ipaddr, self.ipport)
         agent.connect(self.ipaddr, self.ipport)
         fixed_pf_pts = fixed_pf_write.copy()
         points = {'ao': {}, 'bo': {}}
@@ -387,17 +435,18 @@ class DER1547(der1547.DER1547):
 
     def get_volt_var(self):
         '''
-        This information is used to update functional and mode settings for the
+        This information is used to get functional and mode settings for the
         Voltage-Reactive Power Mode. This information may be read.
         '''
-        agent = device_der_dnp3.AgentClient(self.ipaddr, self.ipport)
+        agent = dnp3_agent.AgentClient(self.ipaddr, self.ipport)
         agent.connect(self.ipaddr, self.ipport)
         volt_var_pts = volt_var_data.copy()
+        volt_var_pts.update(curve_read.copy())
 
         points = {'ai': {}, 'bi': {}}
-        false = False
-        true = True
-        null = None
+        false = False  # Don't remove - required for eval of read_outstation data
+        true = True  # Don't remove - required for eval of read_outstation data
+        null = None   # Don't remove - required for eval of read_outstation data
 
         for key, values in volt_var_pts.items():
             keys1 = list(values.keys())
@@ -417,19 +466,83 @@ class DER1547(der1547.DER1547):
         res = eval(volt_var_read[1:-1])
         if 'params' in res.keys():
             resp = res['params']
-            volt_var_pts['vv_enable'] = resp['bi']['81']['value']
-            volt_var_pts['vv_vref'] = resp['ai']['29']['value']
-            volt_var_pts['vv_vref_enable'] = resp['bi']['93']['value']
-            volt_var_pts['vv_vref_time'] = resp['ai']['300']['value']
-            volt_var_pts['vv_curve_index'] = resp['ai']['303']['value']
-            volt_var_pts['vv_open_loop_time'] = resp['ai']['298']['value']
-            res['params'] = volt_var_pts
+            params = {}
+            params['vv_enable'] = resp['bi']['81']['value']
+            params['vv_vref'] = resp['ai']['29']['value']
+            params['vv_vref_enable'] = resp['bi']['93']['value']
+            params['vv_vref_time'] = resp['ai']['300']['value']
+            params['vv_curve_index'] = resp['ai']['303']['value']
+            params['vv_open_loop_time'] = resp['ai']['298']['value']
+            no_points = 4
 
-        return res
+            v = []
+            var = []
+            for x in range(333, 332 + (no_points * 2), 2):
+                v.append(resp['ai'][str(x)]['value'])
+                var.append(resp['ai'][str(x+1)]['value'])
+            params['vv_curve'] = {'v': v, 'q': var}
+
+        return params
 
     # Combining volt_var and volt_var_curve
-    def set_volt_var(self, params):
-        agent = device_der_dnp3.AgentClient(self.ipaddr, self.ipport)
+    def set_volt_var(self, params=None):
+        """
+        Parameters                                  Names
+        Voltage-Reactive Power Mode Enable         vv_enable
+        VRef Reference voltage                     vv_vref
+        Autonomous VRef adjustment enable          vv_vref_enable
+        VRef adjustment time constant              vv_vref_time
+        V/Q Curve Points                           vv_curve (dict): {'v': [], 'q': []}
+        Open Loop Response Time                    vv_open_loop_time
+
+        Step        Description             Optionality     Function Codes              Type    Point   Read-back pt
+        1. Set priority of this mode          Optional      Direct Operate / Response   AO      AO212   AI290
+        2. Set the enabling time window       Optional      Direct Operate / Response   AO      AO213   AI291
+        3. Set the enabling ramp time         Optional      Direct Operate / Response   AO      AO214   AI292
+        4. Set the enabling reversion timeout Optional      Direct Operate / Response   AO      AO215   AI293
+        5. Identify the meter used to measure
+           the voltage. By default this is the
+           System Meter (ID = 0)              Optional      Direct Operate / Response   AO      AO216   AI294
+        6. If using a fixed Voltage reference:
+           Set the reference voltage if
+           it has not already been set        Optional      Direct Operate / Response   AO      AO0     AI29
+        7. If using a fixed Voltage reference:
+           Set the reference voltage offset
+           if it has not already been set     Optional      Direct Operate / Response   AO      AO1     AI30
+        8. If autonomously adjusting the
+           Voltage reference, set the time
+           constant for the lowpass filter    Optional      Direct Operate / Response   AO      AO220   AI300
+        9. If autonomously adjusting the
+           Voltage reference, enable
+           autonomous adjustment              Optional      Direct Operate / Response   BO      BO41    BI93
+        10. Select which curve to edit        Optional      Direct Operate / Response   AO      AO244   AI328
+        11. Specify the Curve Mode Type as
+            <2> Volt-VAr mode                 Optional      Direct Operate / Response   AO      AO245   AI329
+        12. Specify that the Independent
+            (XValue) units are <129> Percent
+            Voltage                           Optional      Direct Operate / Response   AO      AO247   AI331
+        13. Specify the Dependent (Y-Value)
+            units as described in Table 53.   Optional      Direct Operate / Response   AO      AO248   AI332
+        14. Set percent voltage (X-Values)
+            for each curve point              Optional      Direct Operate / Response   AO      AO249,..AI333,..
+        15. Set percent VArs (Y-Values) for
+            each curve point                  Optional      Direct Operate / Response   AO      AO250,..AI334,..
+        16. Set number of points used for
+            the curve.                        Optional      Direct Operate / Response   AO      AO246   AI330
+        17. Set the time constant for the
+            output of the curve               Optional      Direct Operate / Response   AO      AO218-9 AI298-9
+        18. Identify the index of the curve
+            being used                        Optional      Direct Operate / Response   AO      AO217   AI297
+        19. Enable the Volt-VAr Control
+            Mode                              Required      Select/Response, Op/Resp    BO      BO29    BI48
+        20. Read the adjusted reference
+            voltage, if it is not fixed       Optional      Read                        Class 1/2/3     AI296
+        21. Read the measured Voltage         Optional      Read                        Class 1/2/3     AI295
+        22. Read the attempted VArs           Optional      Read                        Class 1/2/3     AI301
+        23. Read the actual VArs (if using
+        system meter)                         Optional      Read                        Class 1/2/3     AI541
+        """
+        agent = dnp3_agent.AgentClient(self.ipaddr, self.ipport)
         agent.connect(self.ipaddr, self.ipport)
         volt_var_curve_pts = volt_var_curve.copy()
         points = {'ao': {}, 'bo': {}}
@@ -451,38 +564,52 @@ class DER1547(der1547.DER1547):
                             points[i][y] = pt_value[x]
 
         # Write the vv points except Volt-Var Enable
+        self.ts.log_debug('Writing the following points: %s' % points)
         volt_var_w1 = agent.write_outstation(self.oid, self.rid, points)
 
         for x in range(0, len(point_name)):
             if point_name[x] == 'vv_open_loop_time':
                 time_pt = {'ao': {'218': pt_value[x], '219': pt_value[x]}}
 
-        # Write Open loop time
-        vv_time = agent.write_outstation(self.oid, self.rid, time_pt)
+                # Write Open loop time
+                self.ts.log_debug('Writing Open loop time: %s' % time_pt)
+                vv_time = agent.write_outstation(self.oid, self.rid, time_pt)
 
         points_v = {'ao': {}}
         points_q = {'ao': {}}
         i = 0
         j = 0
 
+        v_pts = []
         for x in range(0, len(point_name)):
             if point_name[x] == 'vv_curve':
                 v_pts = pt_value[x]['v']
                 q_pts = pt_value[x]['q']
 
         no_points = len(v_pts)
-        vv_points = {'ao': {'217': '1', '244': '1', '245': '2', '246': no_points, '247': '129', '248': '3'}}
+        vv_points = {'ao': {'217': '1',  # Volt-Var Curve Index
+                            '244': '1',  # Curve Edit Selector
+                            '245': '2',  # Curve Mode Type (2 = Volt-var)
+                            '246': no_points,  # Curve number of points
+                            '247': '129',  # Voltage
+                            '248': '2'}}  #
+                            # '248': '2'}}  # % of Available VARs (VArAval)  - DNP3 App Note Table 53 for details
+        self.ts.log_debug('Configuring Curve. Writing VV points: %s' % vv_points)
         vv_curve_settings = agent.write_outstation(self.oid, self.rid, vv_points)
 
-        for x in range(249, 248 + (no_points * 2), 2):
-            points_v['ao'][str(x)] = str(v_pts[i])
+        x_curve_point_start = 249
+        y_curve_point_start = 250
+        for x in range(x_curve_point_start, x_curve_point_start-1 + (no_points * 2), 2):
+            points_v['ao'][str(x)] = str(v_pts[i]*10)
             i += 1
 
-        for y in range(250, 249 + (no_points * 2), 2):
-            points_q['ao'][str(y)] = str(q_pts[j])
+        for y in range(y_curve_point_start, y_curve_point_start-1 + (no_points * 2), 2):
+            points_q['ao'][str(y)] = str(q_pts[j]*10)
             j += 1
 
+        self.ts.log_debug('Writing Voltage Points: %s' % points_v)
         curve_write_v = agent.write_outstation(self.oid, self.rid, points_v)
+        self.ts.log_debug('Writing Var Points: %s' % points_v)
         curve_write_q = agent.write_outstation(self.oid, self.rid, points_q)
 
         points_en = {'bo': {}}
@@ -496,7 +623,9 @@ class DER1547(der1547.DER1547):
                         key2 = list(j.keys())
                         for y in key2:
                             points_en[i][y] = pt_value[x]
+
         # Writing the Volt-Var Enable
+        self.ts.log_debug('Enabling VV Function: %s' % points_en)
         volt_var_w2 = agent.write_outstation(self.oid, self.rid, points_en)
 
         res1 = eval(curve_write_v[1:-1])
@@ -521,14 +650,14 @@ class DER1547(der1547.DER1547):
         This information is used to update functional and mode settings for the
         Constant Reactive Power Mode. This information may be read.
         '''
-        agent = device_der_dnp3.AgentClient(self.ipaddr, self.ipport)
+        agent = dnp3_agent.AgentClient(self.ipaddr, self.ipport)
         agent.connect(self.ipaddr, self.ipport)
         reactive_power_pts = reactive_power_data.copy()
 
         points = {'ai': {}, 'bi': {}}
-        false = False
-        true = True
-        null = None
+        false = False  # Don't remove - required for eval of read_outstation data
+        true = True  # Don't remove - required for eval of read_outstation data
+        null = None   # Don't remove - required for eval of read_outstation data
 
         for key, values in reactive_power_pts.items():
             keys1 = list(values.keys())
@@ -554,12 +683,12 @@ class DER1547(der1547.DER1547):
 
         return res
 
-    def set_reactive_power(self, params):
+    def set_reactive_power(self, params=None):
         '''
         This information is used to update functional and mode settings for the
         Constant Reactive Power Mode. This information may be written.
         '''
-        agent = device_der_dnp3.AgentClient(self.ipaddr, self.ipport)
+        agent = dnp3_agent.AgentClient(self.ipaddr, self.ipport)
         agent.connect(self.ipaddr, self.ipport)
         reactive_power_pts = reactive_power_write.copy()
         points = {'ao': {}, 'bo': {}}
@@ -624,14 +753,14 @@ class DER1547(der1547.DER1547):
         This information is used to update functional and mode settings for the
         Frequency-Active Power Mode. This information may be read.
         '''
-        agent = device_der_dnp3.AgentClient(self.ipaddr, self.ipport)
+        agent = dnp3_agent.AgentClient(self.ipaddr, self.ipport)
         agent.connect(self.ipaddr, self.ipport)
         freq_watt_pts = freq_watt_data.copy()
 
         points = {'ai': {}, 'bi': {}}
-        false = False
-        true = True
-        null = None
+        false = False  # Don't remove - required for eval of read_outstation data
+        true = True  # Don't remove - required for eval of read_outstation data
+        null = None   # Don't remove - required for eval of read_outstation data
 
         for key, values in freq_watt_pts.items():
             keys1 = list(values.keys())
@@ -660,12 +789,12 @@ class DER1547(der1547.DER1547):
 
         return res
 
-    def set_freq_watt(self, params):
+    def set_freq_watt(self, params=None):
         """
         This information is used to update functional and mode settings for the
         Frequency-Active Power Mode. This information may be written.
         """
-        agent = device_der_dnp3.AgentClient(self.ipaddr, self.ipport)
+        agent = dnp3_agent.AgentClient(self.ipaddr, self.ipport)
         agent.connect(self.ipaddr, self.ipport)
         freq_watt_pts = {}
         point_name = []
@@ -764,13 +893,13 @@ class DER1547(der1547.DER1547):
         This information is used to update functional and mode settings for the
         Limit Maximum Active Power Mode. This information may be read.
         '''
-        agent = device_der_dnp3.AgentClient(self.ipaddr, self.ipport)
+        agent = dnp3_agent.AgentClient(self.ipaddr, self.ipport)
         agent.connect(self.ipaddr, self.ipport)
         limit_max_power_pts = limit_max_power_data.copy()
         points = {'ai': {}, 'bi': {}}
-        false = False
-        true = True
-        null = None
+        false = False  # Don't remove - required for eval of read_outstation data
+        true = True  # Don't remove - required for eval of read_outstation data
+        null = None   # Don't remove - required for eval of read_outstation data
 
         for key, values in limit_max_power_pts.items():
             keys1 = list(values.keys())
@@ -796,12 +925,12 @@ class DER1547(der1547.DER1547):
 
         return res
 
-    def set_limit_max_power(self, params):
+    def set_limit_max_power(self, params=None):
         '''
         This information is used to update functional and mode settings for the
         Limit Maximum Active Power Mode. This information may be written.
         '''
-        agent = device_der_dnp3.AgentClient(self.ipaddr, self.ipport)
+        agent = dnp3_agent.AgentClient(self.ipaddr, self.ipport)
         agent.connect(self.ipaddr, self.ipport)
         limit_max_power_pts = limit_max_power_write.copy()
         points = {'ao': {}, 'bo': {}}
@@ -866,14 +995,14 @@ class DER1547(der1547.DER1547):
         This information is used to update functional and mode settings for the
         Enter Service Mode. This information may be read.
         '''
-        agent = device_der_dnp3.AgentClient(self.ipaddr, self.ipport)
+        agent = dnp3_agent.AgentClient(self.ipaddr, self.ipport)
         agent.connect(self.ipaddr, self.ipport)
         enter_service_pts = enter_service_data.copy()
 
         points = {'ai': {}, 'bi': {}}
-        false = False
-        true = True
-        null = None
+        false = False  # Don't remove - required for eval of read_outstation data
+        true = True  # Don't remove - required for eval of read_outstation data
+        null = None   # Don't remove - required for eval of read_outstation data
 
         for key, values in enter_service_pts.items():
             keys1 = list(values.keys())
@@ -905,12 +1034,12 @@ class DER1547(der1547.DER1547):
 
         return res
 
-    def set_enter_service(self, params):
+    def set_enter_service(self, params=None):
         '''
         This information is used to update functional and mode settings for the
         Enter Service Mode. This information may be written.
         '''
-        agent = device_der_dnp3.AgentClient(self.ipaddr, self.ipport)
+        agent = dnp3_agent.AgentClient(self.ipaddr, self.ipport)
         agent.connect(self.ipaddr, self.ipport)
         enter_service_pts = enter_service_write.copy()
         points = {'ao': {}, 'bo': {}}
@@ -977,8 +1106,8 @@ class DER1547(der1547.DER1547):
     def get_watt_var(self):
         pass
 
-    def set_watt_var(self, params):
-        agent = device_der_dnp3.AgentClient(self.ipaddr, self.ipport)
+    def set_watt_var(self, params=None):
+        agent = dnp3_agent.AgentClient(self.ipaddr, self.ipport)
         agent.connect(self.ipaddr, self.ipport)
         point_name = []
         pt_value = []
@@ -1038,8 +1167,8 @@ class DER1547(der1547.DER1547):
 
         return points
 
-    def set_volt_watt(self, params):
-        agent = device_der_dnp3.AgentClient(self.ipaddr, self.ipport)
+    def set_volt_watt(self, params=None):
+        agent = dnp3_agent.AgentClient(self.ipaddr, self.ipport)
         agent.connect(self.ipaddr, self.ipport)
         point_name = []
         pt_value = []
@@ -1107,8 +1236,8 @@ class DER1547(der1547.DER1547):
 
         return points
 
-    def set_volt_trip(self, params):
-        agent = device_der_dnp3.AgentClient(self.ipaddr, self.ipport)
+    def set_volt_trip(self, params=None):
+        agent = dnp3_agent.AgentClient(self.ipaddr, self.ipport)
         agent.connect(self.ipaddr, self.ipport)
         point_name = []
         pt_value = []
@@ -1200,8 +1329,8 @@ class DER1547(der1547.DER1547):
 
         return points
 
-    def set_freq_trip(self, params):
-        agent = device_der_dnp3.AgentClient(self.ipaddr, self.ipport)
+    def set_freq_trip(self, params=None):
+        agent = dnp3_agent.AgentClient(self.ipaddr, self.ipport)
         agent.connect(self.ipaddr, self.ipport)
         point_name = []
         pt_value = []
@@ -1293,8 +1422,8 @@ class DER1547(der1547.DER1547):
 
         return points
 
-    def set_volt_cessation(self, params):
-        agent = device_der_dnp3.AgentClient(self.ipaddr, self.ipport)
+    def set_volt_cessation(self, params=None):
+        agent = dnp3_agent.AgentClient(self.ipaddr, self.ipport)
         agent.connect(self.ipaddr, self.ipport)
         point_name = []
         pt_value = []
@@ -1387,13 +1516,13 @@ class DER1547(der1547.DER1547):
         return points    
 
     def get_curve_settings(self):
-        agent = device_der_dnp3.AgentClient(self.ipaddr, self.ipport)
+        agent = dnp3_agent.AgentClient(self.ipaddr, self.ipport)
         agent.connect(self.ipaddr, self.ipport)
         curve_read_pts = curve_read.copy()
         points = {'ai': {}}
-        false = False
-        true = True
-        null = None
+        false = False  # Don't remove - required for eval of read_outstation data
+        true = True  # Don't remove - required for eval of read_outstation data
+        null = None   # Don't remove - required for eval of read_outstation data
 
         for key, values in curve_read_pts.items():
             keys1 = list(values.keys())
@@ -1559,4 +1688,12 @@ curve_read = {'curve_edit_selector': {'ai': {'328': None}},
               'curve_mode_type': {'ai': {'329': None}},
               'no_of_points': {'ai': {'330': None}},
               'x_value': {'ai': {'331': None}},
-              'y_value': {'ai': {'332': None}}}
+              'y_value': {'ai': {'332': None}},
+              'x1': {'ai': {'333': None}},
+              'y1': {'ai': {'334': None}},
+              'x2': {'ai': {'335': None}},
+              'y2': {'ai': {'336': None}},
+              'x3': {'ai': {'337': None}},
+              'y3': {'ai': {'338': None}},
+              'x4': {'ai': {'339': None}},
+              'y4': {'ai': {'340': None}}}

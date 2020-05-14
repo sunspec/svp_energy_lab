@@ -46,24 +46,36 @@ typhoon_info = {
     'mode': 'Typhoon'
 }
 
+
 def hil_info():
     return typhoon_info
 
-def params(info):
-    info.param_add_value('hil.mode', typhoon_info['mode'])
-    info.param_group('hil.typhoon', label='Typhoon Parameters',
-                     active='hil.mode',  active_value=['Typhoon'], glob=True)
-    info.param('hil.typhoon.auto_config', label='Configure HIL at beginning of test', default='Disabled',
-               values=['Enabled', 'Disabled'])
-    info.param('hil.typhoon.eut_nominal_voltage', label='EUT nameplate voltage (V)', default=230.0)
-    info.param('hil.typhoon.eut_nominal_frequency', label='EUT nominal frequency (Hz)', default=50.0)
 
-    info.param('hil.typhoon.model_name', label='Model file name (.tse)', default=r"ASGC_Closed_loop_full_model.tse")
-    info.param('hil.typhoon.setting_name', label='Settings file name (.runx)', default=r"ASGC_full_settings.runx")
-    info.param('hil.typhoon.hil_working_dir', label='Absolute path of working directory where the .tse and the .runx are located',
+def params(info, group_name=None):
+    gname = lambda name: group_name + '.' + name
+    pname = lambda name: group_name + '.' + GROUP_NAME + '.' + name
+    mode = typhoon_info['mode']
+
+    info.param_add_value('hil.mode', typhoon_info['mode'])
+    info.param_group(gname(GROUP_NAME), label='%s Parameters' % mode, active=gname('mode'),
+                     active_value=mode, glob=True)
+    info.param(pname('auto_config'), label='Configure HIL at beginning of test', default='Disabled',
+               values=['Enabled', 'Disabled'])
+    info.param(pname('eut_nominal_voltage'), label='EUT nameplate voltage (V)', default=230.0)
+    info.param(pname('eut_nominal_frequency'), label='EUT nominal frequency (Hz)', default=50.0)
+
+    info.param(pname('model_name'), label='Model file name (.tse)',
+               default=r"ASGC_Closed_loop_full_model.tse")
+    info.param(pname('setting_name'), label='Settings file name (.runx)',
+               default=r"ASGC_full_settings.runx")
+    info.param(pname('hil_working_dir'),
+               label='Absolute path of working directory where the .tse and the .runx are located',
                default=r"c:/Users/Public/TyphoonHIL/ModelA")
 
     info.param('hil.typhoon.debug', label='Debug level of HIL API', default=0)
+
+
+GROUP_NAME = 'typhoon'
 
 
 class HIL(hil.HIL):
