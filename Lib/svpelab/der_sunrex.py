@@ -2,7 +2,6 @@
 import os
 import der
 import sunspec.core.client as client
-import svp.script as script
 import socket
 
 sunrex_info = {

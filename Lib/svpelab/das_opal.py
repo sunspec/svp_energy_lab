@@ -55,6 +55,8 @@ class DAS(das.DAS):
         self.params['wfm_dir'] = self._param_value('wfm_dir')
         self.params['wfm_chan_list'] = self._param_value('wfm_chan_list')
         self.params['data_name'] = self._param_value('data_name')
+        if self.hil is None:
+            ts.log_warning('No HIL support interface was provided to das_opal.py')
         self.params['hil'] = self.hil
         self.params['gridsim'] = self.gridsim
         self.params['dc_measurement_device'] = self.dc_measurement_device
