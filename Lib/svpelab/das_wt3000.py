@@ -32,8 +32,8 @@ Questions can be directed to support@sunspec.org
 
 import os
 
-import device_wt3000
-import das
+from . import device_wt3000
+from . import das
 
 wt3000_info = {
     'name': os.path.splitext(os.path.basename(__file__))[0],

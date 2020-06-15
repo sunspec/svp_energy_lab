@@ -185,12 +185,12 @@ class DeweNetController(object):
         self._logger.info(
             "Available Channels {}".format(
                 [ch_info.name for ch_info in
-                 self._client.available_channels.values()]))
+                 list(self._client.available_channels.values())]))
 
         if not list_of_channels:
             # use all available channels if no definition is given in the args
             list_of_channels = [ch_info.name for ch_info in
-                                self._client.available_channels.values()]
+                                list(self._client.available_channels.values())]
 
         for element in list_of_channels:
             if element in self._client.available_channels:
@@ -199,9 +199,9 @@ class DeweNetController(object):
                 self._channels[element] = {'ch': channel,
                                            'handlers': list()}
 
-        self._logger.info("Watch Channels: {}".format(self._channels.keys()))
+        self._logger.info("Watch Channels: {}".format(list(self._channels.keys())))
 
-        list_server_channels = [ch['ch'] for ch in self._channels.values()]
+        list_server_channels = [ch['ch'] for ch in list(self._channels.values())]
         self._logger.info(
             "Start DeweNetControllerServer ({})".format(client_server_port))
         self._server = DeweNetControllerServer(list_server_channels,
@@ -226,7 +226,7 @@ class DeweNetController(object):
                 raise
 
         self._server.samplerate = self.samplerate
-        channel_list = [ch for ch in self._channels.keys()]
+        channel_list = [ch for ch in list(self._channels.keys())]
         time.sleep(0.2)
         self._client.dewe_init_start_transfer(client_server_port, channel_list)
 
@@ -332,7 +332,7 @@ class DeweNetController(object):
         """
 
         if not channels:
-            channels = self._channels.keys()
+            channels = list(self._channels.keys())
         for channel in channels:
             if channel in self._channels:
                 self._channels[channel]['handlers'].append(function)
@@ -355,4 +355,4 @@ class DeweNetController(object):
         Returns
             list: list of str containing the names of all watched channels.
         """
-        return self._channels.keys()
+        return list(self._channels.keys())

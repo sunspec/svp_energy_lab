@@ -31,8 +31,8 @@ Questions can be directed to support@sunspec.org
 """
 
 import os
-import loadsim
-import device_loadsim_icselect_8064 as icselect
+from . import loadsim
+from . import device_loadsim_icselect_8064 as icselect
 import csv
 import time
 
@@ -79,7 +79,7 @@ def params(info, group_name=None):
                active_value=['Static'])
 
     info.param(pname('csv'), label='CSV string for load profile [time, R, L, C]:',
-               default='C:\Users\detldaq\Downloads\Load_test.csv', active=pname('mode'), active_value=['Read CSV'])
+               default='C:\\Users\detldaq\Downloads\Load_test.csv', active=pname('mode'), active_value=['Read CSV'])
 
 
 GROUP_NAME = 'icselect'
@@ -265,8 +265,8 @@ class LoadSim(loadsim.LoadSim):
                             self.q_c.append(float(row[3]))
                         else:
                             self.q_c.append(0)
-                    except Exception, e:
-                        print('Not an numerical entry...skipping data for row %s. Error: %s' % (row, e))
+                    except Exception as e:
+                        print(('Not an numerical entry...skipping data for row %s. Error: %s' % (row, e)))
 
         self.ts.log_debug('time = %s, power = %s, q_l = %s, q_c = %s' % (self.time, self.power, self.q_l, self.q_c))
 

@@ -31,21 +31,21 @@ Questions can be directed to support@sunspec.org
 """
 
 import os
-import der
+from . import der
 import math
 
 try:
     import requests
-except Exception, e:
-    print 'Missing requests package'
+except Exception as e:
+    print('Missing requests package')
 try:
     import json
-except Exception, e:
-    print 'Missing json package'
+except Exception as e:
+    print('Missing json package')
 try:
-    import urllib2
-except Exception, e:
-    print 'Missing urllib2 package'
+    import urllib.request, urllib.error, urllib.parse
+except Exception as e:
+    print('Missing urllib2 package')
 epri_info = {
     'name': os.path.splitext(os.path.basename(__file__))[0],
     'mode': 'EPRI'
@@ -133,7 +133,7 @@ class DER(der.DER):
             params = {}
             params['Manufacturer'] = 'EPRI'
             params['Model'] = "PV Simulator"
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -148,8 +148,8 @@ class DER(der.DER):
 
         try:
             params = {}
-            req = urllib2.Request(self.server_address)
-            resp = urllib2.urlopen(req, timeout=0.5)
+            req = urllib.request.Request(self.server_address)
+            resp = urllib.request.urlopen(req, timeout=0.5)
             r = resp.read()
             if len(r) > 0:
                 data = json.loads(r)
@@ -162,9 +162,9 @@ class DER(der.DER):
                 try:
                     params['VA'] = math.sqrt(params['W']**2 + params['VAr']**2)
                     # self.ts.log_debug('%s Watts, %s Vars, %s VA' % (params['W'], params['VAr'], params['VA']))
-                except Exception, e:
+                except Exception as e:
                     params['VA'] = None
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -296,7 +296,7 @@ class DER(der.DER):
 if __name__ == "__main__":
 
     import os
-    import httplib
+    import http.client
     import json
     import requests
 
@@ -312,7 +312,7 @@ if __name__ == "__main__":
     }
 
     response = requests.post('http://localhost:8000', json=comm_start_cmd)
-    print('Data Posted! statusMessage: %s' % response.json()['statusMessage'])
+    print(('Data Posted! statusMessage: %s' % response.json()['statusMessage']))
 
     pf_cmd = {"namespace": "der",
               "function": "configurePowerFactor",
@@ -329,7 +329,7 @@ if __name__ == "__main__":
 
     print('Setting new PF...')
     response = requests.post('http://localhost:8000', json=pf_cmd)
-    print('Data Posted! statusMessage: %s' % response.json()['statusMessage'])
+    print(('Data Posted! statusMessage: %s' % response.json()['statusMessage']))
 
     pf_enable_cmd = {"namespace": "der",
                      "function": "powerFactor",
@@ -342,5 +342,5 @@ if __name__ == "__main__":
 
     print('Enabling new PF...')
     response = requests.post('http://localhost:8000', json=pf_enable_cmd)
-    print('Data Posted! statusMessage: %s' % response.json()['statusMessage'])
+    print(('Data Posted! statusMessage: %s' % response.json()['statusMessage']))
 

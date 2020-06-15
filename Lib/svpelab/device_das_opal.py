@@ -8,15 +8,15 @@ Questions can be directed to support@sunspec.org
 import time
 import traceback
 import glob
-import waveform
-import dataset
+from . import waveform
+from . import dataset
 import sys
 import os
 try:
     sys.path.insert(0, "C://OPAL-RT//RT-LAB//2019.1//common//python")
     import RtlabApi
-except Exception, e:
-    print('Opal RT-Lab API not installed. %s' % e)
+except Exception as e:
+    print(('Opal RT-Lab API not installed. %s' % e))
 
 # data_points = [  # 3 phase
 #     'TIME',
@@ -226,7 +226,7 @@ class Device(object):
         # delete the old data file
         try:
             os.remove(self.csv_location)
-        except Exception, e:
+        except Exception as e:
             # self.ts.log_warning('Could not delete old data file at %s: %s' % (self.csv_location, e))
             pass
 
@@ -272,7 +272,7 @@ class Device(object):
                 #     self.ts.log_debug('The DC measurements are %s' % dc_meas)
                 # else:
                 #     print('The DC measurements are %s' % dc_meas)
-            except Exception, e:
+            except Exception as e:
                 self.ts.log_debug('Could not get data from DC Measurement Object. %s' % e)
 
         try:
@@ -316,7 +316,7 @@ class Device(object):
                 else:
                     data.append(None)
 
-        except Exception, e:
+        except Exception as e:
             self.ts.log_debug('Could not get data. Simulation likely completed. Error: %s' % e)
             # self.ts.log_warning('self.data_points = %s.  Writing all Nones.' % self.data_points)
             # self.ts.log_warning('self.data_points = %s.  Writing all Nones.' % self.data_points_device)
@@ -478,7 +478,7 @@ class Device(object):
         try:
             result = RtlabApi.ExecuteMatlabCmd(cmd)
             return result
-        except Exception, e:
+        except Exception as e:
             self.ts.log_warning('Cannot execute Matlab command: %s' % e)
             return MatlabException(e)
 
@@ -501,27 +501,27 @@ if __name__ == "__main__":
 
     system_info = RtlabApi.GetTargetNodeSystemInfo("Target_3")
     for i in range(len(system_info)):
-        print(system_info[i])
-    print("OPAL-RT - Platform version {0} (IP address : {1})".format(system_info[1], system_info[6]))
+        print((system_info[i]))
+    print(("OPAL-RT - Platform version {0} (IP address : {1})".format(system_info[1], system_info[6])))
 
     # Pull in saved data from the .mat files
     print('Loading file in matlab...')
     m_cmd = "load('C:\\Users\\DETLDAQ\\OPAL-RT\\RT-LABv2019.1_Workspace\\IEEE_1547.1_Phase_Jump\\models\\" \
             "Phase_Jump_A_B_A\\phase_jump_a_b_a_sm_source\\OpREDHAWKtarget\\SVP_Data.mat')"
-    print(RtlabApi.ExecuteMatlabCmd(m_cmd))
+    print((RtlabApi.ExecuteMatlabCmd(m_cmd)))
 
     print('Adding Data Header')
     m_cmd = "header = {" + str(wfm_channels)[1:-1] + "};"
     print(m_cmd)
-    print(RtlabApi.ExecuteMatlabCmd(m_cmd))
-    print(RtlabApi.ExecuteMatlabCmd("[x, y] = size(Data);"))
-    print(RtlabApi.ExecuteMatlabCmd("data_w_header = cell(y+1,x);"))
-    print(RtlabApi.ExecuteMatlabCmd("data_w_header(1,:) = header;"))
-    print(RtlabApi.ExecuteMatlabCmd("data_w_header(2:y+1,:) = num2cell(Data');"))
+    print((RtlabApi.ExecuteMatlabCmd(m_cmd)))
+    print((RtlabApi.ExecuteMatlabCmd("[x, y] = size(Data);")))
+    print((RtlabApi.ExecuteMatlabCmd("data_w_header = cell(y+1,x);")))
+    print((RtlabApi.ExecuteMatlabCmd("data_w_header(1,:) = header;")))
+    print((RtlabApi.ExecuteMatlabCmd("data_w_header(2:y+1,:) = num2cell(Data');")))
 
     csv_location = 'C:\\Users\\DETLDAQ\\OPAL-RT\\RT-LABv2019.1_Workspace\\IEEE_1547.1_Phase_Jump\\models\\' \
             'Phase_Jump_A_B_A\\phase_jump_a_b_a_sm_source\\OpREDHAWKtarget\\Results.csv'
-    print('Saving the waveform data as .csv file in %s' % csv_location)
+    print(('Saving the waveform data as .csv file in %s' % csv_location))
     # m_cmd = "csvwrite(('" + csv_location + "'), data_w_header)"
     # print(m_cmd)
     # RtlabApi.ExecuteMatlabCmd(m_cmd)
@@ -535,12 +535,12 @@ if __name__ == "__main__":
     m_cmd += "fclose(fid);\n"
     m_cmd += "end\n"
     print(m_cmd)
-    print('Matlab: ' + RtlabApi.ExecuteMatlabCmd(m_cmd))
+    print(('Matlab: ' + RtlabApi.ExecuteMatlabCmd(m_cmd)))
 
     ds = dataset.Dataset()
     ds.from_csv(filename=csv_location)
-    print(ds.data)
-    print(ds.points)
+    print((ds.data))
+    print((ds.points))
 
     # import csv
     # time_data = []

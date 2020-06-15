@@ -3,8 +3,8 @@ import os
 import time
 import serial
 import socket
-import gridsim
-import grid_profiles
+from . import gridsim
+from . import grid_profiles
 
 sunrex_info = {
     'name': os.path.splitext(os.path.basename(__file__))[0],
@@ -93,7 +93,7 @@ class GridSim(gridsim.GridSim):
 
             # print 'cmd> %s' % (cmd_str)
             self.conn.send(cmd_str)
-        except Exception, e:
+        except Exception as e:
             raise gridsim.GridSimError(str(e))
 
     def query_tcp(self, cmd_str):
@@ -111,7 +111,7 @@ class GridSim(gridsim.GridSim):
                         if d == '\n': #\r
                             more_data = False
                             break
-            except Exception, e:
+            except Exception as e:
                 raise gridsim.GridSimError('Timeout waiting for response')
 
         return resp
@@ -120,13 +120,13 @@ class GridSim(gridsim.GridSim):
         self.cmd_str = cmd_str
         try:
             self._cmd(cmd_str)
-        except Exception, e:
+        except Exception as e:
             raise gridsim.GridSimError(str(e))
 
     def query(self, cmd_str):
         try:
             resp = self._query(cmd_str).strip()
-        except Exception, e:
+        except Exception as e:
             raise gridsim.GridSimError(str(e))
         return resp
 
@@ -168,9 +168,9 @@ class GridSim(gridsim.GridSim):
         return state
 
     def cmd_run(self):
-	relay = self.query(':AC:STAT:READ?\n').strip()
-      	if relay == ':AC:STAT:READ 1':
-        	self.cmd(':AC:CONT:RUN 1')
+        relay = self.query(':AC:STAT:READ?\n').strip()
+        if relay == ':AC:STAT:READ 1':
+            self.cmd(':AC:CONT:RUN 1')
 
     def cmd_stop(self):
         self.cmd(':AC:CONT:RUN 0')
@@ -194,6 +194,7 @@ class GridSim(gridsim.GridSim):
                 v1 = voltage[0]
                 v2 = voltage[0]
                 v3 = voltage[0]
+
 
 if __name__ == "__main__":
     pass

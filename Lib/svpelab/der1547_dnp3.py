@@ -3,10 +3,11 @@ DER1547 methods defined for the DNP3 devices
 '''
 
 import os
-import der1547
+from . import der1547
 import svpdnp3.device_der_dnp3 as dnp3_agent
 import subprocess
 import socket
+import subprocess
 
 dnp3_info = {
     'name': os.path.splitext(os.path.basename(__file__))[0],
@@ -25,6 +26,22 @@ def params(info, group_name):
     info.param_add_value(gname('mode'), mode)
     info.param_group(gname(GROUP_NAME), label='%s Parameters' % mode,
                      active=gname('mode'), active_value=mode, glob=True)
+    info.param(pname('simulated_outstation'), label='Simulated Outstation?', default='Yes', values=['Yes', 'No'])
+    info.param(pname('sim_type'), label='Type of DER Simulation?', default='EPRI DER Simulator',
+               values=['EPRI DER Simulator'], active=pname('simulated_outstation'), active_value='Yes')
+    info.param(pname('auto_config'), label='Automate Configuration?', default='Yes',
+               values=['Yes', 'No'], active=pname('simulated_outstation'), active_value='Yes')
+    info.param(pname('dbus_ena'), label='Enable DBus?', default='No', values=['Yes', 'No'],
+               active=pname('sim_type'), active_value='EPRI DER Simulator')
+    info.param(pname('path_to_dbus'), label='Path to DBUS_CMD.exe',
+               default=r'C:\Users\DETLDAQ\Desktop\EPRISimulator\Setup\DBUS_CMD.exe',
+               active=pname('dbus_ena'), active_value='Yes')
+    info.param(pname('path_to_py'), label='Path to SimController.py',
+               default=r'C:\Users\DETLDAQ\Desktop\EPRISimulator\Setup\SimController.py',
+               active=pname('sim_type'), active_value='EPRI DER Simulator')
+    info.param(pname('path_to_exe'), label='Path to DBUS_CMD.exe',
+               default=r'C:\Users\DETLDAQ\Desktop\EPRISimulator\Setup\epri-der-sim-0.1.0.6\epri-der-sim-0.1.0.6\DERSimulator.exe',
+               active=pname('sim_type'), active_value='EPRI DER Simulator')
     info.param(pname('ipaddr'), label='Agent IP Address', default='127.0.0.1')
     info.param(pname('ipport'), label='Agent IP Port', default=10000)
     info.param(pname('out_ipaddr'), label='Outstation IP Address', default='127.0.0.1')
@@ -43,6 +60,10 @@ class DER1547(der1547.DER1547):
     def __init__(self, ts, group_name):
         der1547.DER1547.__init__(self, ts, group_name)
         self.outstation = None
+        self.simulated_outstation = self.param_value('simulated_outstation')
+        if self.simulated_outstation == 'Yes':
+            self.sim_type = self.param_value('sim_type')
+            self.auto_config = self.param_value('auto_config')
         self.ipaddr = self.param_value('ipaddr')
         self.ipport = self.param_value('ipport')
         self.out_ipaddr = self.param_value('out_ipaddr')
@@ -61,6 +82,73 @@ class DER1547(der1547.DER1547):
         self.ts.log('Adding outstation: %s' % self.add_out())
         self.ts.log('DNP3 Agent Status: %s' % self.status())
 
+        if self.simulated_outstation == 'Yes':
+            if self.sim_type == 'EPRI DER Simulator':
+                from pywinauto.application import Application
+
+                # Configure EPRI DER Simulator
+                self.ts.log('Running EPRI DER Simulator Setup.  Please wait...')
+                if self.param_value('dbus_ena') == 'Yes':
+                    os.system(r'start cmd /k "' + self.param_value('path_to_dbus') + '"')
+                    self.ts.sleep(1)
+                    # This currently runs in Python 2.7
+                    os.system(r'start cmd /k C:\Python27\python.exe "' + self.param_value('path_to_py') + '"')
+                    self.ts.sleep(1)
+
+
+                try:
+                    # connect to DER Simulator app for control
+                    app = Application(backend="uia").connect(title_re="DER Simulator")
+                except Exception as e:
+                    self.ts.log('Starting DER Simulator')
+                    der_sim_start_cmd = r'start cmd /k "' + self.param_value('path_to_exe') + '"'
+                    self.ts.log_debug('Using: %s' % der_sim_start_cmd)
+                    os.system(der_sim_start_cmd)
+                    # sleep 10 seconds to wait for DER Simulator to start
+                    self.ts.sleep(10)
+                    self.ts.log('Connecting to DER Simulator')
+                    app = Application(backend="uia").connect(title_re="DER Simulator")
+
+                ''' Connect to DNP3 Master'''
+                self.ts.log('Clicking DERMS')
+                app['DER Simulator'].DERMS.click()  # click the DERMS button
+
+                ''' To create irradiance profile
+                self.ts.log('Clicking ENV')
+                app['DER Simulator'].ENV.click()  # click into ENV button
+                self.ts.log('Browsing to File')
+                app['Environment Settings'].Browse.click()  # click Browse button
+                # add csv file to File name: edit box; assumes this file will be local to Browse button default location
+                self.ts.log('Entering File Name')
+                app['Environment Settings'].Open.child_window(title="File name:", control_type="Edit").set_edit_text(
+                    r'EKHIV3_1PVSim1MIN.csv')
+                self.ts.log('Confirming File Name')
+                app['Environment Settings'].Open.OpenButton3.click()
+                # check if Frequency and Voltage buttons are checked; if so, uncheck
+                self.ts.log('Unchecking Freq Toggle')
+                if app['Environment Settings'].Frequency.get_toggle_state():
+                    app['Environment Settings'].Frequency.toggle()
+                    self.ts.log('Unchecking Voltage Toggle')
+                if app['Environment Settings'].Voltage.get_toggle_state():
+                    app['Environment Settings'].Voltage.toggle()
+                self.ts.log('Clicking csv file import and closing')
+                app['Environment Settings'].Import.click()  # import the CSV and close the dialog
+                app['Environment Settings'].Close.click()  # import the CSV and close the dialog
+                '''
+
+                '''DBus connection for HIL environments
+                self.ts.log('Clicking Co-Sim button')
+                app['DER Simulator']['Co-Sim'].click()
+                # set number of components to 3 and start DBus Client
+                self.ts.log('Setting DBus Components to 3')
+                app['DBus Settings']['Number of ComponentsEdit'].set_edit_text(r'3')
+                self.ts.log('Starting DBus')
+                app['DBus Settings']['Start DBus\r\nClientButton'].click()
+                self.ts.log('Closing DBus')
+                app['DBus Settings'].Close.click()
+                '''
+
+
     def add_out(self):
         agent = dnp3_agent.AgentClient(self.ipaddr, self.ipport)
         agent.connect(self.ipaddr, self.ipport)
@@ -77,7 +165,7 @@ class DER1547(der1547.DER1547):
         agent = dnp3_agent.AgentClient(self.ipaddr, self.ipport)
         try:
             agent.connect(self.ipaddr, self.ipport)
-        except Exception, e:
+        except Exception as e:
             self.ts.log_warning('Agent Status Error: %s' % e)
             return 'No Agent'
         agent_stat = agent.status(self.rid)
@@ -112,6 +200,7 @@ class DER1547(der1547.DER1547):
             running = False
 
         if not running:
+            self.ts.log('dnp3_agent is not running - attempting to start agent in new cmd window')
             file_path = os.path.abspath(__file__ + '\\..\\..\\svpdnp3\\dnp3_agent.exe')
             self.ts.log_debug('file_path: %s' % file_path)
             in_new_window = True
@@ -150,7 +239,7 @@ class DER1547(der1547.DER1547):
         false = False  # Don't remove - required for eval of read_outstation data
         true = True  # Don't remove - required for eval of read_outstation data
         null = None   # Don't remove - required for eval of read_outstation data
-        for key, values in nameplate_pts.items():
+        for key, values in list(nameplate_pts.items()):
             key1 = list(values.keys())  # (ai and np_support...)
             val1 = list(values.values())  # (points for ai and '{'bi': {'31': None}}' for bi)
             for i in val1:
@@ -161,7 +250,7 @@ class DER1547(der1547.DER1547):
                         if x == 'ai':
                             points['ai'][y] = None
 
-        for key, values in nameplate_sprt_pts.items():
+        for key, values in list(nameplate_sprt_pts.items()):
             keys1 = list(values.keys())  # (ai and np_support...)
             val = list(values.values())  # (points for ai and '{'bi': {'31': None}}' for bi)
             for i in val:
@@ -178,7 +267,7 @@ class DER1547(der1547.DER1547):
         # self.ts.log_debug('nameplate_read %s' % nameplate_read)
 
         res = eval(nameplate_read[1:-1])
-        if 'params' in res.keys():
+        if 'params' in list(res.keys()):
             resp = res['params']
             nameplate_pts['np_active_power_rtg'] = resp['ai']['4']['value']
             nameplate_pts['np_active_power_rtg_over_excited'] = resp['ai']['6']['value']
@@ -242,7 +331,7 @@ class DER1547(der1547.DER1547):
         null = None   # Don't remove - required for eval of read_outstation data
         # Creating a points dictionary of format:
         # {'ai': {'PT1': None, 'PT2': None}, 'bi': {'PT3': None}} for the read func.
-        for key, values in monitoring_pts.items():
+        for key, values in list(monitoring_pts.items()):
             keys1 = list(values.keys())
             val = list(values.values())
             for i in val:
@@ -252,7 +341,7 @@ class DER1547(der1547.DER1547):
                         if x == 'ai':
                             points['ai'][y] = None
 
-        for key, values in operational_pts.items():
+        for key, values in list(operational_pts.items()):
             keys1 = list(values.keys())
             val = list(values.values())
             for i in val:
@@ -262,7 +351,7 @@ class DER1547(der1547.DER1547):
                         if x == 'bi':
                             points['bi'][y] = None
 
-        for key, values in connection_pts.items():
+        for key, values in list(connection_pts.items()):
             keys1 = list(values.keys())
             val = list(values.values())
             for i in val:
@@ -272,7 +361,7 @@ class DER1547(der1547.DER1547):
                         if x == 'bi':
                             points['bi'][y] = None
 
-        for key, values in alarm_pts.items():
+        for key, values in list(alarm_pts.items()):
             keys1 = list(values.keys())
             val = list(values.values())
             for i in val:
@@ -285,7 +374,7 @@ class DER1547(der1547.DER1547):
         monitoring_read = agent.read_outstation(self.oid, self.rid, points)
         res = eval(monitoring_read[1:-1])
         # Reassembling the read response to make it easy to read
-        if 'params' in res.keys():
+        if 'params' in list(res.keys()):
             resp = res['params']
             monitoring_pts['mn_active_power'] = resp['ai']['537']['value']
             monitoring_pts['mn_reactive_power'] = resp['ai']['541']['value']
@@ -338,7 +427,7 @@ class DER1547(der1547.DER1547):
         true = True  # Don't remove - required for eval of read_outstation data
         null = None   # Don't remove - required for eval of read_outstation data
 
-        for key, values in fixed_pf_pts.items():
+        for key, values in list(fixed_pf_pts.items()):
             keys1 = list(values.keys())
             val = list(values.values())
             for i in val:
@@ -354,7 +443,7 @@ class DER1547(der1547.DER1547):
 
         fixed_pf_read = agent.read_outstation(self.oid, self.rid, points)
         res = eval(fixed_pf_read[1:-1])
-        if 'params' in res.keys():
+        if 'params' in list(res.keys()):
             resp = res['params']
 
             # Writing the point values and flags in the fixed_pf dictionary for response
@@ -376,7 +465,7 @@ class DER1547(der1547.DER1547):
         point_name = []
         pt_value = []
 
-        for key, value in params.items():
+        for key, value in list(params.items()):
             point_name.append(key)
             pt_value.append(value)
 
@@ -412,9 +501,9 @@ class DER1547(der1547.DER1547):
         res['params']['points']['bo']['10'] = res1['params']['points']['bo']['10']
         res['params']['points']['bo']['28'] = res2['params']['points']['bo']['28']
 
-        if 'params' in res.keys():
+        if 'params' in list(res.keys()):
             resp = res['params']['points']
-            if 'bo' in resp.keys():
+            if 'bo' in list(resp.keys()):
                 if '28' in resp['bo']:
                     fixed_pf_pts['pf_enable'] = resp['bo']['28']
                 else:
@@ -423,7 +512,7 @@ class DER1547(der1547.DER1547):
                     fixed_pf_pts['pf_excitation'] = resp['bo']['10']
                 else:
                     fixed_pf_pts['pf_excitation'] = {'status': 'Not Written'}
-            if 'ao' in resp.keys():
+            if 'ao' in list(resp.keys()):
                 if '210' in resp['ao']:
                     fixed_pf_pts['pf'] = resp['ao']['210']
                 else:
@@ -448,7 +537,7 @@ class DER1547(der1547.DER1547):
         true = True  # Don't remove - required for eval of read_outstation data
         null = None   # Don't remove - required for eval of read_outstation data
 
-        for key, values in volt_var_pts.items():
+        for key, values in list(volt_var_pts.items()):
             keys1 = list(values.keys())
             val = list(values.values())
             for i in val:
@@ -464,7 +553,7 @@ class DER1547(der1547.DER1547):
 
         volt_var_read = agent.read_outstation(self.oid, self.rid, points)
         res = eval(volt_var_read[1:-1])
-        if 'params' in res.keys():
+        if 'params' in list(res.keys()):
             resp = res['params']
             params = {}
             params['vv_enable'] = resp['bi']['81']['value']
@@ -549,7 +638,7 @@ class DER1547(der1547.DER1547):
         point_name = []
         pt_value = []
 
-        for key, value in params.items():
+        for key, value in list(params.items()):
             point_name.append(key)
             pt_value.append(value)
 
@@ -631,13 +720,13 @@ class DER1547(der1547.DER1547):
         res1 = eval(curve_write_v[1:-1])
         res2 = eval(curve_write_q[1:-1])
 
-        if 'params' in res1.keys():
+        if 'params' in list(res1.keys()):
             resp1 = res1['params']['points']
             v_key = list(points_v['ao'].keys())
             for i in range(0, no_points):
                 points['V-Point%s' % str(i + 1)] = resp1['ao'][v_key[i]]
 
-        if 'params' in res2.keys():
+        if 'params' in list(res2.keys()):
             resp2 = res2['params']['points']
             q_key = list(points_q['ao'].keys())
             for i in range(0, no_points):
@@ -659,7 +748,7 @@ class DER1547(der1547.DER1547):
         true = True  # Don't remove - required for eval of read_outstation data
         null = None   # Don't remove - required for eval of read_outstation data
 
-        for key, values in reactive_power_pts.items():
+        for key, values in list(reactive_power_pts.items()):
             keys1 = list(values.keys())
             val = list(values.values())
             for i in val:
@@ -675,7 +764,7 @@ class DER1547(der1547.DER1547):
 
         reactive_power_read = agent.read_outstation(self.oid, self.rid, points)
         res = eval(reactive_power_read[1:-1])
-        if 'params' in res.keys():
+        if 'params' in list(res.keys()):
             resp = res['params']
             reactive_power_pts['var_enable'] = resp['bi']['79']['value']
             reactive_power_pts['var'] = resp['ai']['281']['value']
@@ -695,7 +784,7 @@ class DER1547(der1547.DER1547):
         point_name = []
         pt_value = []
 
-        for key, value in params.items():
+        for key, value in list(params.items()):
             point_name.append(key)
             pt_value.append(value)
 
@@ -731,14 +820,14 @@ class DER1547(der1547.DER1547):
         res['params']['points']['ao']['203'] = res1['params']['points']['ao']['203']
         res['params']['points']['bo']['27'] = res2['params']['points']['bo']['27']
 
-        if 'params' in res.keys():
+        if 'params' in list(res.keys()):
             resp = res['params']['points']
-            if 'bo' in resp.keys():
+            if 'bo' in list(resp.keys()):
                 if '27' in resp['bo']:
                     reactive_power_pts['var_enable'] = resp['bo']['27']
                 else:
                     reactive_power_pts['var_enable'] = {'status': 'Not Written'}
-            if 'ao' in resp.keys():
+            if 'ao' in list(resp.keys()):
                 if '203' in resp['ao']:
                     reactive_power_pts['var'] = resp['ao']['203']
                 else:
@@ -762,7 +851,7 @@ class DER1547(der1547.DER1547):
         true = True  # Don't remove - required for eval of read_outstation data
         null = None   # Don't remove - required for eval of read_outstation data
 
-        for key, values in freq_watt_pts.items():
+        for key, values in list(freq_watt_pts.items()):
             keys1 = list(values.keys())
             val = list(values.values())
             for i in val:
@@ -778,7 +867,7 @@ class DER1547(der1547.DER1547):
 
         freq_watt_read = agent.read_outstation(self.oid, self.rid, points)
         res = eval(freq_watt_read[1:-1])
-        if 'params' in res.keys():
+        if 'params' in list(res.keys()):
             resp = res['params']
             freq_watt_pts['fw_dbof'] = resp['ai']['121']['value']
             freq_watt_pts['fw_dbuf'] = resp['ai']['125']['value']
@@ -800,7 +889,7 @@ class DER1547(der1547.DER1547):
         point_name = []
         pt_value = []
 
-        for key, value in params.items():
+        for key, value in list(params.items()):
             point_name.append(key)
             pt_value.append(value)
 
@@ -860,9 +949,9 @@ class DER1547(der1547.DER1547):
         res['params']['points']['ao']['72'] = res5['params']['points']['ao']['72']
         res['params']['points']['ao']['73'] = res5['params']['points']['ao']['73']
         res['params']['points']['bo']['26'] = res6['params']['points']['bo']['26']
-        if 'params' in res.keys():
+        if 'params' in list(res.keys()):
             resp = res['params']['points']
-            if 'ao' in resp.keys():
+            if 'ao' in list(resp.keys()):
                 if '62' in resp['ao']:
                     freq_watt_pts['fw_dbof'] = resp['ao']['62']
                 else:
@@ -901,7 +990,7 @@ class DER1547(der1547.DER1547):
         true = True  # Don't remove - required for eval of read_outstation data
         null = None   # Don't remove - required for eval of read_outstation data
 
-        for key, values in limit_max_power_pts.items():
+        for key, values in list(limit_max_power_pts.items()):
             keys1 = list(values.keys())
             val = list(values.values())
             for i in val:
@@ -917,7 +1006,7 @@ class DER1547(der1547.DER1547):
 
         limit_max_power_read = agent.read_outstation(self.oid, self.rid, points)
         res = eval(limit_max_power_read[1:-1])
-        if 'params' in res.keys():
+        if 'params' in list(res.keys()):
             resp = res['params']
             limit_max_power_pts['watt_enable'] = resp['bi']['69']['value']
             limit_max_power_pts['watt'] = resp['ai']['149']['value']
@@ -937,7 +1026,7 @@ class DER1547(der1547.DER1547):
         point_name = []
         pt_value = []
 
-        for key, value in params.items():
+        for key, value in list(params.items()):
             point_name.append(key)
             pt_value.append(value)
 
@@ -973,14 +1062,14 @@ class DER1547(der1547.DER1547):
         res['params']['points']['ao']['88'] = res1['params']['points']['ao']['88']
         res['params']['points']['bo']['17'] = res2['params']['points']['bo']['17']
 
-        if 'params' in res.keys():
+        if 'params' in list(res.keys()):
             resp = res['params']['points']
-            if 'bo' in resp.keys():
+            if 'bo' in list(resp.keys()):
                 if '17' in resp['bo']:
                     limit_max_power_pts['watt_enable'] = resp['bo']['17']
                 else:
                     limit_max_power_pts['watt_enable'] = {'status': 'Not Written'}
-            if 'ao' in resp.keys():
+            if 'ao' in list(resp.keys()):
                 if '88' in resp['ao']:
                     limit_max_power_pts['watt'] = resp['ao']['88']
                 else:
@@ -1004,7 +1093,7 @@ class DER1547(der1547.DER1547):
         true = True  # Don't remove - required for eval of read_outstation data
         null = None   # Don't remove - required for eval of read_outstation data
 
-        for key, values in enter_service_pts.items():
+        for key, values in list(enter_service_pts.items()):
             keys1 = list(values.keys())
             val = list(values.values())
             for i in val:
@@ -1020,7 +1109,7 @@ class DER1547(der1547.DER1547):
 
         enter_service_read = agent.read_outstation(self.oid, self.rid, points)
         res = eval(enter_service_read[1:-1])
-        if 'params' in res.keys():
+        if 'params' in list(res.keys()):
             resp = res['params']
             enter_service_pts['es_permit_service'] = resp['bi']['16']['value']
             enter_service_pts['es_volt_high'] = resp['ai']['50']['value']
@@ -1046,7 +1135,7 @@ class DER1547(der1547.DER1547):
         point_name = []
         pt_value = []
 
-        for key, value in params.items():
+        for key, value in list(params.items()):
             point_name.append(key)
             pt_value.append(value)
 
@@ -1062,14 +1151,14 @@ class DER1547(der1547.DER1547):
         enter_service_w = agent.write_outstation(self.oid, self.rid, points)
         res = eval(enter_service_w[1:-1])
 
-        if 'params' in res.keys():
+        if 'params' in list(res.keys()):
             resp = res['params']['points']
-            if 'bo' in resp.keys():
+            if 'bo' in list(resp.keys()):
                 if '3' in resp['bo']:
                     enter_service_pts['es_permit_service'] = resp['bo']['3']
                 else:
                     enter_service_pts['es_permit_service'] = {'state': 'Not Written'}
-            if 'ao' in resp.keys():
+            if 'ao' in list(resp.keys()):
                 if '6' in resp['ao']:
                     enter_service_pts['es_volt_high'] = resp['ao']['6']
                 else:
@@ -1112,7 +1201,7 @@ class DER1547(der1547.DER1547):
         point_name = []
         pt_value = []
 
-        for key, value in params.items():
+        for key, value in list(params.items()):
             point_name.append(key)
             pt_value.append(value)
 
@@ -1153,13 +1242,13 @@ class DER1547(der1547.DER1547):
         # Writing the Watt-Var Enable
         watt_var_w = agent.write_outstation(self.oid, self.rid, enable_pt)
 
-        if 'params' in res1.keys():
+        if 'params' in list(res1.keys()):
             resp1 = res1['params']['points']
             p_key = list(points_p['ao'].keys())
             for i in range(0, no_points):
                 points['P-Point%s' % str(i + 1)] = resp1['ao'][p_key[i]]
 
-        if 'params' in res2.keys():
+        if 'params' in list(res2.keys()):
             resp2 = res2['params']['points']
             q_key = list(points_q['ao'].keys())
             for i in range(0, no_points):
@@ -1173,7 +1262,7 @@ class DER1547(der1547.DER1547):
         point_name = []
         pt_value = []
 
-        for key, value in params.items():
+        for key, value in list(params.items()):
             point_name.append(key)
             pt_value.append(value)
 
@@ -1222,13 +1311,13 @@ class DER1547(der1547.DER1547):
         # Writing the Volt-Watt Enable
         volt_watt_w = agent.write_outstation(self.oid, self.rid, enable_pt)
 
-        if 'params' in res1.keys():
+        if 'params' in list(res1.keys()):
             resp1 = res1['params']['points']
             v_key = list(points_v['ao'].keys())
             for i in range(0, no_points):
                 points['V-Point%s' % str(i + 1)] = resp1['ao'][v_key[i]]
 
-        if 'params' in res2.keys():
+        if 'params' in list(res2.keys()):
             resp2 = res2['params']['points']
             p_key = list(points_p['ao'].keys())
             for i in range(0, no_points):
@@ -1242,7 +1331,7 @@ class DER1547(der1547.DER1547):
         point_name = []
         pt_value = []
 
-        for key, value in params.items():
+        for key, value in list(params.items()):
             point_name.append(key)
             pt_value.append(value)
 
@@ -1303,25 +1392,25 @@ class DER1547(der1547.DER1547):
         # Writing the HV Trip Enable
         vrt_w = agent.write_outstation(self.oid, self.rid, enable_pt)
 
-        if 'params' in res1.keys():
+        if 'params' in list(res1.keys()):
             resp1 = res1['params']['points']
             ht_key = list(points_ht['ao'].keys())
             for i in range(0, no_points_hv):
                 points['HT-Point%s' % str(i + 1)] = resp1['ao'][ht_key[i]]
 
-        if 'params' in res2.keys():
+        if 'params' in list(res2.keys()):
             resp2 = res2['params']['points']
             hv_key = list(points_hv['ao'].keys())
             for i in range(0, no_points_hv):
                 points['HV-Point%s' % str(i + 1)] = resp2['ao'][hv_key[i]]
 
-        if 'params' in res3.keys():
+        if 'params' in list(res3.keys()):
             resp3 = res3['params']['points']
             lt_key = list(points_lt['ao'].keys())
             for i in range(0, no_points_lv):
                 points['LT-Point%s' % str(i + 1)] = resp3['ao'][lt_key[i]]
 
-        if 'params' in res4.keys():
+        if 'params' in list(res4.keys()):
             resp4 = res4['params']['points']
             lv_key = list(points_lv['ao'].keys())
             for i in range(0, no_points_lv):
@@ -1335,7 +1424,7 @@ class DER1547(der1547.DER1547):
         point_name = []
         pt_value = []
 
-        for key, value in params.items():
+        for key, value in list(params.items()):
             point_name.append(key)
             pt_value.append(value)
 
@@ -1396,25 +1485,25 @@ class DER1547(der1547.DER1547):
         # Writing the HV Trip Enable
         frt_w = agent.write_outstation(self.oid, self.rid, enable_pt)
 
-        if 'params' in res1.keys():
+        if 'params' in list(res1.keys()):
             resp1 = res1['params']['points']
             ht_key = list(points_ht['ao'].keys())
             for i in range(0, no_points_hf):
                 points['HT-Point%s' % str(i + 1)] = resp1['ao'][ht_key[i]]
 
-        if 'params' in res2.keys():
+        if 'params' in list(res2.keys()):
             resp2 = res2['params']['points']
             hf_key = list(points_hf['ao'].keys())
             for i in range(0, no_points_hf):
                 points['HF-Point%s' % str(i + 1)] = resp2['ao'][hf_key[i]]
 
-        if 'params' in res3.keys():
+        if 'params' in list(res3.keys()):
             resp3 = res3['params']['points']
             lt_key = list(points_lt['ao'].keys())
             for i in range(0, no_points_lf):
                 points['LT-Point%s' % str(i + 1)] = resp3['ao'][lt_key[i]]
 
-        if 'params' in res4.keys():
+        if 'params' in list(res4.keys()):
             resp4 = res4['params']['points']
             lf_key = list(points_lf['ao'].keys())
             for i in range(0, no_points_lf):
@@ -1428,7 +1517,7 @@ class DER1547(der1547.DER1547):
         point_name = []
         pt_value = []
 
-        for key, value in params.items():
+        for key, value in list(params.items()):
             point_name.append(key)
             pt_value.append(value)
 
@@ -1489,25 +1578,25 @@ class DER1547(der1547.DER1547):
         # Writing the HV Trip Enable
         vrt_w = agent.write_outstation(self.oid, self.rid, enable_pt)
 
-        if 'params' in res1.keys():
+        if 'params' in list(res1.keys()):
             resp1 = res1['params']['points']
             ht_key = list(points_ht['ao'].keys())
             for i in range(0, no_points_hv):
                 points['HT-Point%s' % str(i + 1)] = resp1['ao'][ht_key[i]]
 
-        if 'params' in res2.keys():
+        if 'params' in list(res2.keys()):
             resp2 = res2['params']['points']
             hv_key = list(points_hv['ao'].keys())
             for i in range(0, no_points_hv):
                 points['HV-Point%s' % str(i + 1)] = resp2['ao'][hv_key[i]]
 
-        if 'params' in res3.keys():
+        if 'params' in list(res3.keys()):
             resp3 = res3['params']['points']
             lt_key = list(points_lt['ao'].keys())
             for i in range(0, no_points_lv):
                 points['LT-Point%s' % str(i + 1)] = resp3['ao'][lt_key[i]]
 
-        if 'params' in res4.keys():
+        if 'params' in list(res4.keys()):
             resp4 = res4['params']['points']
             lv_key = list(points_lv['ao'].keys())
             for i in range(0, no_points_lv):
@@ -1524,7 +1613,7 @@ class DER1547(der1547.DER1547):
         true = True  # Don't remove - required for eval of read_outstation data
         null = None   # Don't remove - required for eval of read_outstation data
 
-        for key, values in curve_read_pts.items():
+        for key, values in list(curve_read_pts.items()):
             keys1 = list(values.keys())
             val = list(values.values())
             for i in val:
@@ -1540,7 +1629,7 @@ class DER1547(der1547.DER1547):
 
         curve_setting_read = agent.read_outstation(self.oid, self.rid, points)
         res = eval(curve_setting_read[1:-1])
-        if 'params' in res.keys():
+        if 'params' in list(res.keys()):
             resp = res['params']
             curve_read_pts['curve_edit_selector'] = resp['ai']['328']['value']
             curve_read_pts['curve_mode_type'] = resp['ai']['329']['value']

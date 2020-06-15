@@ -28,7 +28,7 @@ class Regatron(object):
 
             # print('cmd> %s' % (cmd_str))
             self.conn.send(cmd_str)
-        except Exception, e:
+        except Exception as e:
             raise
 
     def _query(self, cmd_str):
@@ -47,7 +47,7 @@ class Regatron(object):
                         if d == '\r':
                             more_data = False
                             break
-            except Exception, e:
+            except Exception as e:
                 raise RegatronError('Timeout waiting for response')
 
         return resp
@@ -59,13 +59,13 @@ class Regatron(object):
             if len(resp) > 0:
                 if resp[0] != '0':
                     raise RegatronError(resp)
-        except Exception, e:
+        except Exception as e:
             raise RegatronError(str(e))
 
     def query(self, cmd_str):
         try:
             resp = self._query(cmd_str).strip()
-        except Exception, e:
+        except Exception as e:
             raise RegatronError(str(e))
         finally:
             self.close()
@@ -98,7 +98,7 @@ class Regatron(object):
         try:
             if self.conn is not None:
                 self.conn.close()
-        except Exception, e:
+        except Exception as e:
             pass
         finally:
             self.conn = None
@@ -110,7 +110,7 @@ if __name__ == "__main__":
     reg = Regatron(ipaddr='10.0.0.4', ipport=771, timeout=5)
 
     # test the information method
-    print(reg.info())
+    print((reg.info()))
 
     # close the connection to the regatron
     reg.close()

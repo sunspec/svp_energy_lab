@@ -32,8 +32,8 @@ Questions can be directed to support@sunspec.org
 
 import os
 from collections import namedtuple
-import grid_profiles
-import gridsim
+from . import grid_profiles
+from . import gridsim
 
 sps_info = {
     'name': os.path.splitext(os.path.basename(__file__))[0],
@@ -232,7 +232,7 @@ class GridSim(gridsim.GridSim):
 
                 self.ts.sleep(1)
 
-            except Exception, e:
+            except Exception as e:
                 raise gridsim.GridSimError('Cannot open VISA connection to %s\n\t%s' % (self.visa_device,str(e)))
         else:
             raise ValueError('Unknown communication type %s. Use Serial, GPIB or VISA' % self.comm)
@@ -255,7 +255,7 @@ class GridSim(gridsim.GridSim):
                     self.rm.close()
 
                 self.ts.sleep(1)
-            except Exception, e:
+            except Exception as e:
                 raise gridsim.GridSimError(str(e))
         else:
             raise ValueError('Unknown communication type %s. Use Serial, GPIB or VISA' % self.comm)
@@ -729,7 +729,7 @@ class GridSim(gridsim.GridSim):
                 raise gridsim.GridSimError('GPIB connection not open')
 
             return self.conn.query(cmd_str).rstrip("\n\r")
-        except Exception, e:
+        except Exception as e:
             raise gridsim.GridSimError(str(e))
 
     def _write(self, cmd_str):
@@ -745,7 +745,7 @@ class GridSim(gridsim.GridSim):
             # TODO: check num_written_bytes to see if writing succeeded
 
             return num_written_bytes
-        except Exception, e:
+        except Exception as e:
             raise gridsim.GridSimError(str(e))
 
     @staticmethod
@@ -789,7 +789,7 @@ class GridSim(gridsim.GridSim):
             raise ValueError('Phase must be between 1 and 3')
         else:
             suffix = {'VOLT': -2, 'CURR': -2, 'S': -3}
-            if what in suffix.keys():
+            if what in list(suffix.keys()):
                 self._write('CONF:MEAS:PH %i' % phase)
                 value = self._query('MEAS:' + what + '?')
                 # query returns the unit + '\n' which has to be removed before converting to float

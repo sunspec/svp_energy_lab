@@ -83,7 +83,7 @@ class ChromaRLC(object):
             self.conn = self.rm.open_resource(self.visa_device)
             self.conn.write_termination = TERMINATOR
 
-        except Exception, e:
+        except Exception as e:
             raise ChromaRLCError('Cannot open VISA connection to %s\n\t%s' % (self.visa_device, str(e)))
 
     def close(self):
@@ -93,7 +93,7 @@ class ChromaRLC(object):
                     self.conn.close()
                 self.rm.close()
                 time.sleep(1)
-        except Exception, e:
+        except Exception as e:
             raise ChromaRLCError(str(e))
 
     def info(self):
@@ -108,7 +108,7 @@ class ChromaRLC(object):
             if len(resp) > 0:
                 if resp[0] != '0':
                     raise ChromaRLCError(resp + ' ' + cmd_str)
-        except Exception, e:
+        except Exception as e:
             raise ChromaRLCError(str(e))
 
     def _query(self, cmd_str):
@@ -123,7 +123,7 @@ class ChromaRLC(object):
                 raise ChromaRLCError('GPIB connection not open')
             return self.conn.query(cmd_str)
 
-        except Exception, e:
+        except Exception as e:
             raise ChromaRLCError(str(e))
 
     def _write(self, cmd_str):
@@ -136,7 +136,7 @@ class ChromaRLC(object):
             if self.conn is None:
                 raise ChromaRLCError('GPIB connection not open')
             return self.conn.write(cmd_str)
-        except Exception, e:
+        except Exception as e:
             raise ChromaRLCError(str(e))
 
     def voltset (self,v):
@@ -217,7 +217,7 @@ if __name__ == "__main__":
 
     myRLC = ChromaRLC('GPIB0::3::INSTR',
                       'C:/Windows/System32/visa32.dll')
-    print myRLC.info()
+    print(myRLC.info())
 
     myRLC.resistance(2,120)
     time.sleep(4)

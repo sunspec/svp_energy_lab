@@ -31,8 +31,8 @@ Questions can be directed to support@sunspec.org
 """
 
 import os
-import device_das_sim
-import das
+from . import device_das_sim
+from . import das
 import script
 
 sim_info = {

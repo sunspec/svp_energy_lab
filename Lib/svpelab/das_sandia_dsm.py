@@ -33,8 +33,8 @@ Questions can be directed to support@sunspec.org
 import os
 
 import script
-import device_sandia_dsm
-import das
+from . import device_sandia_dsm
+from . import das
 
 sandia_info = {
     'name': os.path.splitext(os.path.basename(__file__))[0],

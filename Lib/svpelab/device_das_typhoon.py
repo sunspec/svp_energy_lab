@@ -34,15 +34,15 @@ import time
 import os
 import traceback
 import glob
-import waveform
-import dataset
+from . import waveform
+from . import dataset
 
 try:
     import typhoon.api.hil as cp  # control panel
     from typhoon.api.schematic_editor import model
     import typhoon.api.pv_generator as pv
-except Exception, e:
-    print('Typhoon HIL API not installed. %s' % e)
+except Exception as e:
+    print(('Typhoon HIL API not installed. %s' % e))
 
 data_points = [  # 3 phase
     'TIME',
@@ -545,10 +545,10 @@ if __name__ == "__main__":
 
     model.get_hw_settings()
     if not model.load(r'D:/SVP/SVP 1.4.3 Directories 5-2-17/UL1741 SA for ASGC/Lib/svpelab/Typhoon/ASGC_AI.tse'):
-        print "Model did not load!"
+        print("Model did not load!")
 
     if not model.compile():
-        print "Model did not compile!"
+        print("Model did not compile!")
 
     # first we need to load model
     hil.load_model(file=r'D:/SVP/SVP 1.4.3 Directories 5-2-17/UL1741 SA for ASGC/Lib/svpelab/Typhoon/ASGC_AI Target files/ASGC_AI.cpd')
@@ -562,15 +562,15 @@ if __name__ == "__main__":
     # let the inverter startup
     sleeptime = 15
     for i in range(1, sleeptime):
-        print ("Waiting another %d seconds until the inverter starts. Power = %f." %
-               ((sleeptime-i), hil.read_analog_signal(name='Pdc')))
+        print(("Waiting another %d seconds until the inverter starts. Power = %f." %
+               ((sleeptime-i), hil.read_analog_signal(name='Pdc'))))
         time.sleep(1)
 
     '''
     Waveform capture
     '''
     simulationStep = hil.get_sim_step()
-    print('Simulation time step is %f' % simulationStep)
+    print(('Simulation time step is %f' % simulationStep))
     trigsamplingrate = 1./simulationStep
     pretrig = 0.5
     posttrig = 1.0
@@ -588,7 +588,7 @@ if __name__ == "__main__":
 
     # cpSettings - list[decimation,numberOfChannels,numberOfSamples, enableDigitalCapture]
     numberOfSamples = int(trigsamplingrate*(pretrig+posttrig))
-    print('Numer of Samples is %d' % numberOfSamples)
+    print(('Numer of Samples is %d' % numberOfSamples))
     if numberOfSamples > 32e6/n_analog_channels:
         print('Number of samples is not less than 32e6/numberOfChannels!')
         numberOfSamples = 32e6/n_analog_channels
@@ -600,7 +600,7 @@ if __name__ == "__main__":
     elif numberOfSamples % 2 == 1:
         print('Number of samples is not even!')
         numberOfSamples += 1
-        print('Number of samples set to %d.' % numberOfSamples)
+        print(('Number of samples set to %d.' % numberOfSamples))
 
     '''
     triggerSource - channel or the name of signal that will be used for triggering (int value or string value)
@@ -633,10 +633,10 @@ if __name__ == "__main__":
 
 
     captureSettings = [1, n_analog_channels, numberOfSamples]
-    print captureSettings
-    print triggerSettings
-    print channelSettings
-    print('Power = %0.3f' % hil.read_analog_signal(name='Pdc'))
+    print(captureSettings)
+    print(triggerSettings)
+    print(channelSettings)
+    print(('Power = %0.3f' % hil.read_analog_signal(name='Pdc')))
     # if hil.read_digital_signal(name='S1_fb') == 1:
     #     print('Contactor is closed.')
     # else:
@@ -675,9 +675,9 @@ if __name__ == "__main__":
         (signalsNames, wfm_data, wfm_time) = capturedDataBuffer[0]
 
         subsampling_rate = 10
-        print('Length of wfm_time = %s' % len(wfm_time))
+        print(('Length of wfm_time = %s' % len(wfm_time)))
         wfm_time = wfm_time[0::subsampling_rate]
-        print('Length of wfm_time = %s' % len(wfm_time))
+        print(('Length of wfm_time = %s' % len(wfm_time)))
 
         # unpack data for appropriate captured signals
         # V_dc = wfm_data[0]  # first row for first signal and so on
@@ -689,8 +689,8 @@ if __name__ == "__main__":
         # plt.plot(wfm_time, V_ac, 'b', wfm_time, i_ac, 'r', wfm_time, contactor_trig*100, 'k')
         # plt.show()
 
-        print(len(wfm_data[0]))
-        print(len(wfm_data[0][0::subsampling_rate]))
+        print((len(wfm_data[0])))
+        print((len(wfm_data[0][0::subsampling_rate])))
 
         V_1 = wfm_data[0][0::subsampling_rate]  # first row for first signal and so on
         V_2 = wfm_data[1][0::subsampling_rate]

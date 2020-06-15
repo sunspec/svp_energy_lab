@@ -35,7 +35,7 @@ import time
 import socket
 import serial
 import visa
-import dcsim
+from . import dcsim
 
 chroma_info = {
     'name': os.path.splitext(os.path.basename(__file__))[0],
@@ -153,7 +153,7 @@ class DCSim(dcsim.DCSim):
 
             self.conn.flushInput()
             self.conn.write(cmd_str)
-        except Exception, e:
+        except Exception as e:
              raise dcsim.DCSimError(str(e))
 
     # Serial queries for power supply
@@ -179,7 +179,7 @@ class DCSim(dcsim.DCSim):
                     raise dcsim.DCSimError('Timeout waiting for response')
             except dcsim.DCSimError:
                 raise
-            except Exception, e:
+            except Exception as e:
                 raise dcsim.DCSimError('Timeout waiting for response - More data problem')
 
         return resp
@@ -195,7 +195,7 @@ class DCSim(dcsim.DCSim):
 
             # print 'cmd> %s' % (cmd_str)
             self.conn.send(cmd_str)
-        except Exception, e:
+        except Exception as e:
             raise dcsim.DCSimError(str(e))
 
     # TCP queries for power supply and load
@@ -214,7 +214,7 @@ class DCSim(dcsim.DCSim):
                         if d == '\n': #\r
                             more_data = False
                             break
-            except Exception, e:
+            except Exception as e:
                 raise dcsim.DCSimError('Timeout waiting for response')
 
         return resp
@@ -230,7 +230,7 @@ class DCSim(dcsim.DCSim):
             resp = self.conn.query(cmd_str)
             #self.ts.log_debug('cmd_str = %s, resp = %s' % (cmd_str, resp))
 
-        except Exception, e:
+        except Exception as e:
             raise dcsim.DCSimError('Timeout waiting for response')
         return resp
 
@@ -244,7 +244,7 @@ class DCSim(dcsim.DCSim):
             #self.conn.write('*RST\n')
             self.conn.write('*CLS\n')
             self.conn.write(cmd_str)
-        except Exception, e:
+        except Exception as e:
             raise dcsim.DCSimError(str(e))
 
     # Commands for power supply
@@ -258,7 +258,7 @@ class DCSim(dcsim.DCSim):
             if len(resp) > 0:
                 if resp[0] != '0':
                     raise dcsim.DCSimError(resp + ' ' + self.cmd_str)
-        except Exception, e:
+        except Exception as e:
             raise dcsim.DCSimError(str(e))
 
     # Queries for power supply
@@ -266,7 +266,7 @@ class DCSim(dcsim.DCSim):
         # self.ts.log_debug('query cmd_str = %s' % cmd_str)
         try:
             resp = self._query(cmd_str).strip()
-        except Exception, e:
+        except Exception as e:
             raise dcsim.DCSimError(str(e))
         return resp
 
@@ -342,7 +342,7 @@ class DCSim(dcsim.DCSim):
 
             time.sleep(2)
             #self.cmd('CONFigure:REMote ON\n')
-        except Exception, e:
+        except Exception as e:
             raise dcsim.DCSimError(str(e))
 
     def close(self):

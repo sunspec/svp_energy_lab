@@ -85,7 +85,7 @@ try:
     import sunspec.core.modbus.client as client
     import sunspec.core.util as util
     import binascii
-except Exception, e:
+except Exception as e:
     print('SunSpec or binascii packages did not import!')
 
 
@@ -125,7 +125,7 @@ class Device(object):
         try:
             self.device = client.ModbusClientDeviceTCP(slave_id=self.slave_id, ipaddr=self.ip_addr,
                                                        ipport=self.ip_port, timeout=self.ip_timeout)
-        except Exception, e:
+        except Exception as e:
             raise DeviceError('Cannot connect to PM800: %s' % e)
 
     def data_capture(self, enable=True):
@@ -343,7 +343,7 @@ These are simple functions for reading individual values.
 
 
 def trace(msg):
-    print msg
+    print(msg)
 
 
 # Reg   Name            Size    Type    Access  NV  Scale   Units       Range
@@ -544,12 +544,12 @@ def readBaudRate():
 def bulk_float_read(device, start=11700, end=11762):
     actual_start = start - 1  # the register is one less than reported in the literature
     actual_length = (end - start) + 2
-    print('Start Reg: %s, Read Length: %s' % (actual_start, actual_length))
+    print(('Start Reg: %s, Read Length: %s' % (actual_start, actual_length)))
 
     data = device.read(actual_start, actual_length)
-    print('Data length: %s' % len(data))
-    print('Start Reg: %s, End Reg: %s' % (reg_shift(11762)[0], reg_shift(11762)[1]))
-    print util.data_to_float(data[reg_shift(11762)[0]:reg_shift(11762)[1]])
+    print(('Data length: %s' % len(data)))
+    print(('Start Reg: %s, End Reg: %s' % (reg_shift(11762)[0], reg_shift(11762)[1])))
+    print(util.data_to_float(data[reg_shift(11762)[0]:reg_shift(11762)[1]]))
 
     datarec = {'time': time.time(),
                'ac_1': (util.data_to_float(data[reg_shift(11720)[0]:reg_shift(11720)[1]]),  # Voltage, A-N
@@ -588,24 +588,24 @@ if __name__ == "__main__":
     if ipaddr:
         device = client.ModbusClientDeviceTCP(slave_id=22, ipaddr=ipaddr, ipport=502, timeout=10) #, trace_func=trace)
 
-        print('%s' % bulk_float_read(device))
+        print(('%s' % bulk_float_read(device)))
 
         readVoltageAB()
 
-        print('Freq is = %s' % readHz())
-        print('Power is = %s' % readPower())
+        print(('Freq is = %s' % readHz()))
+        print(('Power is = %s' % readPower()))
 
-        print('Baud Rate = %s' % readBaudRate())
-        print('Freq Nom = %s' % readFreqNom())
-        print('Freq (float) = %s' % readFloatHz())
-        print('Power (float) = %s' % readFloatPower())
-        print('Power (float) = %s' % readFloatPF())
+        print(('Baud Rate = %s' % readBaudRate()))
+        print(('Freq Nom = %s' % readFreqNom()))
+        print(('Freq (float) = %s' % readFloatHz()))
+        print(('Power (float) = %s' % readFloatPower()))
+        print(('Power (float) = %s' % readFloatPF()))
 
-        print('Scale A = %s' % scaleA())
-        print('Scale B = %s' % scaleB())
-        print('Scale D = %s' % scaleD())
-        print('Scale E = %s' % scaleE())
-        print('Scale F = %s' % scaleF())
+        print(('Scale A = %s' % scaleA()))
+        print(('Scale B = %s' % scaleB()))
+        print(('Scale D = %s' % scaleD()))
+        print(('Scale E = %s' % scaleE()))
+        print(('Scale F = %s' % scaleF()))
 
         # for i in range(100):
         #     print('Power (float) = %s' % readFloatPower())

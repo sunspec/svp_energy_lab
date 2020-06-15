@@ -32,7 +32,7 @@ Questions can be directed to support@sunspec.org
 
 import os
 from svpelab import device_regatron_topcon_quadro as regatron
-import pvsim
+from . import pvsim
 
 regatron_info = {
     'name': os.path.splitext(os.path.basename(__file__))[0],

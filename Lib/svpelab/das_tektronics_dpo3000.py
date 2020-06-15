@@ -31,8 +31,8 @@ Questions can be directed to support@sunspec.org
 """
 
 import os
-import device_tektronix_dpo3000
-import das
+from . import device_tektronix_dpo3000
+from . import das
 
 dpo3000_info = {
     'name': os.path.splitext(os.path.basename(__file__))[0],

@@ -31,11 +31,11 @@ Questions can be directed to support@sunspec.org
 """
 
 import time
-import vxi11
+from . import vxi11
 import numpy as np
 from pylab import *
 import math
-import dataset
+from . import dataset
 
 DATA_POINTS = [  # 3 phase
     'TIME',
@@ -159,10 +159,10 @@ class Device(object):
                         self.ts.sleep(1)
                     else:
                         time.sleep(1)
-                except Exception, e:
+                except Exception as e:
                     time.sleep(1)
 
-            except Exception, e:
+            except Exception as e:
                 raise Exception('Cannot open VISA connection to %s\n\t%s' % (params.get('visa_id'), str(e)))
 
         # clear any error conditions
@@ -223,7 +223,7 @@ class Device(object):
         if self.params['comm'] == 'VISA':
             try:
                 self.conn.write(cmd_str)
-            except Exception, e:
+            except Exception as e:
                 raise DeviceError('DPO3000 communication error: %s' % str(e))
 
     def query(self, cmd_str):
@@ -231,7 +231,7 @@ class Device(object):
             resp = ''
             if self.params.get('comm') == 'VISA':
                 resp = self.conn.query(cmd_str)
-        except Exception, e:
+        except Exception as e:
             raise DeviceError('DPO3000 communication error: %s' % str(e))
 
         return resp
@@ -243,7 +243,7 @@ class Device(object):
         try:
             if self.conn is not None:
                 self.conn.close()
-        except Exception, e:
+        except Exception as e:
             self.ts.log_error('Could not close DPO3000: %s' % e)
         finally:
             self.conn = None
@@ -484,8 +484,8 @@ class Device(object):
         sor = sort(data)
         hgram = histogram(data, bins=np.arange(sor[0], sor[-1], float(sor[-1]-sor[0]) / 100.))
         loc = np.where(hgram[0] == max(hgram[0][0:int(round(len(hgram[0])/2))]))
-        print(hgram[0], int(round(len(hgram[0])/2)), len(hgram[0]))
-        print('max bin =', hgram[1][int(round(len(hgram[0])/2))])
+        print((hgram[0], int(round(len(hgram[0])/2)), len(hgram[0])))
+        print(('max bin =', hgram[1][int(round(len(hgram[0])/2))]))
         data_offset = hgram[1][loc][0]
         return data_offset
 
@@ -498,7 +498,7 @@ class Device(object):
             if self.ts is not None:
                 self.ts.log('Scope is in ' + trig_state + ' mode...')
             else:
-                print('Scope is in ' + trig_state + ' mode...')
+                print(('Scope is in ' + trig_state + ' mode...'))
 
             time.sleep(5)
 
@@ -726,7 +726,7 @@ if __name__ == "__main__":
     das.set_trigger()
 
     # trigger measurement
-    print(das.data_read())
+    print((das.data_read()))
 
 
 

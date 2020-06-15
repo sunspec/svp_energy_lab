@@ -31,12 +31,12 @@ Questions can be directed to support@sunspec.org
 """
 try:
     import os
-    import der
+    from . import der
     import script
     import sunspec.core.modbus.client as client
     import sunspec.core.util as util
-except Exception, e:
-    print('Import problem in der_sma.py: %s' % e)
+except Exception as e:
+    print(('Import problem in der_sma.py: %s' % e))
     raise der.DERError('Import problem in der_sma.py: %s' % e)
 
 sma_info = {
@@ -119,7 +119,7 @@ class DER(der.DER):
             if self.ts is not None:
                 self.ts.log('Writing new Grid Guard: %d' % new_gg)
             else:
-                print('Writing new Grid Guard: %d' % new_gg)
+                print(('Writing new Grid Guard: %d' % new_gg))
             self.inv.write(gg_reg[self.firmware], util.u32_to_data(int(new_gg)))
         self.ts.sleep(1)
 
@@ -181,7 +181,7 @@ class DER(der.DER):
             params['Options'] = ''
             params['SerialNumber'] = util.data_to_u32(self.inv.read(serial_reg[self.firmware], 2))
 
-        except Exception, e:
+        except Exception as e:
             raise der.DERError('Unimplemented function: info')
 
         return params
@@ -271,7 +271,7 @@ class DER(der.DER):
             params['EvtVnd2'] = None
             params['EvtVnd3'] = None
             params['EvtVnd4'] = None
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -325,7 +325,7 @@ class DER(der.DER):
             params['PFMinQ3'] = None
             params['PFMinQ4'] = None
             params['VArAct'] = None
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -356,7 +356,7 @@ class DER(der.DER):
                 params['Status'] = 'Connected'
             else:
                 params['Status'] = 'Not Connected'
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -406,7 +406,7 @@ class DER(der.DER):
                     params['Conn'] = True
                 else:
                     params['Conn'] = False
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -484,7 +484,7 @@ class DER(der.DER):
                     pf = self.inv.read(pf_u16_reg[self.firmware], 2)
                     params['PF'] = float(util.data_to_u16(pf))/100.0
 
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -568,7 +568,7 @@ class DER(der.DER):
                 else:
                     der.DERError('Unknowned Limit Power operating mode')
 
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -835,7 +835,7 @@ class DER(der.DER):
                 w = params['curve'].get('w')
                 if w is not None:
                     w_len = len(w)
-                    for i in xrange(w_len):  # SunSpec point index starts at 1
+                    for i in range(w_len):  # SunSpec point index starts at 1
                         self.inv.write(w_adrs[i], util.s32_to_data(int(round(w[i], 3) * 1000)))
                         self.ts.log_debug('Writing w point %s to reg %s with value %s' % (i, w_adrs[i], w[i]))
 
@@ -843,7 +843,7 @@ class DER(der.DER):
                 var = params['curve'].get('var')
                 if var is not None:
                     var_len = len(var)
-                    for i in xrange(var_len):  # SunSpec point index starts at 1
+                    for i in range(var_len):  # SunSpec point index starts at 1
                         self.inv.write(var_adrs[i], util.s32_to_data(int(round(var[i], 3) * 1000)))
                         self.ts.log_debug('Writing v point %s to reg %s with value %s' % (i, var_adrs[i], var[i]))
 
@@ -868,7 +868,7 @@ class DER(der.DER):
                 n_pt = int(util.data_to_u32(self.inv.read(reg['NPts'][self.firmware], 2)))
             else:
                 n_pt = 3
-            for i in xrange(int(n_pt)):
+            for i in range(int(n_pt)):
                 w.append(util.data_to_s32(self.inv.read(w_adrs[i], 2))/1000.)
                 var.append(util.data_to_s32(self.inv.read(var_adrs[i], 2))/1000.)
 
@@ -1005,7 +1005,7 @@ class DER(der.DER):
             v = params.get('v')
             if v is not None:
                 v_len = len(v)
-                for i in xrange(v_len):  # SunSpec point index starts at 1
+                for i in range(v_len):  # SunSpec point index starts at 1
                     self.inv.write(v_adrs[i], util.s32_to_data(int(round(v[i], 3) * 1000)))
                     # v_val = int(util.data_to_s32(self.inv.read(v_adrs[i], 2)))
                     # self.ts.log_debug('Voltage point %s is %s' % (i, v_val))
@@ -1015,7 +1015,7 @@ class DER(der.DER):
             var = params.get('var')
             if var is not None:
                 var_len = len(var)
-                for i in xrange(var_len):  # SunSpec point index starts at 1
+                for i in range(var_len):  # SunSpec point index starts at 1
                     self.inv.write(var_adrs[i], util.s32_to_data(int(round(var[i], 3)*1000)))
 
         else:
@@ -1027,7 +1027,7 @@ class DER(der.DER):
                 n_pt = int(util.data_to_u32(self.inv.read(reg['NPts'][self.firmware], 2)))
             else:
                 n_pt = 4
-            for i in xrange(int(n_pt)):
+            for i in range(int(n_pt)):
                 self.ts.log('Getting V%s' % i)
                 v.append(util.data_to_s32(self.inv.read(v_adrs[i], 2))/1000.)
                 self.ts.log('Getting Q%s' % i)
@@ -1094,7 +1094,7 @@ class DER(der.DER):
 
         f_adrs = []
         p_adrs = []
-        for i in xrange(4):  # Prepolulate 4 register values
+        for i in range(4):  # Prepolulate 4 register values
             f_adrs.append(reg['x%d' % (i+1)][self.firmware])
             p_adrs.append(reg['y%d' % (i+1)][self.firmware])
 
@@ -1129,14 +1129,14 @@ class DER(der.DER):
                 f = curve.get('hz')
                 if f is not None:
                     f_len = len(f)
-                    for i in xrange(f_len):  # point name starts at 1 but index starts at 0
+                    for i in range(f_len):  # point name starts at 1 but index starts at 0
                         self.inv.write(f_adrs[i], util.s32_to_data(int(round(f[i], 3) * 1000)))
 
                 # set power points
                 p = curve.get('w')
                 if p is not None:
                     p_len = len(p)
-                    for i in xrange(p_len):  # point name starts at 1 but index starts at 0
+                    for i in range(p_len):  # point name starts at 1 but index starts at 0
                         self.inv.write(p_adrs[i], util.s32_to_data(int(round(p[i], 3) * 1000)))
                         # self.ts.log_debug('Writing Power point %s @ %s' % (int(round(p[i], 3) * 1000), p_adrs[i]))
                         # self.ts.log_debug('Writing P point %s to reg %s with value %s' % (i, p_adrs[i], p[i]))
@@ -1156,7 +1156,7 @@ class DER(der.DER):
 
             f = []
             w = []
-            for i in xrange(params['NPt']):
+            for i in range(params['NPt']):
                 f.append(util.data_to_s32(self.inv.read(f_adrs[i], 2))/1000.)
                 w.append(util.data_to_s32(self.inv.read(p_adrs[i], 2))/1000.)
 

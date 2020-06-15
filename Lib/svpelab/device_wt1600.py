@@ -2,7 +2,7 @@ import os
 import socket
 import sys
 import time
-import vxi11
+from . import vxi11
 """
 data_query_str = (
 ':NUMERIC:FORMAT ASCII\n'
@@ -197,7 +197,7 @@ class Device(object):
 
                 self.ts.sleep(1)
 
-            except Exception, e:
+            except Exception as e:
                 raise Exception('Cannot open VISA connection to %s\n\t%s' % (params.get('visa_id'), str(e)))
 
         # clear any error conditions
@@ -216,7 +216,7 @@ class Device(object):
             frame = chr(0x80) + chr(0x00) + chr((framesize >> 8) & 0xFF) + chr(framesize & 0xFF) + cmd_str
             self.conn.send(frame)
 
-        except Exception, e:
+        except Exception as e:
             raise
 
     def _query(self, cmd_str):
@@ -241,14 +241,14 @@ class Device(object):
             try:
                 # self.vx.write(cmd_str)
                 self._cmd(cmd_str)
-            except Exception, e:
+            except Exception as e:
                 raise DeviceError('WT1600 communication error: %s' % str(e))
 
         elif self.params['comm'] == 'VISA':
             try:
                 # self.ts.log(self.conn.query(cmd_str))
                 self.conn.sendall(cmd_str)
-            except Exception, e:
+            except Exception as e:
                 raise DeviceError('WT1600 communication error: %s' % str(e))
 
     def query(self, cmd_str):
@@ -259,7 +259,7 @@ class Device(object):
                 resp = self._query(cmd_str).strip()
             elif self.params.get('comm') == 'VISA':
                 resp = self.conn.query(cmd_str)
-        except Exception, e:
+        except Exception as e:
             raise DeviceError('WT1600 communication error: %s' % str(e))
 
         return resp
@@ -274,7 +274,7 @@ class Device(object):
             #     self.vx = None
             if self.conn is not None:
                 self.conn.close()
-        except Exception, e:
+        except Exception as e:
             pass
         finally:
             self.conn = None

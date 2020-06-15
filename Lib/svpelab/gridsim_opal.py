@@ -30,7 +30,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 Questions can be directed to support@sunspec.org
 """
 import os
-import gridsim
+from . import gridsim
 
 opal_info = {
     'name': os.path.splitext(os.path.basename(__file__))[0],

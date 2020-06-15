@@ -32,7 +32,7 @@ Questions can be directed to support@sunspec.org
 
 import os
 
-import der
+from . import der
 
 sim_info = {
     'name': os.path.splitext(os.path.basename(__file__))[0],
@@ -78,7 +78,7 @@ class DER(der.DER):
             params['Options'] = self.ts.prompt('Enter Options: ')
             params['Version'] = self.ts.prompt('Enter Version: ')
             params['SerialNumber'] = self.ts.prompt('Enter Serial Number: ')
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -117,7 +117,7 @@ class DER(der.DER):
             params['AhrRtg'] = self.ts.prompt('Enter AhrRtg: ')
             params['MaxChaRte'] = self.ts.prompt('Enter MaxChaRte: ')
             params['MaxDisChaRte'] = self.ts.prompt('Enter MaxDisChaRte: ')
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -162,7 +162,7 @@ class DER(der.DER):
             params['EvtVnd2'] = self.ts.prompt('Enter EvtVnd2: ')
             params['EvtVnd3'] = self.ts.prompt('Enter EvtVnd3: ')
             params['EvtVnd4'] = self.ts.prompt('Enter EvtVnd4: ')
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -204,7 +204,7 @@ class DER(der.DER):
             params['PFMinQ3'] = self.inv.settings.PFMinQ3
             params['PFMinQ4'] = self.inv.settings.PFMinQ4
             params['VArAct'] = self.inv.settings.VArAct
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -238,7 +238,7 @@ class DER(der.DER):
                 params['EPC_Connected'] = (ecp_conn_bitfield & ECPCONN_CONNECTED) == ECPCONN_CONNECTED
             else:
                 params = {}
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -272,7 +272,7 @@ class DER(der.DER):
                 params['HFRT'] = (status_bitfield & STACTCTL_HFRT) == STACTCTL_HFRT
             else:
                 params = {}
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -296,7 +296,7 @@ class DER(der.DER):
                 params['Conn'] = self.ts.prompt('What is the connect status: True/False')
                 params['WinTms'] = self.ts.prompt('What is the Time Window?')
                 params['RvrtTms'] = self.ts.prompt('What is the Revert Time?')
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -332,7 +332,7 @@ class DER(der.DER):
             else:
                 params = {}
 
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -364,7 +364,7 @@ class DER(der.DER):
                 params['WinTms'] = self.inv.controls.WMaxLimPct_WinTms
                 params['RmpTms'] = self.inv.controls.WMaxLimPct_RmpTms
                 params['RvrtTms'] = self.inv.controls.WMaxLimPct_RvrtTms
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -403,7 +403,7 @@ class DER(der.DER):
                 params['RvrtTms'] = self.inv.volt_var.RvrtTms
                 if self.inv.volt_var.ActCrv != 0:
                     params['curve'] = self.volt_var_curve(id=self.inv.volt_var.ActCrv)
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -437,7 +437,7 @@ class DER(der.DER):
 
                 v = []
                 var = []
-                for i in xrange(1, act_pt + 1):  # SunSpec point index starts at 1
+                for i in range(1, act_pt + 1):  # SunSpec point index starts at 1
                     v_point = 'V%d' % i
                     var_point = 'VAr%d' % i
                     v.append(getattr(curve, v_point))
@@ -445,7 +445,7 @@ class DER(der.DER):
                 params['v'] = v
                 params['var'] = var
 
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -485,7 +485,7 @@ class DER(der.DER):
                 params['RvrtTms'] = self.inv.freq_watt.RvrtTms
                 if self.inv.freq_watt.ActCrv != 0:
                     params['curve'] = self.freq_watt_curve(id=self.inv.freq_watt.ActCrv)
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -530,7 +530,7 @@ class DER(der.DER):
                 params['id'] = id  #also store the curve number
                 hz = []
                 w = []
-                for i in xrange(1, act_pt + 1):  # SunSpec point index starts at 1
+                for i in range(1, act_pt + 1):  # SunSpec point index starts at 1
                     hz_point = 'Hz%d' % i
                     w_point = 'VAr%d' % i
                     hz.append(getattr(curve, hz_point))
@@ -538,7 +538,7 @@ class DER(der.DER):
                 params['hz'] = hz
                 params['w'] = w
 
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -581,7 +581,7 @@ class DER(der.DER):
                 params['HzStop'] = self.inv.freq_watt_param.HzStop
                 params['HzStopWGra'] = self.inv.freq_watt_param.HzStopWGra
 
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -621,7 +621,7 @@ class DER(der.DER):
                 params['RmpTms'] = self.inv.hfrtc.RmpTms
                 params['RvrtTms'] = self.inv.hfrtc.RvrtTms
 
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -661,7 +661,7 @@ class DER(der.DER):
                 params['RmpTms'] = self.inv.lfrtc.RmpTms
                 params['RvrtTms'] = self.inv.lfrtc.RvrtTms
 
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -694,7 +694,7 @@ class DER(der.DER):
                 params['curve'] = self.ts.prompt('Curve parameters are: ')
                 '''
 
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -727,7 +727,7 @@ class DER(der.DER):
                 params['curve'] = self.ts.prompt('Curve parameters are: ')
                 '''
 
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -780,7 +780,7 @@ class DER(der.DER):
                 params['InOutWRte_RvrtTms'] = self.ts.prompt('InOutWRte_RvrtTms? ')
                 params['InOutWRte_RmpTms'] = self.ts.prompt('InOutWRte_RmpTms? ')
                 '''
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params

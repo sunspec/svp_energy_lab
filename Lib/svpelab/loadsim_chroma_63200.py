@@ -35,7 +35,7 @@ import time
 import socket
 import serial
 import visa
-import loadsim
+from . import loadsim
 
 chroma_info = {
     'name': os.path.splitext(os.path.basename(__file__))[0],
@@ -151,7 +151,7 @@ class LoadSim(loadsim.LoadSim):
 
             self.conn.flushInput()
             self.conn.write(cmd_str)
-        except Exception, e:
+        except Exception as e:
              raise loadsim.LoadSimError(str(e))
 
     def query_serial(self, cmd_str):
@@ -174,7 +174,7 @@ class LoadSim(loadsim.LoadSim):
                     raise loadsim.LoadSimError('Timeout waiting for response')
             except loadsim.LoadSimError:
                 raise
-            except Exception, e:
+            except Exception as e:
                 raise loadsim.LoadSimError('Timeout waiting for response - More data problem')
 
         return resp
@@ -189,7 +189,7 @@ class LoadSim(loadsim.LoadSim):
 
             # print 'cmd> %s' % (cmd_str)
             self.conn.send(cmd_str)
-        except Exception, e:
+        except Exception as e:
             raise loadsim.LoadSimError(str(e))
 
     def query_tcp(self, cmd_str):
@@ -207,7 +207,7 @@ class LoadSim(loadsim.LoadSim):
                         if d == '\n': #\r
                             more_data = False
                             break
-            except Exception, e:
+            except Exception as e:
                 raise loadsim.LoadSimError('Timeout waiting for response')
 
         return resp
@@ -218,7 +218,7 @@ class LoadSim(loadsim.LoadSim):
         # self.ts.log_debug('cmd_str = %s' % cmd_str)
         try:
             self._cmd(cmd_str)
-        except Exception, e:
+        except Exception as e:
             raise loadsim.LoadSimError(str(e))
 
     # Queries for load
@@ -226,7 +226,7 @@ class LoadSim(loadsim.LoadSim):
         # self.ts.log_debug('query cmd_str = %s' % cmd_str)
         try:
             resp = self._query(cmd_str).strip()
-        except Exception, e:
+        except Exception as e:
             raise loadsim.LoadSimError(str(e))
 
         return resp
@@ -272,7 +272,7 @@ class LoadSim(loadsim.LoadSim):
                                       writeTimeout=self.write_timeout)
             time.sleep(2)
 
-        except Exception, e:
+        except Exception as e:
             raise loadsim.LoadSimError(str(e))
 
     def close(self):

@@ -38,7 +38,7 @@ try:
     import sunspec.core.modbus.client as client
     import sunspec.core.util as util
     import binascii
-except Exception, e:
+except Exception as e:
     print('SunSpec or binascii packages did not import!')
 
 data_points = [
@@ -81,7 +81,7 @@ class Device(object):
         try:
             self.device = client.ModbusClientDeviceTCP(slave_id=self.slave_id, ipaddr=self.ip_addr,
                                                        ipport=self.ip_port, timeout=self.ip_timeout)
-        except Exception, e:
+        except Exception as e:
             raise DeviceError('Cannot connect to PM800: %s' % e)
 
     def close(self):
@@ -362,15 +362,15 @@ if __name__ == "__main__":
         device = client.ModbusClientDeviceTCP(slave_id=159, ipaddr=ipaddr, ipport=502, timeout=10)#, trace_func=trace)
 
         data = device.read(1025, 2, op=client.FUNC_READ_INPUT)
-        print(util.data_to_float(data))
+        print((util.data_to_float(data)))
         data = device.read(1027, 2, op=client.FUNC_READ_INPUT)
-        print(util.data_to_float(data))
+        print((util.data_to_float(data)))
         data = device.read(1029, 2, op=client.FUNC_READ_INPUT)
-        print(util.data_to_float(data))
+        print((util.data_to_float(data)))
 
-        print('%s' % data_read())
-        print(data_read()['AC_P_1'])
-        print(data_read()['AC_P_2'])
-        print(data_read()['AC_P_3'])
+        print(('%s' % data_read()))
+        print((data_read()['AC_P_1']))
+        print((data_read()['AC_P_2']))
+        print((data_read()['AC_P_3']))
 
 

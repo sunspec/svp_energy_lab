@@ -6,7 +6,7 @@ V1.0 - Jay Johnson - 7/31/2018
 """
 
 import os
-import der
+from . import der
 
 manual_info = {
     'name': os.path.splitext(os.path.basename(__file__))[0],

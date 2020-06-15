@@ -31,7 +31,7 @@ Questions can be directed to support@sunspec.org
 """
 
 import time
-import vxi11
+from . import vxi11
 import numpy as np
 import itertools
 import csv
@@ -60,8 +60,8 @@ def p_q_profile(csvfile=None):
                             q_c.append(float(row[3]))
                         else:
                             q_c.append(0)
-                    except Exception, e:
-                        print('Not an numerical entry...skipping data for row %s. Error: %s' % (row, e))
+                    except Exception as e:
+                        print(('Not an numerical entry...skipping data for row %s. Error: %s' % (row, e)))
             return time, power, q_l, q_c
 
 class DeviceError(Exception):
@@ -97,13 +97,13 @@ class Device(object):
             if len(resp) > 0:
                 if resp[0] != '0':
                     raise DeviceError(resp)
-        except Exception, e:
+        except Exception as e:
             raise DeviceError('ICS Electronics 8064 communication error: %s' % str(e))
 
     def query(self, cmd_str):
         try:
             resp = self.vx.ask(cmd_str)
-        except Exception, e:
+        except Exception as e:
             raise DeviceError('ICS Electronics 8064 communication error: %s' % str(e))
 
         return resp
@@ -118,33 +118,33 @@ class Device(object):
         event = self.query('STAT:OPER:EVENt?')
         condition = self.query('STAT:OPER:CONDition?')
         enable = self.query('STAT:OPER:ENABle?')
-        print 'Event: %s, Condition: %s, Enable: %s' % (event, condition, enable)
+        print('Event: %s, Condition: %s, Enable: %s' % (event, condition, enable))
         return event, condition, enable
 
     def query_relay_control_state(self):
         state = self.query('Q?')
-        print 'Relay Control State: %s' % state
+        print('Relay Control State: %s' % state)
         return state
 
     def cmd_open_all(self):
         status = self.cmd('ROUT:OPEN:ALL')
-        print 'Opened all relays'
+        print('Opened all relays')
         return status
 
     def cmd_close(self, relays):
         if relays is not [None]:
             if relays == [None]:
                 self.cmd('ROUT:OPEN:ALL')
-                print 'Closing Relays: %s' % relays
+                print('Closing Relays: %s' % relays)
             else:
                 cmd_str = 'C (@'
                 for r in relays:
                     cmd_str += '%s,' % r
                 cmd_str = cmd_str[:-1] + ')'
-                print 'Closing Relays: %s' % relays
+                print('Closing Relays: %s' % relays)
                 self.cmd(cmd_str)
         else:
-            print 'ERROR: Relays to be closed were not passed as a list.'
+            print('ERROR: Relays to be closed were not passed as a list.')
         return None
 
     def set_value(self, value):
@@ -154,9 +154,9 @@ class Device(object):
 
     def find_closest_sum(self, index=None):
         for t in [self.target[index]]:
-            if not self.switch_map.keys():
+            if not list(self.switch_map.keys()):
                 break
-            combs = sum([list(itertools.combinations(self.switch_map.keys(), r)) for r in range(1, len(self.switch_map.keys())+1)], [])
+            combs = sum([list(itertools.combinations(list(self.switch_map.keys()), r)) for r in range(1, len(list(self.switch_map.keys()))+1)], [])
             sums = np.asarray(list(map(sum, combs)))
             bestcomb = combs[np.argmin(np.abs(np.asarray(sums) - t))]
             # print("Target: {},  combination: {}".format(t, bestcomb))
@@ -174,7 +174,7 @@ if __name__ == "__main__":
     l_load = False
     c_load = False
 
-    filename = 'C:\Users\detldaq\Downloads\Load_test.csv'
+    filename = 'C:\\Users\detldaq\Downloads\Load_test.csv'
     sec, target_W, target_VA_l, target_VA_c = p_q_profile(filename)
 
     if r_load:
@@ -194,8 +194,8 @@ if __name__ == "__main__":
 
         params['target'] = target_W
         LB_W = Device(params=params)
-        print LB_W.info()
-        print LB_W.version()
+        print(LB_W.info())
+        print(LB_W.version())
         LB_W.query_status()
         LB_W.query_relay_control_state()
 
@@ -215,8 +215,8 @@ if __name__ == "__main__":
                                   2340: 10}
         params['target'] = target_VA_l
         LB_VA_l = Device(params=params)
-        print LB_VA_l.info()
-        print LB_VA_l.version()
+        print(LB_VA_l.info())
+        print(LB_VA_l.version())
         LB_VA_l.query_status()
         LB_VA_l.query_relay_control_state()
 
@@ -236,8 +236,8 @@ if __name__ == "__main__":
                                   2340: 10}
         params['target'] = target_VA_c
         LB_VA_c = Device(params=params)
-        print LB_VA_c.info()
-        print LB_VA_c.version()
+        print(LB_VA_c.info())
+        print(LB_VA_c.version())
         LB_VA_c.query_status()
         LB_VA_c.query_relay_control_state()
 
@@ -265,8 +265,8 @@ if __name__ == "__main__":
         if elapsed >= sec[i]:
             if r_load:
                 switches_W, loads_W, error_W = LB_W.set_value(target_W[i])
-                print('Resistive: Target = %s W, Total power = %s, switches: %s, loads: %s, power error = %s W' %
-                    (target_W[i], sum(loads_W), switches_W, loads_W, error_W))
+                print(('Resistive: Target = %s W, Total power = %s, switches: %s, loads: %s, power error = %s W' %
+                    (target_W[i], sum(loads_W), switches_W, loads_W, error_W)))
                 LB_W.cmd_close(switches_W)
             else:
                 error_W = 0
@@ -274,8 +274,8 @@ if __name__ == "__main__":
                 LB_W.cmd_open_all()
             if l_load:
                 switches_VA_l, loads_VA_l, error_VA_l = LB_VA_l.set_value(target_VA_l)
-                print('Inductive:  Target = %s VA_l, Total Var = %s, switches: %s, loads: %s, power error = %s W' %
-                    (target_VA_l[i], sum(loads_VA_l), switches_VA_l, loads_VA_l, error_VA_l))
+                print(('Inductive:  Target = %s VA_l, Total Var = %s, switches: %s, loads: %s, power error = %s W' %
+                    (target_VA_l[i], sum(loads_VA_l), switches_VA_l, loads_VA_l, error_VA_l)))
                 LB_VA_l.cmd_close(switches_VA_l)
                 LB_VA_l.cmd_open_all()
             else:
@@ -285,14 +285,14 @@ if __name__ == "__main__":
                 switches_VA_c, loads_VA_c, error_VA_c = LB_VA_c.set_value(target_VA_c)
                 LB_VA_c.cmd_close(switches_VA_c)
                 LB_VA_c.cmd_open_all()
-                print('Capacitive:  Target = %s W, Total power = %s, switches: %s, loads: %s, power error = %s W' %
-                    (target_VA_c[i], sum(loads_W), switches_W, loads_VA_c, error_W))
+                print(('Capacitive:  Target = %s W, Total power = %s, switches: %s, loads: %s, power error = %s W' %
+                    (target_VA_c[i], sum(loads_W), switches_W, loads_VA_c, error_W)))
             else:
                 error_VA_c = 0
                 loads_VA_c = target_VA_c
 
-            print('Target = %s W, %s inductive var, %s capacitive var at time = %s s.' %
-                  (target_W[i], target_VA_l[i], target_VA_c[i], round(elapsed, 1)))
+            print(('Target = %s W, %s inductive var, %s capacitive var at time = %s s.' %
+                  (target_W[i], target_VA_l[i], target_VA_c[i], round(elapsed, 1))))
 
             i += 1
         else:

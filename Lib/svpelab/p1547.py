@@ -57,6 +57,7 @@ WV = 'WV'  # Watt-Var
 CRP = 'CRP'  # Constant Reactive Power
 LAP = 'LAP'  # Limit Active Power
 PRI = 'PRI'  # Priority
+IOP = 'IOP'  # Interoperability Tests
 
 VOLTAGE = 'V'
 FREQUENCY = 'F'
@@ -93,7 +94,7 @@ class module_1547(object):
         self.pairs = {}
         self.mag = {}
         self.ang = {}
-        self.param = {FW: {}, CPF: {}, VW: {}, VV: {}, WV: {}, CRP: {}, PRI: {}}
+        self.param = {FW: {}, CPF: {}, VW: {}, VV: {}, WV: {}, CRP: {}, PRI: {}, IOP: {}}
         self.target_dict = []
         self.x_criteria = None
         self.y_criteria = None
@@ -197,6 +198,8 @@ class module_1547(object):
             # self.meas_values.remove('P')
         if self.script_name == WV:
             self.meas_values.remove('V')
+        if self.script_name == IOP:
+            self.meas_values.append(['PF', 'F', 'Q'])
 
         self.ts.log('Measured values variables to be initialized: %s' % self.meas_values)
 
@@ -218,6 +221,8 @@ class module_1547(object):
             self.script_complete_name = 'Watt-Var'
         elif self.script_name == CRP:
             self.script_complete_name = 'Constant Reactive Power'
+        elif self.script_name == IOP:
+            self.script_complete_name = 'Interoperability Tests'
         else:
             self.script_complete_name = self.script_name
 
@@ -314,6 +319,9 @@ class module_1547(object):
         elif self.script_name == WV:
             self.function_used = [WV]
 
+        elif self.script_name == IOP:
+            self.function_used = [VW, VV, FW, CPF, CRP, WV]
+
     def set_criteria_mode(self):
         """
         This functions set the criteria mode required for different functions.
@@ -333,6 +341,8 @@ class module_1547(object):
             self.criteria_mode = [True, False, False]
         elif self.script_name == PRI:
             self.criteria_mode = [False, False, True]
+        elif self.script_name == IOP:
+            self.criteria_mode = [False, False, False]
 
     def set_params(self, curve=1):
         """
@@ -515,6 +525,10 @@ class module_1547(object):
                 ]
             self.param[PRI] = self.target_dict
 
+        if IOP in self.function_used:
+            self.target_dict = []
+            self.param[IOP] = self.target_dict
+
     def set_grid_asymmetric(self, grid, case):
         """
         Configure the grid simulator to change the magnitude and angles.
@@ -631,7 +645,12 @@ class module_1547(object):
                 self.x_criteria = ['V', 'P', 'PF']
             elif self.script_name == WV:
                 self.x_criteria = ['P']
+
         elif self.script_name == PRI:
+            self.y_criteria = ['P', 'Q']
+            self.x_criteria = ['V', 'F']
+
+        elif self.script_name == IOP:
             self.y_criteria = ['P', 'Q']
             self.x_criteria = ['V', 'F']
 
@@ -892,12 +911,12 @@ class module_1547(object):
         """
 
         if isinstance(x_target, dict):
-            for x_meas_variable, x_meas_value in x_target.iteritems():
+            for x_meas_variable, x_meas_value in x_target.items():
                 daq.sc['%s_MEAS' % x_meas_variable] = self.get_measurement_total(data=data, type_meas=x_meas_variable)
                 daq.sc['%s_TARGET' % x_meas_variable] = x_meas_value
 
         if isinstance(y_target, dict):
-            for y_meas_variable, y_meas_value in y_target.iteritems():
+            for y_meas_variable, y_meas_value in y_target.items():
                 daq.sc['%s_MEAS' % y_meas_variable] = self.get_measurement_total(data=data, type_meas=y_meas_variable)
                 daq.sc['%s_TARGET' % y_meas_variable] = y_meas_value
 
@@ -1037,7 +1056,7 @@ class module_1547(object):
                         # self.ts.log('Y Value (%s) = %s. Pass/fail bounds = [%s, %s]' %
                         #             (meas_value, daq.sc['%s_MEAS' % meas_value],
                         #              daq.sc['%s_TARGET_MIN' % meas_value], daq.sc['%s_TARGET_MAX' % meas_value]))
-                except Exception, e:
+                except Exception as e:
                     self.ts.log_debug('Measured value (%s) not recorded: %s' % (meas_value, e))
 
             tr_value[tr_iter]["timestamp"] = tr_
@@ -1175,14 +1194,14 @@ class module_1547(object):
         xs = self.x_criteria
         ys = self.y_criteria
 
-        analysis['FIRST_ITER'] = next(iter(tr_values.keys()))
+        analysis['FIRST_ITER'] = next(iter(list(tr_values.keys())))
         analysis['LAST_ITER'] = len(tr_values)
 
         if isinstance(ys, list):
             for y in ys:
                 analysis['%s_INITIAL' % y] = initial_value['%s_MEAS' % y]
 
-        for tr_iter, tr_value in tr_values.items():
+        for tr_iter, tr_value in list(tr_values.items()):
             self.ts.log_debug('tr_iter=%s, Tr value=%s' % (tr_iter, tr_value))
 
             for meas_value in self.meas_values:
@@ -1291,7 +1310,7 @@ class module_1547(object):
         # Note: Note sure where criteria_mode[1] (SS accuracy after 1 Tr) is used in IEEE 1547.1
         if self.criteria_mode[1] or self.criteria_mode[2]:  # STEADY-STATE pass/fail evaluation
             for y in ys:
-                for tr_iter, tr_dic in tr_values.items():
+                for tr_iter, tr_dic in list(tr_values.items()):
                     if (analysis['FIRST_ITER'] == tr_iter and self.criteria_mode[1]) or \
                             (analysis['LAST_ITER'] == tr_iter and self.criteria_mode[2]):
 

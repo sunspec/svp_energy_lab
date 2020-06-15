@@ -32,7 +32,7 @@ Questions can be directed to support@sunspec.org
 
 import os
 import sunspec.core.client as client
-import der
+from . import der
 import script
 
 sunspec_info = {
@@ -193,7 +193,7 @@ class DER(der.DER):
                 params['SerialNumber'] = self.inv.common.SN
             else:
                 params = None
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -239,7 +239,7 @@ class DER(der.DER):
                 params['MaxDisChaRte'] = self.inv.nameplate.MaxDisChaRte
             else:
                 params = None
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -292,7 +292,7 @@ class DER(der.DER):
                 params['EvtVnd4'] = self.inv.inverter.EvtVnd4
             else:
                 params = None
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -323,7 +323,7 @@ class DER(der.DER):
         try:
             if 'settings' in self.inv.models:
                 if params is not None:
-                    for key, value in params.iteritems():
+                    for key, value in params.items():
                         self.inv.settings[key] = value
                     self.inv.settings.write()
                 else:
@@ -347,7 +347,7 @@ class DER(der.DER):
                     params['VArAct'] = self.inv.settings.VArAct
             else:
                 params = None
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -380,7 +380,7 @@ class DER(der.DER):
                 params['EPC_Connected'] = (ecp_conn_bitfield & ECPCONN_CONNECTED) == ECPCONN_CONNECTED
             else:
                 params = {}
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -414,7 +414,7 @@ class DER(der.DER):
                 params['HFRT'] = (status_bitfield & STACTCTL_HFRT) == STACTCTL_HFRT
             else:
                 params = {}
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -460,7 +460,7 @@ class DER(der.DER):
                     params['RvrtTms'] = self.inv.controls.Conn_RvrtTms
             else:
                 params = None
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -517,7 +517,7 @@ class DER(der.DER):
                     params['RvrtTms'] = self.inv.controls.OutPFSet_RvrtTms
             else:
                 params = None
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -573,7 +573,7 @@ class DER(der.DER):
                     params['RvrtTms'] = self.inv.controls.WMaxLimPct_RvrtTms
             else:
                 params = None
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -650,7 +650,7 @@ class DER(der.DER):
 
             else:
                 params = None
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -735,7 +735,7 @@ class DER(der.DER):
                         v_len = len(v)
                         if v_len > int(n_pt):
                             raise der.DERError('Voltage point count out of range: %d' % (v_len))
-                        for i in xrange(v_len):  # SunSpec point index starts at 1
+                        for i in range(v_len):  # SunSpec point index starts at 1
                             v_point = 'V%d' % (i + 1)
                             setattr(curve, v_point, v[i])
                     # set var points
@@ -744,7 +744,7 @@ class DER(der.DER):
                         var_len = len(var)
                         if var_len > n_pt:
                             raise der.DERError('VAr point count out of range: %d' % (var_len))
-                        for i in xrange(var_len):  # SunSpec point index starts at 1
+                        for i in range(var_len):  # SunSpec point index starts at 1
                             var_point = 'VAr%d' % (i + 1)
                             setattr(curve, var_point, var[i])
 
@@ -764,7 +764,7 @@ class DER(der.DER):
                     v = []
                     var = []
                     if act_pt is not None:
-                        for i in xrange(1, act_pt + 1):  # SunSpec point index starts at 1
+                        for i in range(1, act_pt + 1):  # SunSpec point index starts at 1
                             v_point = 'V%d' % i
                             var_point = 'VAr%d' % i
                             v.append(getattr(curve, v_point))
@@ -774,7 +774,7 @@ class DER(der.DER):
             else:
                 params = None
 
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -857,7 +857,7 @@ class DER(der.DER):
                         params['curve'] = self.freq_watt_curve(id=self.inv.freq_watt.ActCrv)
             else:
                 params = None
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -931,7 +931,7 @@ class DER(der.DER):
                         hz_len = len(hz)
                         if hz_len > n_pt:
                             raise der.DERError('Freq point count out of range: %d' % (hz_len))
-                        for i in xrange(hz_len):  # SunSpec point index starts at 1
+                        for i in range(hz_len):  # SunSpec point index starts at 1
                             hz_point = 'Hz%d' % (i + 1)
                             setattr(curve, hz_point, hz[i])
                     # set watt points
@@ -940,7 +940,7 @@ class DER(der.DER):
                         w_len = len(w)
                         if w_len > n_pt:
                             raise der.DERError('Watt point count out of range: %d' % (w_len))
-                        for i in xrange(w_len):  # SunSpec point index starts at 1
+                        for i in range(w_len):  # SunSpec point index starts at 1
                             w_point = 'W%d' % (i + 1)
                             setattr(curve, w_point, w[i])
 
@@ -961,7 +961,7 @@ class DER(der.DER):
                     params['id'] = id  #also store the curve number
                     hz = []
                     w = []
-                    for i in xrange(1, act_pt + 1):  # SunSpec point index starts at 1
+                    for i in range(1, act_pt + 1):  # SunSpec point index starts at 1
                         hz_point = 'Hz%d' % i
                         w_point = 'W%d' % i
                         hz.append(getattr(curve, hz_point))
@@ -971,7 +971,7 @@ class DER(der.DER):
             else:
                 params = None
 
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -1045,7 +1045,7 @@ class DER(der.DER):
             else:
                 params = None
 
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -1136,7 +1136,7 @@ class DER(der.DER):
                             v_len = len(v)
                             if v_len > n_pt:
                                 raise der.DERError('Voltage point count out of range: %d' % (v_len))
-                            for i in xrange(v_len):  # SunSpec point index starts at 1
+                            for i in range(v_len):  # SunSpec point index starts at 1
                                 v_point = 'V%d' % (i + 1)
                                 setattr(curve, v_point, v[i])
                         # set watt points
@@ -1145,7 +1145,7 @@ class DER(der.DER):
                             watt_len = len(watt)
                             if watt_len > n_pt:
                                 raise der.DERError('W point count out of range: %d' % (watt_len))
-                            for i in xrange(watt_len):  # SunSpec point index starts at 1
+                            for i in range(watt_len):  # SunSpec point index starts at 1
                                 watt_point = 'W%d' % (i + 1)
                                 setattr(curve, watt_point, watt[i])
 
@@ -1179,7 +1179,7 @@ class DER(der.DER):
                         c_params['id'] = id  # also store the curve number
                         v = []
                         w = []
-                        for i in xrange(1, act_pt + 1):  # SunSpec point index starts at 1
+                        for i in range(1, act_pt + 1):  # SunSpec point index starts at 1
                             v_point = 'V%d' % i
                             w_point = 'W%d' % i
                             v.append(getattr(curve, v_point))
@@ -1190,7 +1190,7 @@ class DER(der.DER):
             else:
                 params = None
 
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -1250,7 +1250,7 @@ class DER(der.DER):
                 params['VArMaxPct'] = self.inv.controls.VArMaxPct
                 params['VArAvalPct'] = self.inv.controls.VArAvalPct
 
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -1323,7 +1323,7 @@ class DER(der.DER):
                     params['curve'] = self.volt_var_curve(id=self.inv.volt_var.ActCrv)
                 params['Q'] = self.inv.volt_var_curve.var[0]
 
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -1384,7 +1384,7 @@ class DER(der.DER):
                 params['RmpTms'] = storage_params['InOutWRte_RmpTms']
                 params['RvrtTms'] = storage_params['InOutWRte_RvrtTms']
 
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -1472,7 +1472,7 @@ class DER(der.DER):
                 params['InOutWRte_RvrtTms'] = self.inv.volt_var.InOutWRte_RvrtTms
                 params['InOutWRte_RmpTms'] = self.inv.volt_var.InOutWRte_RmpTms
 
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -1517,7 +1517,7 @@ class DER(der.DER):
                 rvrt_tms = params.get('RvrtTms')
                 if rvrt_tms is not None:
                     self.inv.hfrt.RvrtTms = rvrt_tms
-                for i in xrange(1, params['NPt'] + 1):  # Uses the SunSpec indexing rules (start at 1)
+                for i in range(1, params['NPt'] + 1):  # Uses the SunSpec indexing rules (start at 1)
                     time_point = 'Tms%d' % i
                     param_time_point = params.get(time_point)
                     curve_num = self.inv.hfrt.ActCrv  # assume the active curve is the one being changed
@@ -1544,7 +1544,7 @@ class DER(der.DER):
                 params['RmpTms'] = self.inv.hfrt.RmpTms
                 params['RvrtTms'] = self.inv.hfrt.RvrtTms
 
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -1589,7 +1589,7 @@ class DER(der.DER):
                 rvrt_tms = params.get('RvrtTms')
                 if rvrt_tms is not None:
                     self.inv.lfrt.RvrtTms = rvrt_tms
-                for i in xrange(1, params['NPt'] + 1):  # Uses the SunSpec indexing rules (start at 1)
+                for i in range(1, params['NPt'] + 1):  # Uses the SunSpec indexing rules (start at 1)
                     time_point = 'Tms%d' % i
                     param_time_point = params.get(time_point)
                     curve_num = self.inv.lfrt.ActCrv  # assume the active curve is the one being changed
@@ -1616,7 +1616,7 @@ class DER(der.DER):
                 params['RmpTms'] = self.inv.lfrt.RmpTms
                 params['RvrtTms'] = self.inv.lfrt.RvrtTms
 
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -1647,7 +1647,7 @@ class DER(der.DER):
             else:
                 params = {}
 
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -1679,7 +1679,7 @@ class DER(der.DER):
             else:
                 params = {}
 
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -1724,7 +1724,7 @@ class DER(der.DER):
                 rvrt_tms = params.get('RvrtTms')
                 if rvrt_tms is not None:
                     self.inv.hvrtc.RvrtTms = rvrt_tms
-                for i in xrange(1, params['NPt'] + 1):  # Uses the SunSpec indexing rules (start at 1)
+                for i in range(1, params['NPt'] + 1):  # Uses the SunSpec indexing rules (start at 1)
                     time_point = 'Tms%d' % i
                     param_time_point = params.get(time_point)
                     curve_num = self.inv.hvrtc.ActCrv  # assume the active curve is the one being changed
@@ -1751,7 +1751,7 @@ class DER(der.DER):
                 params['RmpTms'] = self.inv.hvrtc.RmpTms
                 params['RvrtTms'] = self.inv.hvrtc.RvrtTms
 
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -1797,7 +1797,7 @@ class DER(der.DER):
                 rvrt_tms = params.get('RvrtTms')
                 if rvrt_tms is not None:
                     self.inv.lvrtc.RvrtTms = rvrt_tms
-                for i in xrange(1, params['NPt'] + 1):  # Uses the SunSpec indexing rules (start at 1)
+                for i in range(1, params['NPt'] + 1):  # Uses the SunSpec indexing rules (start at 1)
                     time_point = 'Tms%d' % i
                     param_time_point = params.get(time_point)
                     curve_num = self.inv.lvrtc.ActCrv  # assume the active curve is the one being changed
@@ -1824,7 +1824,7 @@ class DER(der.DER):
                 params['RmpTms'] = self.inv.lvrtc.RmpTms
                 params['RvrtTms'] = self.inv.lvrtc.RvrtTms
 
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -1869,7 +1869,7 @@ class DER(der.DER):
                 rvrt_tms = params.get('RvrtTms')
                 if rvrt_tms is not None:
                     self.inv.hvrtd.RvrtTms = rvrt_tms
-                for i in xrange(1, params['NPt'] + 1):  # Uses the SunSpec indexing rules (start at 1)
+                for i in range(1, params['NPt'] + 1):  # Uses the SunSpec indexing rules (start at 1)
                     time_point = 'Tms%d' % i
                     param_time_point = params.get(time_point)
                     curve_num = self.inv.hvrtd.ActCrv  # assume the active curve is the one being changed
@@ -1896,7 +1896,7 @@ class DER(der.DER):
                 params['RmpTms'] = self.inv.hvrtd.RmpTms
                 params['RvrtTms'] = self.inv.hvrtd.RvrtTms
 
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -1941,7 +1941,7 @@ class DER(der.DER):
                 rvrt_tms = params.get('RvrtTms')
                 if rvrt_tms is not None:
                     self.inv.lvrtd.RvrtTms = rvrt_tms
-                for i in xrange(1, params['NPt'] + 1):  # Uses the SunSpec indexing rules (start at 1)
+                for i in range(1, params['NPt'] + 1):  # Uses the SunSpec indexing rules (start at 1)
                     time_point = 'Tms%d' % i
                     param_time_point = params.get(time_point)
                     curve_num = self.inv.lvrtd.ActCrv  # assume the active curve is the one being changed
@@ -1968,7 +1968,7 @@ class DER(der.DER):
                 params['RmpTms'] = self.inv.lvrtd.RmpTms
                 params['RvrtTms'] = self.inv.lvrtd.RvrtTms
 
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -1999,7 +1999,7 @@ class DER(der.DER):
                     params['soft_start'] = self.inv.ext_settings.ConnRmpUpRte
             else:
                 params = None
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
