@@ -55,6 +55,9 @@ WFM_CHANNELS = {'Generic': ['TIME', 'AC_V_1', 'AC_V_2', 'AC_V_3', 'AC_I_1', 'AC_
                               'Ph_Del_A', 'Ph_Del_B', 'Ph_Del_C'],
                 'PhaseJumpOld': ['TIME', 'AC_V_1', 'AC_V_2', 'AC_V_3', 'AC_I_1', 'AC_I_2', 'AC_I_3', 'Trigger',
                                  'Total_RMS_Current', 'Time_Below_80pct_Current', 'Time_Phase_Misalignment'],
+                'VRT': ['TIME', 'AC_V_1', 'AC_V_2', 'AC_V_3',
+                                'AC_I_1', 'AC_I_2', 'AC_I_3', 
+                                'AC_V_1_TARGET','AC_V_2_TARGET','AC_V_3_TARGET','Trigger'],
                 }
 
 
@@ -72,8 +75,6 @@ class Device(object):
         self.ts = self.params['ts']
         self.map = self.params['map']
         self.sample_interval = self.params['sample_interval']
-        self.target_name = self.params['target_name']
-        self.model_name = self.params['model_name']
         self.wfm_dir = self.params['wfm_dir']
         self.data_name = self.params['data_name']
         self.dc_measurement_device = None
@@ -82,11 +83,15 @@ class Device(object):
 
         # optional parameters for interfacing with other SVP devices
         self.hil = self.params['hil']
+        self.model_name = self.hil.rt_lab_model
+        self.target_name = self.hil.target_name
+
         self.gridsim = self.params['gridsim']
         self.dc_measurement_device = self.params['dc_measurement_device']
 
         self.ts.log_debug('DAS connected to with HIL: %s, DC meas: %s, and gridsim: %s' %
                           (self.hil, self.dc_measurement_device, self.gridsim))
+        # TODO : All this could be replace with Alias manipulations.
 
         # Mapping from the  channels to be captured and the names that are used in the Opal environment
         self.opal_map_phase_jump = {  # data point : analog channel name
@@ -195,12 +200,49 @@ class Device(object):
             'DC_V': None,
             'DC_I': None,
             'DC_P': None}
+        
+        self.opal_fast_1547 = {  # data point : analog channel name
+            'TIME': self.model_name + '/SM_Source/Clock/port1',
+            # Voltage
+            'AC_VRMS_1': self.model_name + '/SM_Source/Signal_conditionning/AC_VRMS_1/Switch/port1',
+            'AC_VRMS_1': self.model_name + '/SM_Source/Signal_conditionning/AC_VRMS_2/Switch/port1',
+            'AC_VRMS_1': self.model_name + '/SM_Source/Signal_conditionning/AC_VRMS_3/Switch/port1',
+            # Current
+            'AC_IRMS_1': self.model_name + '/SM_Source/Signal_conditionning/AC_IRMS_1/Switch/port1',
+            'AC_IRMS_1': self.model_name + '/SM_Source/Signal_conditionning/AC_IRMS_2/Switch/port1',
+            'AC_IRMS_1': self.model_name + '/SM_Source/Signal_conditionning/AC_IRMS_3/Switch/port1',
+            # Frequency
+            'AC_FREQ_1': self.model_name + '/SM_Source/Signal_conditionning/AC_FREQ_1/port1',
+            'AC_FREQ_2': self.model_name + '/SM_Source/Signal_conditionning/AC_FREQ_2/port1',
+            'AC_FREQ_3': self.model_name + '/SM_Source/Signal_conditionning/AC_FREQ_3/port1',
+            # Active Power
+            'AC_P_1': self.model_name + '/SM_Source/Signal_conditionning/AC_P_1/port1(2)',
+            'AC_P_2': self.model_name + '/SM_Source/Signal_conditionning/AC_P_2/port1(2)',
+            'AC_P_3': self.model_name + '/SM_Source/Signal_conditionning/AC_P_3/port1(2)',
+            # Reactive Power
+            'AC_Q_1': self.model_name + '/SM_Source/Signal_conditionning/AC_Q_1/port1(2)',
+            'AC_Q_2': self.model_name + '/SM_Source/Signal_conditionning/AC_Q_2/port1(2)',
+            'AC_Q_3': self.model_name + '/SM_Source/Signal_conditionning/AC_Q_3/port1(2)',
+            # Apparent Power
+            'AC_S_1': self.model_name + '/SM_Source/Signal_conditionning/AC_S_1/port1(2)',
+            'AC_S_2': self.model_name + '/SM_Source/Signal_conditionning/AC_S_2/port1(2)',
+            'AC_S_3': self.model_name + '/SM_Source/Signal_conditionning/AC_S_3/port1(2)',
+            # Power Factor
+            'AC_PF_1': self.model_name + '/SM_Source/Signal_conditionning/AC_PF_3/port1(2)',
+            'AC_PF_1': self.model_name + '/SM_Source/Signal_conditionning/AC_PF_3/port1(2)',
+            'AC_PF_1': self.model_name + '/SM_Source/Signal_conditionning/AC_PF_3/port1(2)', 
+         
+            # TODO : As some point this will be read it from HIL
+            'DC_V': None,
+            'DC_I': None,
+            'DC_P': None}
 
         # Mapping from the  channels to be captured and the names that are used in the Opal environment
         opal_points_map = {
             'Opal_Phase_Jump': self.opal_map_phase_jump,  # For use with the IEEE 1547.1 Phase Jump Tests
             'Opal_Phase_Jump_Realign': self.opal_map_phase_jump_w_phase_realign,  # Phase Jump Tests with Realignment
             'Ekhi': self.opal_map_ekhi,  # For use with Ekhi
+            'Opal_Fast_1547' : self.opal_fast_1547 # PCRT, VRT and FRT
         }
         self.data_points = sorted(list(opal_points_map[self.map].keys()))
         # self.data_points will be appended with the soft channels, so keep a local version for getting device data
@@ -340,6 +382,14 @@ class Device(object):
             'timeout' - Timeout (sec)
             'channels' - Channels to capture - ['AC_V_1', 'AC_V_2', 'AC_V_3', 'AC_I_1', 'AC_I_2', 'AC_I_3', 'EXT']
         """
+        start_time_value = params["start_time_value"]
+        end_time_value = params["end_time_value"]
+        start_time_variable = params["start_time_variable"]
+        end_time_variable= params["end_time_variable"]
+        variables = []
+        variables.append((start_time_variable,start_time_value))
+        variables.append((end_time_variable,end_time_value))
+        self.hil.set_variables(variables)
         pass
 
     def waveform_capture(self, enable=True, sleep=None):
@@ -499,64 +549,17 @@ class Device(object):
 
 if __name__ == "__main__":
 
-    system_info = RtlabApi.GetTargetNodeSystemInfo("Target_3")
-    for i in range(len(system_info)):
-        print((system_info[i]))
-    print(("OPAL-RT - Platform version {0} (IP address : {1})".format(system_info[1], system_info[6])))
+    system_info = RtlabApi.GetTargetNodeSystemInfo("RTServer")
+    
+    projectName = os.path.abspath(r"C:\OPAL-RT\WorkspaceFOREVERYONE\1547_fast_functions\1547_fast_functions.llp")
+    RtlabApi.OpenProject(projectName)
+    print("The connection with '%s' is completed." % projectName)
 
-    # Pull in saved data from the .mat files
-    print('Loading file in matlab...')
-    m_cmd = "load('C:\\Users\\DETLDAQ\\OPAL-RT\\RT-LABv2019.1_Workspace\\IEEE_1547.1_Phase_Jump\\models\\" \
-            "Phase_Jump_A_B_A\\phase_jump_a_b_a_sm_source\\OpREDHAWKtarget\\SVP_Data.mat')"
-    print((RtlabApi.ExecuteMatlabCmd(m_cmd)))
+    modelState, realTimeMode = RtlabApi.GetModelState()
+    print(modelState,realTimeMode)
+ 
 
-    print('Adding Data Header')
-    m_cmd = "header = {" + str(wfm_channels)[1:-1] + "};"
-    print(m_cmd)
-    print((RtlabApi.ExecuteMatlabCmd(m_cmd)))
-    print((RtlabApi.ExecuteMatlabCmd("[x, y] = size(Data);")))
-    print((RtlabApi.ExecuteMatlabCmd("data_w_header = cell(y+1,x);")))
-    print((RtlabApi.ExecuteMatlabCmd("data_w_header(1,:) = header;")))
-    print((RtlabApi.ExecuteMatlabCmd("data_w_header(2:y+1,:) = num2cell(Data');")))
 
-    csv_location = 'C:\\Users\\DETLDAQ\\OPAL-RT\\RT-LABv2019.1_Workspace\\IEEE_1547.1_Phase_Jump\\models\\' \
-            'Phase_Jump_A_B_A\\phase_jump_a_b_a_sm_source\\OpREDHAWKtarget\\Results.csv'
-    print(('Saving the waveform data as .csv file in %s' % csv_location))
-    # m_cmd = "csvwrite(('" + csv_location + "'), data_w_header)"
-    # print(m_cmd)
-    # RtlabApi.ExecuteMatlabCmd(m_cmd)
 
-    m_cmd = "fid = fopen('" + csv_location + "', 'wt');\n"
-    m_cmd += "if fid > 0\n"
-    m_cmd += "fprintf(fid, '" + "%s," * (len(wfm_channels) - 1) + "%s\\n', data_w_header{1,:});\n"
-    m_cmd += "for k=2:size(data_w_header, 1)\n"
-    m_cmd += "fprintf(fid, '" + "%f," * (len(wfm_channels) - 1) + "%f\\n', data_w_header{k,:});\n"
-    m_cmd += "end\n"
-    m_cmd += "fclose(fid);\n"
-    m_cmd += "end\n"
-    print(m_cmd)
-    print(('Matlab: ' + RtlabApi.ExecuteMatlabCmd(m_cmd)))
-
-    ds = dataset.Dataset()
-    ds.from_csv(filename=csv_location)
-    print((ds.data))
-    print((ds.points))
-
-    # import csv
-    # time_data = []
-    # v_data = []
-    # with open(csv_location) as csvfile:
-    #     reader = csv.DictReader(csvfile)
-    #     for row in reader:
-    #         time_data.append(float(row['TIME']))
-    #         v_data.append(float(row['AC_V_1']))
-    #
-    # print(time_data)
-    # print(v_data)
-    #
-    # import matplotlib.pyplot as plt
-    # plt.figure(1)
-    # plt.plot(time_data, v_data)
-    # plt.show()
 
 

@@ -58,7 +58,10 @@ CRP = 'CRP'  # Constant Reactive Power
 LAP = 'LAP'  # Limit Active Power
 PRI = 'PRI'  # Priority
 IOP = 'IOP'  # Interoperability Tests
-
+LV = 'Low-Voltage'
+HV = 'High-Voltage'
+CAT_2 = 'Category II'
+CAT_3 = 'Category III'
 VOLTAGE = 'V'
 FREQUENCY = 'F'
 FULL_NAME = {'V': 'Voltage',
@@ -1558,11 +1561,120 @@ class module_1547(object):
 
         # get pass-fail criteria for this test step
         analysis = self.get_analysis(initial_value=initial_value, tr_values=tr_values, tr=tr)
-        # self.ts.log_debug('analysis: %s' % analysis)
+        # self.ts.log_debug(s'analysis: %s' % analysis)
 
         result_summary.write(self.write_rslt_sum(analysis=analysis, step=step, filename=filename))
         return
 
+class vrt_1547(object):
+    def __init__(self, ts, support_interfaces):
+        self.params = {}
+        self.parameters_dic = {}
+        self.mode = []
+        self.ts = ts
+        self.vrt_start_time = None
+        self.vrt_stop_time = None
+        if support_interfaces.get('hil') is not None:
+            self.hil = support_interfaces.get('hil')
+        else:
+            self.hil = None
+        self._config()
+    def _config(self):
+        self.set_params()
+        self.set_vrt_on()
+        self.set_model_parameters_dic()
+    """
+    Setter functions
+    """
 
-if __name__ == "__main__":
-    pass
+    def set_vrt_on(self):
+        """
+        Set the HIL model to VRT
+        """
+        model_name = self.params["model_name"] 
+        self.hil.set_params(model_name +"/SM_Source/SVP Commands/mode/Value",3)
+
+
+    def set_params(self):
+        try:
+            # RT test parameters
+            self.params["lf_mode"] = self.ts.param_value('vrt.lv_ena')
+            self.params["hf_mode"] = self.ts.param_value('vrt.hv_ena')
+            #low_pwr_ena = self.ts.param_value('vrt.low_pwr_ena')
+            #high_pwr_ena = self.ts.param_value('vrt.high_pwr_ena')
+            #low_pwr_value = self.ts.param_value('vrt.low_pwr_value')
+            #high_pwr_value = self.ts.param_value('vrt.high_pwr_value')
+
+            #consecutive_ena = ts.param_value('vrt.consecutive_ena')
+            self.params["categories"] = self.ts.param_value('vrt.cat')
+            self.params["range_steps"] = self.ts.param_value('vrt.range_steps')
+            self.eut_startup_time = self.ts.param_value('eut.startup_time')
+            self.params["model_name"] = self.hil.rt_lab_model
+        except Exception as e:
+            self.ts.log_error('Incorrect Parameter value : %s' % e)
+            raise
+    def set_model_parameters_dic(self):
+        categories = self.params["categories"]
+        lf_mode = self.params["lf_mode"]
+        hf_mode = self.params["hf_mode"]
+        model_name =  self.params["model_name"]
+        range_steps = self.params["range_steps"]
+        
+
+        if lf_mode == 'Enabled':
+            #Timestep is cumulative
+            if categories == CAT_2 or categories == 'Both':
+                self.mode.append(f'{LV}_{CAT_2}')
+                self.vrt_start_time = self.eut_startup_time
+                self.vrt_stop_time = 12 + self.vrt_start_time
+                #TODO change sequence parameter for parameter to be chosen by users or average of both max & min values?
+                self.parameters_dic.update({f'{LV}_{CAT_2}': [
+                # Add ROCOM only for condition E
+                (model_name + '/SM_Source/Waveform_Generator/ROCOM_START_TIME/Value', 10 + self.vrt_start_time),
+                (model_name + '/SM_Source/Waveform_Generator/ROCOM_END_TIME/Value', 12 + self.vrt_start_time),
+                # Enable needed conditions
+                (model_name + '/SM_Source/VRT/VRT_State_Machine/cond_a_ena/Value', 1),
+                (model_name + '/SM_Source/VRT/VRT_State_Machine/cond_b_ena/Value', 1),
+                (model_name + '/SM_Source/VRT/VRT_State_Machine/cond_c_ena/Value', 1),
+                (model_name + '/SM_Source/VRT/VRT_State_Machine/cond_d_ena/Value', 1),
+                (model_name + '/SM_Source/VRT/VRT_State_Machine/cond_e_ena/Value', 1),
+                (model_name + '/SM_Source/VRT/VRT_State_Machine/cond_f_ena/Value', 1),
+                # Timesteps
+                # (model_name + '/SM_Source/VRT/VRT_State_Machine/condition A/Threshold', 20 + self.vrt_start_time),
+                # (model_name + '/SM_Source/VRT/VRT_State_Machine/condition B/Threshold', 20.16 + self.vrt_start_time),
+                # (model_name + '/SM_Source/VRT/VRT_State_Machine/condition C/Threshold', 20.32 + self.vrt_start_time),
+                # (model_name + '/SM_Source/VRT/VRT_State_Machine/condition D/Threshold', 23 + self.vrt_start_time),
+                # (model_name + '/SM_Source/VRT/VRT_State_Machine/condition E/Threshold', 25 + self.vrt_start_time),
+                # (model_name + '/SM_Source/VRT/VRT_State_Machine/condition F/Threshold', 125 + self.vrt_start_time),
+
+                (model_name + '/SM_Source/VRT/VRT_State_Machine/condition A/Threshold', 2 + self.vrt_start_time),
+                (model_name + '/SM_Source/VRT/VRT_State_Machine/condition B/Threshold', 4 + self.vrt_start_time),
+                (model_name + '/SM_Source/VRT/VRT_State_Machine/condition C/Threshold', 6 + self.vrt_start_time),
+                (model_name + '/SM_Source/VRT/VRT_State_Machine/condition D/Threshold', 8 + self.vrt_start_time),
+                (model_name + '/SM_Source/VRT/VRT_State_Machine/condition E/Threshold', 10 + self.vrt_start_time),
+                (model_name + '/SM_Source/VRT/VRT_State_Machine/condition F/Threshold', self.vrt_stop_time ),
+                # Values
+                (model_name + '/SM_Source/VRT/VRT_State_Machine/voltage_ph_seqA/Value', 0.94*120),
+                (model_name + '/SM_Source/VRT/VRT_State_Machine/condition B/Threshold', 0.28*120),
+                (model_name + '/SM_Source/VRT/VRT_State_Machine/condition C/Threshold', 0.43*120),
+                (model_name + '/SM_Source/VRT/VRT_State_Machine/condition D/Threshold', 0.65*120),
+                (model_name + '/SM_Source/VRT/VRT_State_Machine/condition E/Threshold', 0.88*120),
+                (model_name + '/SM_Source/VRT/VRT_State_Machine/condition F/Threshold', 0.94*120)]})
+                
+    """
+    Getter functions
+    """
+    def get_modes(self):
+        return self.mode
+
+    def get_model_parameters(self,current_mode):
+        self.ts.log(f'Getting HIL parameters for {current_mode}')
+        return self.parameters_dic[current_mode],self.vrt_start_time, self.vrt_stop_time 
+
+    def get_waveform_config(self,current_mode,offset):
+        params = {}
+        params["start_time_value"] = float(self.vrt_start_time - offset)
+        params["end_time_value"] = float(self.vrt_stop_time + offset)
+        params["start_time_variable"] = "Tstart"
+        params["end_time_variable"] = "Tend"
+        return params

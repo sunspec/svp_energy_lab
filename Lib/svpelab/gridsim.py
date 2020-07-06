@@ -114,7 +114,7 @@ class GridSim(object):
         self.group_name = group_name
         self.profile = []
         self.params = params
-
+ 
         if self.params is None:
             self.params = {}
 
@@ -198,6 +198,18 @@ class GridSim(object):
         else:
             rocof = 0.0
         return rocof
+
+    def rocom(self, rocom=None):
+        """
+        Set the rate of change of magnitude (ROCOM) if provided. If none provided, obtains the ROCOM.
+
+        :param rocom: ROCOM in V/s
+        """
+        if rocom is not None:
+            pass
+        else:
+            rocom = 0.0
+        return rocom
 
     def profile_load(self, profile_name=None, v_step=100, f_step=100, t_step=None, profile=None):
         """

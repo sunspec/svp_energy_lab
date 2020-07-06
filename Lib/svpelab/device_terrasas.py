@@ -63,6 +63,7 @@ class TerraSAS(object):
                 self.conn.connect((self.ipaddr, self.ipport))
 
             # print 'cmd> %s' % (cmd_str)
+            cmd_str = cmd_str.encode('utf-8')
             self.conn.send(cmd_str)
         except Exception as e:
             raise
@@ -75,7 +76,7 @@ class TerraSAS(object):
 
         while more_data:
             try:
-                data = self.conn.recv(self.buffer_size)
+                data = self.conn.recv(self.buffer_size).decode('utf-8')
                 if len(data) > 0:
                     for d in data:
                         resp += d
