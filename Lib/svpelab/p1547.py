@@ -1639,6 +1639,7 @@ class vrt_1547(object):
                 (model_name + '/SM_Source/VRT/VRT_State_Machine/cond_d_ena/Value', 1),
                 (model_name + '/SM_Source/VRT/VRT_State_Machine/cond_e_ena/Value', 1),
                 (model_name + '/SM_Source/VRT/VRT_State_Machine/cond_f_ena/Value', 1),
+                # Trigger for OPwritefile
                 # Timesteps
                 # (model_name + '/SM_Source/VRT/VRT_State_Machine/condition A/Threshold', 20 + self.vrt_start_time),
                 # (model_name + '/SM_Source/VRT/VRT_State_Machine/condition B/Threshold', 20.16 + self.vrt_start_time),

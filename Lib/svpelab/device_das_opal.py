@@ -11,7 +11,8 @@ import glob
 from . import waveform
 from . import dataset
 import sys
-import os
+import glob, os
+
 try:
     sys.path.insert(0, "C://OPAL-RT//RT-LAB//2019.1//common//python")
     import RtlabApi
@@ -262,9 +263,9 @@ class Device(object):
         import os
         self.driver_path = os.path.dirname(os.path.realpath(__file__))
         # location where opal saves the waveform data (.mat)
-        self.mat_location = self.driver_path + self.wfm_dir + self.data_name
+        self.mat_location = self.wfm_dir + self.data_name
         # location where matlab saves the waveform data (.csv)
-        self.csv_location = self.driver_path + self.wfm_dir + 'Results.csv'
+        self.csv_location = self.wfm_dir + f'\{self.data_name.split(".mat")}_temp.csv'
         # delete the old data file
         try:
             os.remove(self.csv_location)
@@ -428,10 +429,10 @@ class Device(object):
 
         # in case multiple waveform captures are required for the test, create list of datasets
         datasets = []
-        for entry in os.listdir(self.driver_path + self.wfm_dir):
-            # self.ts.log_debug('%s, %s, %s' % (entry, entry[-4:], entry[:8]))
-            if entry[-4:] == '.mat' and entry[:8] == 'SVP_Data':
-                self.mat_location = self.driver_path + self.wfm_dir + entry
+        os.chdir(self.wfm_dir)
+        for entry in glob.glob("*.mat"):
+            if "Data" in entry:
+                self.mat_location = f'{self.wfm_dir}\{entry}'
                 self.ts.log_debug('Processing data in the .mat file at %s' % self.mat_location)
                 # Check that the data file is not still being written to
                 # attempts = 5
@@ -448,8 +449,8 @@ class Device(object):
                 # Pull in saved data from the .mat files
                 self.ts.log('Loading %s file in matlab...' % self.mat_location)
                 m_cmd = "load('" + self.mat_location + "')"
-                # self.ts.log_debug('Running matlab command: %s' % m_cmd)
-                # self.ts.log_debug('Matlab: ' + self.matlab_cmd(m_cmd))
+                self.ts.log_debug('Running matlab command: %s' % m_cmd)
+                self.ts.log_debug('Matlab: ' + self.matlab_cmd(m_cmd))
                 if isinstance(self.matlab_cmd(m_cmd), MatlabException):
                     self.ts.log_warning('Matlab command failed. Waiting 10 sec and retrying...')
                     self.ts.sleep(10)
@@ -458,13 +459,13 @@ class Device(object):
                 # Add the header to the data in Matlab
                 self.ts.log('Adding Data Header')
                 m_cmd = "header = {" + str(self.wfm_channels)[1:-1] + "};"
-                '''
+                
                 self.ts.log_debug('Matlab: ' + self.matlab_cmd(m_cmd))
                 self.ts.log_debug('Matlab: ' + self.matlab_cmd("[x, y] = size(Data);"))
                 self.ts.log_debug('Matlab: ' + self.matlab_cmd("data_w_header = cell(y+1,x);"))
                 self.ts.log_debug('Matlab: ' + self.matlab_cmd("data_w_header(1,:) = header;"))
                 self.ts.log_debug('Matlab: ' + self.matlab_cmd("data_w_header(2:y+1,:) = num2cell(Data');"))
-                '''
+                
                 if isinstance(self.matlab_cmd(m_cmd), MatlabException):
                     self.ts.log_warning('Matlab command failed. Waiting 10 sec and retrying...')
                     self.ts.sleep(10)
@@ -489,8 +490,8 @@ class Device(object):
                 m_cmd += "end\n"
                 m_cmd += "fclose(fid);\n"
                 m_cmd += "end\n"
-                print(m_cmd)
-                # self.ts.log_debug('Matlab: ' + self.matlab_cmd(m_cmd))
+                #print(m_cmd)
+                self.ts.log_debug('Matlab: ' + m_cmd)
                 if self.matlab_cmd(m_cmd) == '':
                     self.ts.log_warning('Matlab command failed. Waiting 10 sec and retrying...')
                     self.ts.sleep(10)
