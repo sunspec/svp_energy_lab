@@ -1,5 +1,5 @@
 """
-Copyright (c) 2017, Sandia National Labs, SunSpec Alliance and CanmetENERGY
+Copyright (c) 2018, Sandia National Labs, SunSpec Alliance and CanmetENERGY(Natural Resources Canada)
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -12,8 +12,8 @@ Redistributions in binary form must reproduce the above copyright notice, this
 list of conditions and the following disclaimer in the documentation and/or
 other materials provided with the distribution.
 
-Neither the names of the Sandia National Labs and SunSpec Alliance nor the names of its
-contributors may be used to endorse or promote products derived from
+Neither the names of the Sandia National Labs, SunSpec Alliance and CanmetENERGY(Natural Resources Canada)
+nor the names of its contributors may be used to endorse or promote products derived from
 this software without specific prior written permission.
 
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
@@ -41,13 +41,14 @@ from collections import OrderedDict
 import time
 import collections
 import numpy as np
+
 # import sys
 # import os
 # import glob
 # import importlib
 
-VERSION = '1.3.0'
-LATEST_MODIFICATION = '4th March 2020'
+VERSION = '1.4.0'
+LATEST_MODIFICATION = '8th July 2020'
 
 FW = 'FW'  # Frequency-Watt
 CPF = 'CPF'  # Constant Power Factor
@@ -73,45 +74,20 @@ FULL_NAME = {'V': 'Voltage',
 
 class p1547Error(Exception):
     pass
+"""
+This section is for EUT parameters needed such as V, P, Q, etc.
+"""
 
-
-class module_1547(object):
-    script_name = ''
-
-    def __init__(self, ts, aif, imbalance_angle_fix='std', absorb='No'):
-        """
-        param ts: test script object
-        param aif: name of the test
-        param imbalance_angle_fix: indicates if the phase imbalance tests force the phase angles to be symmetrical
-        param absorb: dictionary if the EUT includes storage containing {'ena', 'p_rated_prime'}
-        """
-
-        # Library variables
+class EutParameters(object):
+    def __init__(self, ts):
         self.ts = ts
-        # self.params = params
-        self.script_name = aif
-        self.script_complete_name = aif
-        self.function_used = []
-        self.rslt_sum_col_name = ''
-        self.sc_points = {}
-        self.pairs = {}
-        self.mag = {}
-        self.ang = {}
-        self.param = {FW: {}, CPF: {}, VW: {}, VV: {}, WV: {}, CRP: {}, PRI: {}, IOP: {}}
-        self.target_dict = []
-        self.x_criteria = None
-        self.y_criteria = None
-        self.step_label = None
-        self.double_letter_label = False
-        self.criteria_mode = []
-        self.meas_values = []
-        self.curve = 1
-
         try:
             self.v_nom = ts.param_value('eut.v_nom')
+            self.s_rated = ts.param_value('eut.s_rated')
+
             '''
             Minimum required accuracy (MRA) (per Table 3 of IEEE Std 1547-2018)
-            
+
             Table 3 - Minimum measurement and calculation accuracy requirements for manufacturers
             ______________________________________________________________________________________________
             Time frame                  Steady-state measurements      
@@ -137,132 +113,98 @@ class module_1547(object):
             self.MRA_T = 0.01
             self.MRA_V_trans = 0.02 * self.v_nom
             self.MRA_F_trans = 0.1
-            self.MRA_T_trans = 2./60.
+            self.MRA_T_trans = 2. / 60.
 
-            self.f_nom = ts.param_value('eut.f_nom')
-            self.phases = ts.param_value('eut.phases')
-            self.p_rated = ts.param_value('eut.p_rated')
-            self.p_rated_prime = ts.param_value('eut.p_rated_prime')  # absorption power
-            if self.p_rated_prime is None:
-                self.p_rated_prime = -self.p_rated
-            self.p_min = ts.param_value('eut.p_min')
-            self.var_rated = ts.param_value('eut.var_rated')
-            self.s_rated = ts.param_value('eut.s_rated')
-            self.imbalance_angle_fix = imbalance_angle_fix
-            self.absorb = absorb
+            if ts.param_value('eut.f_nom'):
+                self.f_nom = ts.param_value('eut.f_nom')
+            else:
+                self.f_nom = None
+            if ts.param_value('eut.phases') is not None:
+                self.phases = ts.param_value('eut.phases')
+            else:
+                self.phases = None
+            if ts.param_value('eut.p_rated') is not None:
+                self.p_rated = ts.param_value('eut.p_rated')
+                self.p_rated_prime = ts.param_value('eut.p_rated_prime')  # absorption power
+                if self.p_rated_prime is None:
+                    self.p_rated_prime = -self.p_rated
+                self.p_min = ts.param_value('eut.p_min')
+                self.var_rated = ts.param_value('eut.var_rated')
+            else:
+                self.var_rated = None
+            # self.imbalance_angle_fix = imbalance_angle_fix
+            self.absorb = ts.param_value('eut.abs_enabled')
 
         except Exception as e:
             self.ts.log_error('Incorrect Parameter value : %s' % e)
             raise
 
-        self._config()
+"""
+This section is utility function needed to run the scripts such as data acquisition.
+"""
 
-    def _config(self):
-        # Set Complete test name
-        self.set_complete_test_name()
-        # Set measurement variables
-        self.set_meas_variable()
-        # Set functions to be used with scripts
-        self.set_functions()
-        # Create the pairs need
-        self.set_params()
-        # Configure test for imblance operation
-        self.set_imbalance_config()
-        # Configure the x and y variable for criteria
-        self.set_x_y_variable()
-        # Set Sc points
-        self.set_sc_points()
-        # Configuring the criteria that the function need to assess
-        self.set_criteria_mode()
-        # Set the result summary column names
-        self.set_result_summary_col_name()
+class UtilParameters:
 
-    """
-    Setter functions
-    """
-    def set_meas_variable(self):
+    def __init__(self):
+        self.step_label = None
+
+    def set_step_label(self, starting_label=None):
         """
-        Sets initial measurement variable taken from DAQ
-        :return:
-        """
-        self.meas_values = ['V', 'P']
-
-        if self.script_name == FW:
-            self.meas_values.remove('V')
-        if self.script_name == PRI or self.script_name == LAP or self.script_name == FW:
-            self.meas_values.insert(1, 'F')
-        if self.script_name is not LAP and self.script_name is not FW:
-            self.meas_values.append('Q')
-        if self.script_name == CPF:
-            self.meas_values.append('PF')
-        if self.script_name == CRP:
-            self.meas_values.append('PF')
-            # self.meas_values.remove('V')
-            # self.meas_values.remove('P')
-        if self.script_name == WV:
-            self.meas_values.remove('V')
-        if self.script_name == IOP:
-            self.meas_values.append(['PF', 'F', 'Q'])
-
-        self.ts.log('Measured values variables to be initialized: %s' % self.meas_values)
-
-    def set_complete_test_name(self):
-        """
-        Write full complete test names
-
-        :return: None
-        """
-        if self.script_name == FW:
-            self.script_complete_name = 'Frequency-Watt'
-        elif self.script_name == CPF:
-            self.script_complete_name = 'Constant Power Factor'
-        elif self.script_name == VW:
-            self.script_complete_name = 'Volt-Watt'
-        elif self.script_name == VV:
-            self.script_complete_name = 'Volt-Var'
-        elif self.script_name == WV:
-            self.script_complete_name = 'Watt-Var'
-        elif self.script_name == CRP:
-            self.script_complete_name = 'Constant Reactive Power'
-        elif self.script_name == IOP:
-            self.script_complete_name = 'Interoperability Tests'
-        else:
-            self.script_complete_name = self.script_name
-
-    def set_result_summary_col_name(self):
-        """
-        Write column names for results file depending on which measured variables initialized and targets
-        :param nothing:
+        Write step labels in alphabetical order as shown in the standard
+        :param starting_label:
         :return: nothing
         """
+        self.double_letter_label = False
 
-        xs = self.x_criteria
-        ys = self.y_criteria
-        row_data = []
+        if starting_label is None:
+            starting_label = 'a'
+        starting_label_value = ord(starting_label)
+        self.step_label = starting_label_value
 
-        # Time response criteria will take last placed value of Y variables
-        if self.criteria_mode[0]:  # transient response pass/fail
-            row_data.append('90%_BY_TR=1')
-        if self.criteria_mode[1]:
-            row_data.append('WITHIN_BOUNDS_BY_TR=1')
-        if self.criteria_mode[2]:  # steady-state accuracy
-            row_data.append('WITHIN_BOUNDS_BY_LAST_TR')
+    """
+    Getter functions
+    """
+    def get_params(self, curve=None):
 
-        for meas_value in self.meas_values:
-            row_data.append('%s_MEAS' % meas_value)
+        if curve == None:
+            return self.param
+        else:
+            return self.param[curve]
 
-            if meas_value in xs:
-                row_data.append('%s_TARGET' % meas_value)
+    def get_step_label(self):
+        """
+        get the step labels and increment in alphabetical order as shown in the standard
+        :param: None
+        :return: nothing
+        """
+        if self.step_label > 90:
+            self.step_label = ord('A')
+            self.double_letter_label = True
 
-            elif meas_value in ys:
-                row_data.append('%s_TARGET' % meas_value)
-                row_data.append('%s_TARGET_MIN' % meas_value)
-                row_data.append('%s_TARGET_MAX' % meas_value)
+        if self.double_letter_label:
+            step_label = 'Step {}{}'.format(chr(self.step_label), chr(self.step_label))
+        else:
+            step_label = 'Step {}'.format(chr(self.step_label))
 
-        row_data.append('STEP')
-        row_data.append('FILENAME')
+        self.step_label += 1
+        return step_label
 
-        self.rslt_sum_col_name = ','.join(row_data)+'\n'
+class DataLogging:
+    def __init__(self, meas_values, x_criteria, y_criteria):
+        self.type_meas = {'V': 'AC_VRMS', 'I': 'AC_IRMS', 'P': 'AC_P', 'Q': 'AC_Q', 'VA': 'AC_S',
+                          'F': 'AC_FREQ', 'PF': 'AC_PF'}
+        # Values to be recorded
+        self.meas_values = meas_values
+        # Values defined as target/step values which will be controlled as step
+        self.x_criteria = x_criteria
+        # Values defined as values which will be controlled as step
+        self.y_criteria = y_criteria
+
+        self.sc_points = {}
+        #self._config()
+        self.set_sc_points()
+        self.set_result_summary_name()
+    #def __config__(self):
 
     def set_sc_points(self):
         """
@@ -292,466 +234,90 @@ class module_1547(object):
         self.ts.log_debug('Sc points: %s' % row_data)
         self.sc_points['sc'] = row_data
 
-    def set_functions(self):
+    def set_result_summary_name(self):
         """
-        Configure which functions should be started per test script name as some scripts might need more AIF functions
+        Write column names for results file depending on which test is being run
         :param nothing:
         :return: nothing
         """
-        if self.script_name == LAP:
-            self.function_used = [VW, FW]
-
-        elif self.script_name == PRI:
-            self.function_used = [VW, VV, FW, CPF, CRP, WV, PRI]
-
-        elif self.script_name == VV:
-            self.function_used = [VV]
-
-        elif self.script_name == VW:
-            self.function_used = [VW]
-
-        elif self.script_name == FW:
-            self.function_used = [FW]
-
-        elif self.script_name == CPF:
-            self.function_used = [CPF]
-
-        elif self.script_name == CRP:
-            self.function_used = [CRP]
-
-        elif self.script_name == WV:
-            self.function_used = [WV]
-
-        elif self.script_name == IOP:
-            self.function_used = [VW, VV, FW, CPF, CRP, WV]
-
-    def set_criteria_mode(self):
-        """
-        This functions set the criteria mode required for different functions.
-        [0] Open Loop Time Response (OLTR) (90% of (y_final-y_intiial) + y_initial),
-        [1] Test Results Accuracy on Tr 'y' value (TRATR) and
-        [2] Test Results Accuracy on final (TRAF) 'y' value.
-
-        :return: returns a binary list with the activated mode, e.g., [True, True, True]
-
-        """
-        if self.script_name == FW or self.script_name == VW or self.script_name == VV \
-                or self.script_name == CPF or self.script_name == LAP:
-            self.criteria_mode = [True, True, True]
-        elif self.script_name == WV:
-            self.criteria_mode = [True, False, True]
-        elif self.script_name == CRP:  # EUT shall reach 90% of Qfinal before 10 s after a voltage or power step
-            self.criteria_mode = [True, False, False]
-        elif self.script_name == PRI:
-            self.criteria_mode = [False, False, True]
-        elif self.script_name == IOP:
-            self.criteria_mode = [False, False, False]
-
-    def set_params(self, curve=1):
-        """
-        Configure the parameter specific to the AIF
-        :param curve: curve number from 1547.1
-        :return: nothing
-        """
-
-        if VW in self.function_used:
-            if curve == 1:
-                self.param[VW][curve] = {
-                    'V1': round(1.06 * self.v_nom, 2),
-                    'V2': round(1.10 * self.v_nom, 2),
-                    'P1': round(self.p_rated, 2)
-                }
-
-            elif curve == 2:
-                self.param[VW][curve] = {
-                    'V1': round(1.05 * self.v_nom, 2),
-                    'V2': round(1.10 * self.v_nom, 2),
-                    'P1': round(self.p_rated, 2)
-                }
-
-            elif curve == 3:
-                self.param[VW][curve] = {
-                    'V1': round(1.09 * self.v_nom, 2),
-                    'V2': round(1.10 * self.v_nom, 2),
-                    'P1': round(self.p_rated, 2)
-                }
-
-            if self.p_min > (0.2 * self.p_rated):
-                self.param[VW][curve]['P2'] = int(0.2 * self.p_rated)
-            elif self.absorb == 'Yes':
-                if curve == 1:
-                    self.param[VW][curve]['P2'] = 0
-                elif curve == 2:
-                    self.param[VW][curve]['P2'] = self.p_rated_prime
-            else:
-                self.param[VW][curve]['P2'] = int(self.p_min)
-
-            self.ts.log_debug('VW settings: %s' % self.param[VW])
-
-        # if self.script_name == FW or (self.script_name == LAP and self.x_criteria == 'F' ):
-        if FW in self.function_used:
-            p_small = self.ts.param_value('eut_fw.p_small')
-            if p_small is None:
-                p_small = 0.05
-            if curve == 1:
-                self.param[FW][curve] = {
-                    'dbf': 0.036,
-                    'kof': 0.05,
-                    'tr': self.ts.param_value('fw.test_1_tr'),
-                    'f_small': p_small * self.f_nom * 0.05
-                }
-            elif curve == 2:
-                self.param[FW][curve] = {
-                    'dbf': 0.017,
-                    'kof': 0.03,
-                    'tr': self.ts.param_value('fw.test_2_tr'),
-                    'f_small': p_small * self.f_nom * 0.02
-                }
-
-            self.ts.log_debug('FW settings: %s' % self.param[FW])
-
-        # elif self.script_name == VV:
-        if VV in self.function_used:
-            if curve == 1:
-                self.param[VV][curve] = {
-                    'V1': round(0.92 * self.v_nom, 2),
-                    'V2': round(0.98 * self.v_nom, 2),
-                    'V3': round(1.02 * self.v_nom, 2),
-                    'V4': round(1.08 * self.v_nom, 2),
-                    'Q1': round(self.s_rated * 0.44, 2),
-                    'Q2': round(self.s_rated * 0.0, 2),
-                    'Q3': round(self.s_rated * 0.0, 2),
-                    'Q4': round(self.s_rated * -0.44, 2)
-                }
-            elif curve == 2:
-                self.param[VV][curve] = {
-                    'V1': round(0.88 * self.v_nom, 2),
-                    'V2': round(1.04 * self.v_nom, 2),
-                    'V3': round(1.07 * self.v_nom, 2),
-                    'V4': round(1.10 * self.v_nom, 2),
-                    'Q1': round(self.var_rated * 1.0, 2),
-                    'Q2': round(self.var_rated * 0.5, 2),
-                    'Q3': round(self.var_rated * 0.5, 2),
-                    'Q4': round(self.var_rated * -1.0, 2)
-                }
-            elif curve == 3:
-                self.param[VV][curve] = {
-                    'V1': round(0.90 * self.v_nom, 2),
-                    'V2': round(0.93 * self.v_nom, 2),
-                    'V3': round(0.96 * self.v_nom, 2),
-                    'V4': round(1.10 * self.v_nom, 2),
-                    'Q1': round(self.var_rated * 1.0, 2),
-                    'Q2': round(self.var_rated * -0.5, 2),
-                    'Q3': round(self.var_rated * -0.5, 2),
-                    'Q4': round(self.var_rated * -1.0, 2)
-                }
-
-            self.ts.log_debug('VV settings: %s' % self.param[VV])
-
-        if WV in self.function_used:
-            if self.p_min > 0.2 * self.p_rated:
-                p = self.p_min
-                self.ts.log('P1 power is set using p_min')
-            else:
-                p = 0.2 * self.p_rated
-                self.ts.log('P1 power is set using 20% p_rated')
-
-            # Added another Q(P) points since EUT looks to be asking for 4 pts
-            if curve == 1:
-                self.param[WV][curve] = {
-                    'P1': round(p, 2),
-                    'P2': round(0.5 * self.p_rated, 2),
-                    'P3': round(1.0 * self.p_rated, 2),
-                    'Q1': round(self.s_rated * 0.0, 2),
-                    'Q2': round(self.s_rated * 0.0, 2),
-                    'Q3': round(self.s_rated * -0.44, 2)
-                }
-                if self.absorb is "Yes":
-                    self.ts.log('Adding EUT Absorption Points (P1_prime-P3_prime, Q1_prime-Q3_prime)')
-                    self.param[WV][curve]['P1_prime'] = round(-p, 2)
-                    self.param[WV][curve]['P2_prime'] = round(0.5 * self.p_rated_prime, 2)
-                    self.param[WV][curve]['P3_prime'] = round(1.0 * self.p_rated_prime, 2)
-                    self.param[WV][curve]['Q1_prime'] = 0
-                    self.param[WV][curve]['Q2_prime'] = 0
-                    self.param[WV][curve]['Q3_prime'] = round(0.44 * self.s_rated, 2)
-
-            elif curve == 2:
-                self.param[WV][curve] = {
-                    'P1': round(p, 2),
-                    'P2': round(0.5 * self.p_rated, 2),
-                    'P3': round(1.0 * self.p_rated, 2),
-                    'Q1': round(self.s_rated * -0.22, 2),
-                    'Q2': round(self.s_rated * -0.22, 2),
-                    'Q3': round(self.s_rated * -0.44, 2)
-                }
-                if self.absorb is "Yes":
-                    self.ts.log('Adding EUT Absorption Points (P1_prime-P3_prime, Q1_prime-Q3_prime)')
-                    self.param[WV][curve]['P1_prime'] = round(-p, 2)
-                    self.param[WV][curve]['P2_prime'] = round(0.5 * self.p_rated_prime, 2)
-                    self.param[WV][curve]['P3_prime'] = round(1.0 * self.p_rated_prime, 2)
-                    self.param[WV][curve]['Q1_prime'] = round(0.22 * self.s_rated, 2)
-                    self.param[WV][curve]['Q2_prime'] = round(0.22 * self.s_rated, 2)
-                    self.param[WV][curve]['Q3_prime'] = round(0.44 * self.s_rated, 2)
-            elif curve == 3:
-                self.param[WV][curve] = {
-                    'P1': round(p, 2),
-                    'P2': round(0.5 * self.p_rated, 2),
-                    'P3': round(1.0 * self.p_rated, 2),
-                    'Q1': round(self.s_rated * 0.0, 2),
-                    'Q2': round(self.s_rated * -0.44, 2),
-                    'Q3': round(self.s_rated * -0.44, 2)
-                }
-                if self.absorb is "Yes":
-                    self.ts.log('Adding EUT Absorption Points (P1_prime-P3_prime, Q1_prime-Q3_prime)')
-                    self.param[WV][curve]['P1_prime'] = round(-p, 2)
-                    self.param[WV][curve]['P2_prime'] = round(0.5 * self.p_rated_prime, 2)
-                    self.param[WV][curve]['P3_prime'] = round(1.0 * self.p_rated_prime, 2)
-                    self.param[WV][curve]['Q1_prime'] = 0
-                    self.param[WV][curve]['Q2_prime'] = round(0.44 * self.s_rated, 2)
-                    self.param[WV][curve]['Q3_prime'] = round(0.44 * self.s_rated, 2)
-
-            self.ts.log_debug('WV settings: %s' % self.param[WV])
-
-        if PRI in self.function_used:
-            p_rated = self.p_rated
-            q_rated = self.var_rated
-            self.target_dict = \
-                [
-                    {'P': 0.5 * p_rated, VV: 0.00 * q_rated, CRP: 0.44 * q_rated, CPF: 0.9 * q_rated, WV: 0},
-                    {'P': 0.4 * p_rated, VV: -0.44 * q_rated, CRP: 0.44 * q_rated, CPF: 0.9 * q_rated, WV: 0},
-                    {'P': 0.3 * p_rated, VV: -0.44 * q_rated, CRP: 0.44 * q_rated, CPF: 0.9 * q_rated, WV: 0},
-                    {'P': 0.4 * p_rated, VV: -0.44 * q_rated, CRP: 0.44 * q_rated, CPF: 0.9 * q_rated, WV: 0},
-                    {'P': 0.4 * p_rated, VV: -0.44 * q_rated, CRP: 0.44 * q_rated, CPF: 0.9 * q_rated, WV: 0},
-                    {'P': 0.6 * p_rated, VV: 0.00 * q_rated, CRP: 0.44 * q_rated, CPF: 0.9 * q_rated, WV: 0.05 * q_rated},
-                    {'P': 0.5 * p_rated, VV: 0.00 * q_rated, CRP: 0.44 * q_rated, CPF: 0.9 * q_rated, WV: 0},
-                    {'P': 0.7 * p_rated, VV: 0.00 * q_rated, CRP: 0.44 * q_rated, CPF: 0.9 * q_rated, WV: 0.10 * q_rated}
-                ]
-            self.param[PRI] = self.target_dict
-
-        if IOP in self.function_used:
-            self.target_dict = []
-            self.param[IOP] = self.target_dict
-
-    def set_grid_asymmetric(self, grid, case):
-        """
-        Configure the grid simulator to change the magnitude and angles.
-        :param grid:   A gridsim object from the svpelab library
-        :param case:   string (case_a or case_b)
-        :return: nothing
-        """
-        try:
-            self.ts.log('Setting grid to magnitude: %s and angles: %s' % (self.mag[case], self.ang[case]))
-            if grid is not None:
-                grid.config_asymmetric_phase_angles(mag=self.mag[case], angle=self.ang[case])
-        except Exception as e:
-            self.ts.log_error('Invalid case option: %s. Please choose correct value' % e)
-            raise
-
-    def set_imbalance_config(self, imbalance_angle_fix=None):
-        """
-        Initialize the case possibility for imbalance test either with fix 120 degrees for the angle or
-        with a calculated angles that would result in a null sequence zero
-
-        :param imbalance_angle_fix:   string (Yes or No)
-        if Yes, angle are fix at 120 degrees for both cases.
-        if No, resulting sequence zero will be null for both cases.
-
-        :return: None
-        """
-
-        '''
-                                           Table 24 - Imbalanced Voltage Test Cases
-               +-----------------------------------------------------+-----------------------------------------------+
-               | Phase A (p.u.)  | Phase B (p.u.)  | Phase C (p.u.)  | In order to keep V0 magnitude                 |
-               |                 |                 |                 | and angle at 0. These parameter can be used.  |
-               +-----------------+-----------------+-----------------+-----------------------------------------------+
-               |       Mag       |       Mag       |       Mag       | Mag   | Ang  | Mag   | Ang   | Mag   | Ang    |
-       +-------+-----------------+-----------------+-----------------+-------+------+-------+-------+-------+--------+
-       |Case A |     >= 1.07     |     <= 0.91     |     <= 0.91     | 1.08  | 0.0  | 0.91  |-126.59| 0.91  | 126.59 |
-       +-------+-----------------+-----------------+-----------------+-------+------+-------+-------+-------+--------+
-       |Case B |     <= 0.91     |     >= 1.07     |     >= 1.07     | 0.9   | 0.0  | 1.08  |-114.5 | 1.08  | 114.5  |
-       +-------+-----------------+-----------------+-----------------+-------+------+-------+-------+-------+--------+
-
-       For tests with imbalanced, three-phase voltages, the manufacturer shall state whether the EUT responds
-       to individual phase voltages, or the average of the three-phase effective (RMS) values or the positive
-       sequence of voltages. For EUTs that respond to individual phase voltages, the response of each
-       individual phase shall be evaluated. For EUTs that response to the average of the three-phase effective
-       (RMS) values mor the positive sequence of voltages, the total three-phase reactive and active power
-       shall be evaluated.
-        '''
-
-        if self.imbalance_angle_fix == 'std':
-            # Case A
-            self.mag['case_a'] = [1.07 * self.v_nom, 0.91 * self.v_nom, 0.91 * self.v_nom]
-            self.ang['case_a'] = [0., 120, -120]
-            # Case B
-            self.mag['case_b'] = [0.91 * self.v_nom, 1.07 * self.v_nom, 1.07 * self.v_nom]
-            self.ang['case_b'] = [0., 120.0, -120.0]
-            self.ts.log("Setting test with imbalanced test with FIXED angles/values")
-        elif self.imbalance_angle_fix == 'fix_mag':
-            # Case A
-            self.mag['case_a'] = [1.07 * self.v_nom, 0.91 * self.v_nom, 0.91 * self.v_nom]
-            self.ang['case_a'] = [0., 126.59, -126.59]
-            # Case B
-            self.mag['case_b'] = [0.91 * self.v_nom, 1.07 * self.v_nom, 1.07 * self.v_nom]
-            self.ang['case_b'] = [0., 114.5, -114.5]
-            self.ts.log("Setting test with imbalanced test with NOT FIXED angles/values")
-        elif self.imbalance_angle_fix == 'fix_ang':
-            # Case A
-            self.mag['case_a'] = [1.08 * self.v_nom, 0.91 * self.v_nom, 0.91 * self.v_nom]
-            self.ang['case_a'] = [0., 120, -120]
-            # Case B
-            self.mag['case_b'] = [0.9 * self.v_nom, 1.08 * self.v_nom, 1.08 * self.v_nom]
-            self.ang['case_a'] = [0., 120, -120]
-            self.ts.log("Setting test with imbalanced test with NOT FIXED angles/values")
-        elif self.imbalance_angle_fix == 'not_fix':
-            # Case A
-            self.mag['case_a'] = [1.08 * self.v_nom, 0.91 * self.v_nom, 0.91 * self.v_nom]
-            self.ang['case_a'] = [0., 126.59, -126.59]
-            # Case B
-            self.mag['case_b'] = [0.9 * self.v_nom, 1.08 * self.v_nom, 1.08 * self.v_nom]
-            self.ang['case_b'] = [0., 114.5, -114.5]
-            self.ts.log("Setting test with imbalanced test with NOT FIXED angles/values")
-
-    def set_x_y_variable(self, x=None, y=None, step=None):
-        """
-        A simple setter that sets the x or y value of the corresponding AIF
-        :param x:   A list of string that includes all variables that has a target such as V, F, P...
-        :param y:   A list of string that includes all variables that has a passfail criteria with min-max
-        :param step:   The step of the test since now it change sometimes during the test
-        :return: Nothing
-        """
-        if self.script_name == VW or self.script_name == FW or self.script_name == LAP:
-            self.y_criteria = ['P']
-            if self.script_name == VW:
-                self.x_criteria = ['V']
-            elif self.script_name == FW:
-                self.x_criteria = ['F']
-            elif self.script_name == LAP:
-                self.x_criteria = ['F', 'V']
-            '''
-            elif self.script_name == LAP and step is not None:
-                if step == "Step C" or "Step D" in step or "Step E" in step:
-                    self.x_criteria = ['F']
-                elif "Step F" in step:
-                    self.x_criteria = ['V']
-                else:
-                    self.x_criteria = "None"
-            '''
-        elif self.script_name == CPF or self.script_name == VV or self.script_name == WV or self.script_name == CRP:
-            self.y_criteria = ['Q']
-            if self.script_name == VV:
-                self.x_criteria = ['V']
-            elif self.script_name == CRP:
-                self.x_criteria = ['V', 'P']
-            elif self.script_name == CPF:
-                self.x_criteria = ['V', 'P', 'PF']
-            elif self.script_name == WV:
-                self.x_criteria = ['P']
-
-        elif self.script_name == PRI:
-            self.y_criteria = ['P', 'Q']
-            self.x_criteria = ['V', 'F']
-
-        elif self.script_name == IOP:
-            self.y_criteria = ['P', 'Q']
-            self.x_criteria = ['V', 'F']
-
-    def set_step_label(self, starting_label=None):
-        """
-        Write step labels in alphabetical order as shown in the standard
-        :param starting_label:
-        :return: nothing
-        """
-        self.double_letter_label = False
-
-        if starting_label is None:
-            starting_label = 'a'
-        starting_label_value = ord(starting_label)
-        self.step_label = starting_label_value
-
-    def write_rslt_sum(self, analysis, step, filename):
-        """
-        Combines the analysis results, the step label and the filenamoe to return
-        a row that will go in result_summary.csv
-        :param analysis: Dictionary with all the information for result summary
-
-        :param step:   test procedure step letter or number (e.g "Step G")
-        :param filename: the dataset filename use for analysis
-
-        :return: row_data a string with all the information for result_summary.csv
-        """
-
         xs = self.x_criteria
         ys = self.y_criteria
-        first_iter = analysis['FIRST_ITER']
-        last_iter = analysis['LAST_ITER']
         row_data = []
 
+        """
         # Time response criteria will take last placed value of Y variables
-        if self.criteria_mode[0]:
-            row_data.append(str(analysis['TR_90_%_PF']))
+        if self.criteria_mode[0]:  # transient response pass/fail
+            row_data.append('90%_BY_TR=1')
         if self.criteria_mode[1]:
-            row_data.append(str(analysis['%s_TR_%s_PF' % (ys[-1], first_iter)]))
-        if self.criteria_mode[2]:
-            row_data.append(str(analysis['%s_TR_%s_PF' % (ys[-1], last_iter)]))
+            row_data.append('WITHIN_BOUNDS_BY_TR=1')
+        if self.criteria_mode[2]:  # steady-state accuracy
+            row_data.append('WITHIN_BOUNDS_BY_LAST_TR')
+        """
 
-        # Default measured values are V, P and Q (F can be added) refer to set_meas_variable function
         for meas_value in self.meas_values:
-            row_data.append(str(analysis['%s_TR_%d' % (meas_value, last_iter)]))
-            # Variables needed for variations
+            row_data.append('%s_MEAS' % meas_value)
+
             if meas_value in xs:
-                row_data.append(str(analysis['%s_TR_TARG_%d' % (meas_value, last_iter)]))
-            # Variables needed for criteria verifications with min max passfail
-            if meas_value in ys:
-                row_data.append(str(analysis['%s_TR_TARG_%s' % (meas_value, last_iter)]))
-                row_data.append(str(analysis['%s_TR_%s_MIN' % (meas_value, last_iter)]))
-                row_data.append(str(analysis['%s_TR_%s_MAX' % (meas_value, last_iter)]))
+                row_data.append('%s_TARGET' % meas_value)
 
-        row_data.append(step)
-        row_data.append(str(filename))
-        row_data_str = ','.join(row_data)+'\n'
+            elif meas_value in ys:
+                row_data.append('%s_TARGET' % meas_value)
+                row_data.append('%s_TARGET_MIN' % meas_value)
+                row_data.append('%s_TARGET_MAX' % meas_value)
 
-        return row_data_str
+        row_data.append('STEP')
+        row_data.append('FILENAME')
 
-        # except Exception as e:
-        #     raise p1547Error('Error in write_rslt_sum() : %s' % (str(e)))
+        self.rslt_sum_col_name = ','.join(row_data) + '\n'
 
-    """
-    Getter functions
-    """
-
-    def get_step_label(self):
+    def get_rslt_param_plot(self):
         """
-        get the step labels and increment in alphabetical order as shown in the standard
-        :param: None
-        :return: nothing
+        This getters function creates and returns all the predefined columns for the plotting process
+        :return: result_params
         """
-        if self.step_label > 90:
-            self.step_label = ord('A')
-            self.double_letter_label = True
+        y_variables = self.y_criteria
+        y2_variables = self.x_criteria
 
-        if self.double_letter_label:
-            step_label = 'Step {}{}'.format(chr(self.step_label), chr(self.step_label))
-        else:
-            step_label = 'Step {}'.format(chr(self.step_label))
+        # For VV, VW and FW
+        y_points = []
+        y2_points = []
+        y_title = []
+        y2_title = []
 
-        self.step_label += 1
-        return step_label
+        #y_points = '%s_TARGET,%s_MEAS' % (y, y)
+        #y2_points = '%s_TARGET,%s_MEAS' % (y2, y2)
 
-    def get_test_name(self):
-        """
-        This getters function returns the advanced inverter function complete name
-        :return: test_name as a String
-        """
-        return self.script_complete_name
+        for y in y_variables:
+            self.ts.log_debug('y_temp: %s' % y)
+            #y_temp = self.get_measurement_label('%s' % y)
+            y_temp = '{}'.format(','.join(str(x) for x in self.get_measurement_label('%s' % y)))
+            y_title.append(FULL_NAME[y])
+            y_points.append(y_temp)
+        self.ts.log_debug('y_points: %s' % y_points)
+        y_points = ','.join(y_points)
+        y_title = ','.join(y_title)
 
-    def get_rslt_sum_col_name(self):
-        """
-        This getters function returns the column name for result_summary.csv
-        :return:            self.rslt_sum_col_name
-        """
-        return self.rslt_sum_col_name
+        for y2 in y2_variables:
+            self.ts.log_debug('y2_variable for result: %s' % y2)
+            y2_temp = '{}'.format(','.join(str(x) for x in self.get_measurement_label('%s' % y2)))
+            y2_title.append(FULL_NAME[y2])
+            y2_points.append(y2_temp)
+        y2_points = ','.join(y2_points)
+        y2_title = ','.join(y2_title)
+
+        result_params = {
+            'plot.title': 'title_name',
+            'plot.x.title': 'Time (sec)',
+            'plot.x.points': 'TIME',
+            'plot.y.points': y_points,
+            'plot.y.title': y_title,
+            'plot.y2.points': y2_points,
+            'plot.y2.title': y2_title,
+            'plot.%s_TARGET.min_error' % y: '%s_TARGET_MIN' % y,
+            'plot.%s_TARGET.max_error' % y: '%s_TARGET_MAX' % y,
+        }
+
+        return result_params
 
     def get_sc_points(self):
         """
@@ -760,6 +326,13 @@ class module_1547(object):
         """
         return self.sc_points
 
+    def get_rslt_sum_col_name(self):
+        """
+        This getters function returns the column name for result_summary.csv
+        :return:            self.rslt_sum_col_name
+        """
+        return self.rslt_sum_col_name
+
     def get_measurement_label(self, type_meas):
         """
         Returns the measurement label for a measurement type
@@ -767,21 +340,8 @@ class module_1547(object):
         :param type_meas:   (str) Either V, P, PF, I, F, VA, or Q
         :return:            (list of str) List of labeled measurements, e.g., ['AC_VRMS_1', 'AC_VRMS_2', 'AC_VRMS_3']
         """
-        meas_label = None
-        if type_meas == 'V':
-            meas_root = 'AC_VRMS'
-        elif type_meas == 'P':
-            meas_root = 'AC_P'
-        elif type_meas == 'PF':
-            meas_root = 'AC_PF'
-        elif type_meas == 'I':
-            meas_root = 'AC_IRMS'
-        elif type_meas == 'F':
-            meas_root = 'AC_FREQ'
-        elif type_meas == 'VA':
-            meas_root = 'AC_S'
-        else:
-            meas_root = 'AC_Q'
+
+        meas_root = self.type_meas[type_meas]
 
         if self.phases == 'Single phase':
             meas_label = [meas_root + '_1']
@@ -834,13 +394,11 @@ class module_1547(object):
         except Exception as e:
             self.ts.log_error('Inverter phase parameter not set correctly.')
             self.ts.log_error('phases=%s' % self.phases)
-            self.ts.log_error('type_meas=%s' % type_meas)
-
             raise p1547Error('Error in get_measurement_total() : %s' % (str(e)))
 
         # TODO : imbalance_resp should change the way you acquire the data
-        if type_meas == 'V' or type_meas == 'PF':
-            # average value of V or PF
+        if type_meas == 'V':
+            # average value of V
             value = value / nb_phases
         elif type_meas == 'F':
             # No need to do data average for frequency
@@ -848,7 +406,832 @@ class module_1547(object):
 
         return round(value, 3)
 
-    def get_initial_value(self, daq, step):
+    def write_rslt_sum(self, analysis, step, filename):
+        """
+        Combines the analysis results, the step label and the filenamoe to return
+        a row that will go in result_summary.csv
+        :param analysis: Dictionary with all the information for result summary
+
+        :param step:   test procedure step letter or number (e.g "Step G")
+        :param filename: the dataset filename use for analysis
+
+        :return: row_data a string with all the information for result_summary.csv
+        """
+
+        xs = self.x_criteria
+        ys = self.y_criteria
+        first_iter = analysis['FIRST_ITER']
+        last_iter = analysis['LAST_ITER']
+        row_data = []
+
+        """
+        # Time response criteria will take last placed value of Y variables
+        if self.criteria_mode[0]:
+            row_data.append(str(analysis['TR_90_%_PF']))
+        if self.criteria_mode[1]:
+            row_data.append(str(analysis['%s_TR_%s_PF' % (ys[-1], first_iter)]))
+        if self.criteria_mode[2]:
+            row_data.append(str(analysis['%s_TR_%s_PF' % (ys[-1], last_iter)]))
+        """
+
+        # Default measured values are V, P and Q (F can be added) refer to set_meas_variable function
+        for meas_value in self.meas_values:
+            row_data.append(str(analysis['%s_TR_%d' % (meas_value, last_iter)]))
+            # Variables needed for variations
+            if meas_value in xs:
+                row_data.append(str(analysis['%s_TR_TARG_%d' % (meas_value, last_iter)]))
+            # Variables needed for criteria verifications with min max passfail
+            if meas_value in ys:
+                row_data.append(str(analysis['%s_TR_TARG_%s' % (meas_value, last_iter)]))
+                row_data.append(str(analysis['%s_TR_%s_MIN' % (meas_value, last_iter)]))
+                row_data.append(str(analysis['%s_TR_%s_MAX' % (meas_value, last_iter)]))
+
+        row_data.append(step)
+        row_data.append(str(filename))
+        row_data_str = ','.join(row_data) + '\n'
+
+        return row_data_str
+
+        # except Exception as e:
+        #     raise p1547Error('Error in write_rslt_sum() : %s' % (str(e)))
+
+class CriteriaValidation:
+    def __init__(self, criteria):
+        self.criteria_mode = criteria
+
+
+class ImbalanceComponent:
+
+    def __init__(self):
+        self.mag = {}
+        self.ang = {}
+
+    def set_imbalance_config(self, imbalance_angle_fix=None):
+        """
+        Initialize the case possibility for imbalance test either with fix 120 degrees for the angle or
+        with a calculated angles that would result in a null sequence zero
+
+        :param imbalance_angle_fix:   string (Yes or No)
+        if Yes, angle are fix at 120 degrees for both cases.
+        if No, resulting sequence zero will be null for both cases.
+
+        :return: None
+        """
+
+        '''
+                                            Table 24 - Imbalanced Voltage Test Cases
+                +-----------------------------------------------------+-----------------------------------------------+
+                | Phase A (p.u.)  | Phase B (p.u.)  | Phase C (p.u.)  | In order to keep V0 magnitude                 |
+                |                 |                 |                 | and angle at 0. These parameter can be used.  |
+                +-----------------+-----------------+-----------------+-----------------------------------------------+
+                |       Mag       |       Mag       |       Mag       | Mag   | Ang  | Mag   | Ang   | Mag   | Ang    |
+        +-------+-----------------+-----------------+-----------------+-------+------+-------+-------+-------+--------+
+        |Case A |     >= 1.07     |     <= 0.91     |     <= 0.91     | 1.08  | 0.0  | 0.91  |-126.59| 0.91  | 126.59 |
+        +-------+-----------------+-----------------+-----------------+-------+------+-------+-------+-------+--------+
+        |Case B |     <= 0.91     |     >= 1.07     |     >= 1.07     | 0.9   | 0.0  | 1.08  |-114.5 | 1.08  | 114.5  |
+        +-------+-----------------+-----------------+-----------------+-------+------+-------+-------+-------+--------+
+
+        For tests with imbalanced, three-phase voltages, the manufacturer shall state whether the EUT responds
+        to individual phase voltages, or the average of the three-phase effective (RMS) values or the positive
+        sequence of voltages. For EUTs that respond to individual phase voltages, the response of each
+        individual phase shall be evaluated. For EUTs that response to the average of the three-phase effective
+        (RMS) values mor the positive sequence of voltages, the total three-phase reactive and active power
+        shall be evaluated.
+        '''
+        try:
+
+            if imbalance_angle_fix == 'Yes':
+                # Case A
+                self.mag['case_a'] = [1.07 * self.v_nom, 0.91 * self.v_nom, 0.91 * self.v_nom]
+                self.ang['case_a'] = [0., 120, -120]
+                # Case B
+                self.mag['case_b'] = [0.91 * self.v_nom, 1.07 * self.v_nom, 1.07 * self.v_nom]
+                self.ang['case_b'] = [0., 120.0, -120.0]
+                self.ts.log("Setting test with imbalanced test with FIXED angles/values")
+            elif imbalance_angle_fix == 'No':
+                # Case A
+                self.mag['case_a'] = [1.08 * self.v_nom, 0.91 * self.v_nom, 0.91 * self.v_nom]
+                self.ang['case_a'] = [0., 126.59, -126.59]
+                # Case B
+                self.mag['case_b'] = [0.9 * self.v_nom, 1.08 * self.v_nom, 1.08 * self.v_nom]
+                self.ang['case_b'] = [0., 114.5, -114.5]
+                self.ts.log("Setting test with imbalanced test with NOT FIXED angles/values")
+
+            #return (self.mag, self.ang)
+        except Exception as e:
+            self.ts.log_error('Incorrect Parameter value : %s' % e)
+            raise
+    def set_grid_asymmetric(self, grid, case):
+        """
+        Configure the grid simulator to change the magnitude and angles.
+        :param grid:   A gridsim object from the svpelab library
+        :param case:   string (case_a or case_b)
+        :return: nothing
+        """
+
+        if grid is not None:
+            grid.config_asymmetric_phase_angles(mag=self.mag[case], angle=self.ang[case])
+
+"""
+Section for criteria validation
+"""
+"""
+class PassFail:
+    def __init__(self):
+"""
+"""
+Section reserved for HIL model object
+"""
+
+class HilModel(object):
+    def __init__(self, ts, support_interfaces):
+        self.params = {}
+        self.parameters_dic = {}
+        self.mode = []
+        self.ts = ts
+        self.start_time = None
+        self.stop_time = None
+        if support_interfaces.get('hil') is not None:
+            self.hil = support_interfaces.get('hil')
+        else:
+            self.hil = None
+
+    def set_model_on(self):
+        """
+        Set the HIL model on
+        """
+        model_name = self.params["model_name"]
+        self.hil.set_params(model_name + "/SM_Source/SVP Commands/mode/Value", 3)
+
+    """
+    Getter functions
+    """
+
+    def get_modes(self):
+        return self.mode
+
+    def get_model_parameters(self, current_mode):
+        self.ts.log(f'Getting HIL parameters for {current_mode}')
+        return self.parameters_dic[current_mode], self.start_time, self.stop_time
+
+    def get_waveform_config(self, current_mode, offset):
+        params = {}
+        params["start_time_value"] = float(self.start_time - offset)
+        params["end_time_value"] = float(self.stop_time + offset)
+        params["start_time_variable"] = "Tstart"
+        params["end_time_variable"] = "Tend"
+        return params
+
+"""
+This section is for Voltage stabilization function such as VV, VW, CPF and CRP
+"""
+
+class VoltVar(EutParameters, UtilParameters, DataLogging, ImbalanceComponent):
+    """
+    param curve: choose curve characterization [1-3] 1 is default
+    """
+
+    # Default curve initialization will be 1
+    def __init__(self, ts, imbalance=None):
+        self.ts = ts
+        EutParameters.__init__(self, ts)
+        UtilParameters.__init__(self)
+        DataLogging.__init__(self, meas_values=['V', 'Q'], x_criteria=['V'], y_criteria=['Q'])
+        CriteriaValidation.__init__(self, criteria=[True, True, True])
+        if imbalance is not None:
+            ImbalanceComponent.__init__(self)
+        self.pairs = {}
+        self.param = [0, 0, 0, 0]
+        self.target_dict = []
+        self.script_name = VV
+        self.script_complete_name = 'Volt-Var'
+        self.rslt_sum_col_name = 'Q_TR_ACC_REQ, TR_REQ, Q_FINAL_ACC_REQ, V_MEAS, Q_MEAS, V_TARGET, Q_TARGET_MIN,' \
+                                 'Q_TARGET_MAX, STEP, FILENAME\n'
+        #self.criteria_mode = [True, True, True]
+        # Values to be recorded
+        #self.meas_values = ['V', 'P']
+        # Values defined as target/step values which will be controlled as step
+        #self.x_criteria = ['V']
+        # Values defined as values which will be controlled as step
+        #self.y_criteria = ['Q']
+        self._config()
+
+    def _config(self):
+        self.set_params()
+        # Create the pairs need
+        # self.set_imbalance_config()
+
+    def set_params(self):
+        self.param[1] = {
+            'V1': round(0.92 * self.v_nom, 2),
+            'V2': round(0.98 * self.v_nom, 2),
+            'V3': round(1.02 * self.v_nom, 2),
+            'V4': round(1.08 * self.v_nom, 2),
+            'Q1': round(self.s_rated * 0.44, 2),
+            'Q2': round(self.s_rated * 0.0, 2),
+            'Q3': round(self.s_rated * 0.0, 2),
+            'Q4': round(self.s_rated * -0.44, 2)
+        }
+
+        self.param[2] = {
+            'V1': round(0.88 * self.v_nom, 2),
+            'V2': round(1.04 * self.v_nom, 2),
+            'V3': round(1.07 * self.v_nom, 2),
+            'V4': round(1.10 * self.v_nom, 2),
+            'Q1': round(self.var_rated * 1.0, 2),
+            'Q2': round(self.var_rated * 0.5, 2),
+            'Q3': round(self.var_rated * 0.5, 2),
+            'Q4': round(self.var_rated * -1.0, 2)
+        }
+        self.param[3] = {
+            'V1': round(0.90 * self.v_nom, 2),
+            'V2': round(0.93 * self.v_nom, 2),
+            'V3': round(0.96 * self.v_nom, 2),
+            'V4': round(1.10 * self.v_nom, 2),
+            'Q1': round(self.var_rated * 1.0, 2),
+            'Q2': round(self.var_rated * -0.5, 2),
+            'Q3': round(self.var_rated * -0.5, 2),
+            'Q4': round(self.var_rated * -1.0, 2)
+        }
+
+    def get_target(self, value, pwr_lvl=1.0, curve=1, pf=None, variable=None):
+
+        #TODO Maybe substitute this for a linear interpolation
+        if value <= self.param[curve]['V1']:
+            q_value = self.param[curve]['Q1']
+
+        elif value < self.param[curve]['V2']:
+            q_value = self.param[curve]['Q1'] + (
+                    (self.param[curve]['Q2'] - self.param[curve]['Q1']) /
+                    (self.param[curve]['V2'] - self.param[curve]['V1']) * (value - self.param[curve]['V1']))
+
+        elif value == self.param[curve]['V2']:
+            q_value = self.param[curve]['Q2']
+
+        elif value <= self.param[curve]['V3']:
+            q_value = self.param[curve]['Q3']
+
+        elif value < self.param[curve]['V4']:
+            q_value = self.param[curve]['Q3'] + (
+                    (self.param[curve]['Q4'] - self.param[curve]['Q3']) /
+                    (self.param[curve]['V4'] - self.param[curve]['V3']) * (value - self.param[curve]['V3']))
+        else:
+            q_value = self.param[curve]['Q4']
+        q_value *= pwr_lvl
+        return round(q_value, 1)
+
+
+class VoltWatt(EutParameters, UtilParameters, DataLogging, ImbalanceComponent):
+    """
+    param curve: choose curve characterization [1-3] 1 is default
+    """
+    # Default curve initialization will be 1
+    def __init__(self, ts, curve=1):
+        EutParameters.__init__(self, ts)
+        self.curve = curve
+        self.pairs = {}
+        self.param = [0, 0, 0, 0]
+        self.target_dict = []
+        self.script_name = VW
+        self.script_complete_name = 'Volt-Watt'
+        self.rslt_sum_col_name = 'P_TR_ACC_REQ, TR_REQ, P_FINAL_ACC_REQ, V_MEAS, P_MEAS, P_TARGET, P_TARGET_MIN,' \
+                                 'P_TARGET_MAX, STEP, FILENAME\n'
+        self.criteria_mode = [True, True, True]
+        # Values to be recorded
+        self.meas_values = ['V', 'P']
+        # Values defined as target/step values which will be controlled as step
+        self.x_criteria = ['V']
+        # Values defined as values which will be controlled as step
+        self.y_criteria = ['P']
+        self._config()
+
+    def _config(self):
+        self.set_params()
+        # Create the pairs need
+        # self.set_imbalance_config()
+
+    def set_params(self):
+        self.param[1] = {
+            'V1': round(1.06 * self.v_nom, 2),
+            'V2': round(1.10 * self.v_nom, 2),
+            'P1': round(self.p_rated, 2)
+        }
+        self.param[2] = {
+            'V1': round(1.05 * self.v_nom, 2),
+            'V2': round(1.10 * self.v_nom, 2),
+            'P1': round(self.p_rated, 2)
+        }
+        self.param[3] = {
+            'V1': round(1.09 * self.v_nom, 2),
+            'V2': round(1.10 * self.v_nom, 2),
+            'P1': round(self.p_rated, 2)
+        }
+
+class ConstantPowerFactor(EutParameters, UtilParameters, ImbalanceComponent):
+    def __init__(self, ts, curve=1):
+        EutParameters.__init__(self, ts)
+        self.curve = curve
+        self.pairs = {}
+        self.param = [0, 0, 0, 0]
+        self.target_dict = []
+        self.script_name = VW
+        self.script_complete_name = 'Volt-Watt'
+        self.rslt_sum_col_name = 'P_TR_ACC_REQ, TR_REQ, P_FINAL_ACC_REQ, V_MEAS, P_MEAS, P_TARGET, P_TARGET_MIN,' \
+                                 'P_TARGET_MAX, STEP, FILENAME\n'
+        self.criteria_mode = [True, True, True]
+        # Values to be recorded
+        self.meas_values = ['V', 'P']
+        # Values defined as target/step values which will be controlled as step
+        self.x_criteria = ['V']
+        # Values defined as values which will be controlled as step
+        self.y_criteria = ['P']
+        self._config()
+
+    def _config(self):
+        self.set_params()
+        # Create the pairs need
+        # self.set_imbalance_config()
+
+    def set_params(self):
+        self.param[1] = {
+            'V1': round(1.06 * self.v_nom, 2),
+            'V2': round(1.10 * self.v_nom, 2),
+            'P1': round(self.p_rated, 2)
+        }
+        self.param[2] = {
+            'V1': round(1.05 * self.v_nom, 2),
+            'V2': round(1.10 * self.v_nom, 2),
+            'P1': round(self.p_rated, 2)
+        }
+        self.param[3] = {
+            'V1': round(1.09 * self.v_nom, 2),
+            'V2': round(1.10 * self.v_nom, 2),
+            'P1': round(self.p_rated, 2)
+        }
+
+class ConstantReactivePower(EutParameters, UtilParameters, ImbalanceComponent):
+    def __init__(self, ts, curve=1):
+        EutParameters.__init__(self, ts)
+        self.curve = curve
+        self.pairs = {}
+        self.param = [0, 0, 0, 0]
+        self.target_dict = []
+        self.script_name = VW
+        self.script_complete_name = 'Volt-Watt'
+        self.rslt_sum_col_name = 'P_TR_ACC_REQ, TR_REQ, P_FINAL_ACC_REQ, V_MEAS, P_MEAS, P_TARGET, P_TARGET_MIN,' \
+                                 'P_TARGET_MAX, STEP, FILENAME\n'
+        self.criteria_mode = [True, True, True]
+        # Values to be recorded
+        self.meas_values = ['V', 'P']
+        # Values defined as target/step values which will be controlled as step
+        self.x_criteria = ['V']
+        # Values defined as values which will be controlled as step
+        self.y_criteria = ['P']
+        self._config()
+
+    def _config(self):
+        self.set_params()
+        # Create the pairs need
+        # self.set_imbalance_config()
+
+    def set_params(self):
+        self.param[1] = {
+            'V1': round(1.06 * self.v_nom, 2),
+            'V2': round(1.10 * self.v_nom, 2),
+            'P1': round(self.p_rated, 2)
+        }
+        self.param[2] = {
+            'V1': round(1.05 * self.v_nom, 2),
+            'V2': round(1.10 * self.v_nom, 2),
+            'P1': round(self.p_rated, 2)
+        }
+        self.param[3] = {
+            'V1': round(1.09 * self.v_nom, 2),
+            'V2': round(1.10 * self.v_nom, 2),
+            'P1': round(self.p_rated, 2)
+        }
+
+"""
+This section is for 
+"""
+
+class FrequencyWatt(EutParameters, UtilParameters):
+    def __init__(self, ts, curve=1):
+        EutParameters.__init__(self, ts)
+        self.curve = curve
+        self.pairs = {}
+        self.param = [0, 0, 0, 0]
+        self.target_dict = []
+        self.script_name = VW
+        self.script_complete_name = 'Volt-Watt'
+        self.rslt_sum_col_name = 'P_TR_ACC_REQ, TR_REQ, P_FINAL_ACC_REQ, F_MEAS, P_MEAS, P_TARGET, P_TARGET_MIN,' \
+                                 'P_TARGET_MAX, STEP, FILENAME\n'
+        self.criteria_mode = [True, True, True]
+        # Values to be recorded
+        self.meas_values = ['F', 'P']
+        # Values defined as target/step values which will be controlled as step
+        self.x_criteria = ['F']
+        # Values defined as values which will be controlled as step
+        self.y_criteria = ['P']
+        self._config()
+
+    def _config(self):
+        self.set_params()
+        # Create the pairs need
+        # self.set_imbalance_config()
+
+    def set_params(self):
+        p_small = self.ts.param_value('eut_fw.p_small')
+        if p_small is None:
+            p_small = 0.05
+
+        self.param[1] = {
+            'dbf': 0.036,
+            'kof': 0.05,
+            'tr': self.ts.param_value('fw.test_1_tr'),
+            'f_small': p_small * self.f_nom * 0.05
+        }
+        self.param[2] = {
+            'dbf': 0.017,
+            'kof': 0.03,
+            'tr': self.ts.param_value('fw.test_2_tr'),
+            'f_small': p_small * self.f_nom * 0.02
+        }
+
+class Interoperability(EutParameters, UtilParameters):
+    def __init__(self, ts, curve=1):
+        EutParameters.__init__(self, ts)
+        self.curve = curve
+        self.pairs = {}
+        self.param = [0, 0, 0, 0]
+        self.target_dict = []
+        self.script_name = VW
+        self.script_complete_name = 'Volt-Watt'
+        self.rslt_sum_col_name = 'P_TR_ACC_REQ, TR_REQ, P_FINAL_ACC_REQ, V_MEAS, P_MEAS, P_TARGET, P_TARGET_MIN,' \
+                                 'P_TARGET_MAX, STEP, FILENAME\n'
+        self.criteria_mode = [True, True, True]
+        # Values to be recorded
+        self.meas_values = ['V', 'P']
+        # Values defined as target/step values which will be controlled as step
+        self.x_criteria = ['V']
+        # Values defined as values which will be controlled as step
+        self.y_criteria = ['P']
+        self._config()
+
+    def _config(self):
+        self.set_params()
+        # Create the pairs need
+        # self.set_imbalance_config()
+
+    def set_params(self):
+        self.param[1] = {
+            'V1': round(1.06 * self.v_nom, 2),
+            'V2': round(1.10 * self.v_nom, 2),
+            'P1': round(self.p_rated, 2)
+        }
+        self.param[2] = {
+            'V1': round(1.05 * self.v_nom, 2),
+            'V2': round(1.10 * self.v_nom, 2),
+            'P1': round(self.p_rated, 2)
+        }
+        self.param[3] = {
+            'V1': round(1.09 * self.v_nom, 2),
+            'V2': round(1.10 * self.v_nom, 2),
+            'P1': round(self.p_rated, 2)
+        }
+
+class WattVar(EutParameters, UtilParameters):
+    def __init__(self, ts, curve=1):
+        EutParameters.__init__(self, ts)
+        self.curve = curve
+        self.pairs = {}
+        self.param = [0, 0, 0, 0]
+        self.target_dict = []
+        self.script_name = VW
+        self.script_complete_name = 'Volt-Watt'
+        self.rslt_sum_col_name = 'P_TR_ACC_REQ, TR_REQ, P_FINAL_ACC_REQ, V_MEAS, P_MEAS, P_TARGET, P_TARGET_MIN,' \
+                                 'P_TARGET_MAX, STEP, FILENAME\n'
+        self.criteria_mode = [True, True, True]
+        # Values to be recorded
+        self.meas_values = ['V', 'P']
+        # Values defined as target/step values which will be controlled as step
+        self.x_criteria = ['V']
+        # Values defined as values which will be controlled as step
+        self.y_criteria = ['P']
+        self._config()
+
+    def _config(self):
+        self.set_params()
+        # Create the pairs need
+        # self.set_imbalance_config()
+
+    def set_params(self):
+        self.param[1] = {
+            'V1': round(1.06 * self.v_nom, 2),
+            'V2': round(1.10 * self.v_nom, 2),
+            'P1': round(self.p_rated, 2)
+        }
+        self.param[2] = {
+            'V1': round(1.05 * self.v_nom, 2),
+            'V2': round(1.10 * self.v_nom, 2),
+            'P1': round(self.p_rated, 2)
+        }
+        self.param[3] = {
+            'V1': round(1.09 * self.v_nom, 2),
+            'V2': round(1.10 * self.v_nom, 2),
+            'P1': round(self.p_rated, 2)
+        }
+
+
+"""
+This section is for Ride-Through test
+"""
+
+
+class VoltageRideThrough(HilModel):
+    def __init__(self):
+        HilModel.__init__()
+        self._config()
+
+    def _config(self):
+        self.set_vrt_params()
+        self.set_model_on()
+        self.set_vrt_model_parameters_dic()
+
+    """
+    Setter functions
+    """
+
+    def set_vrt_params(self):
+        try:
+            # RT test parameters
+            self.params["lv_mode"] = self.ts.param_value('vrt.lv_ena')
+            self.params["hv_mode"] = self.ts.param_value('vrt.hv_ena')
+            # low_pwr_ena = self.ts.param_value('vrt.low_pwr_ena')
+            # high_pwr_ena = self.ts.param_value('vrt.high_pwr_ena')
+            # low_pwr_value = self.ts.param_value('vrt.low_pwr_value')
+            # high_pwr_value = self.ts.param_value('vrt.high_pwr_value')
+
+            # consecutive_ena = ts.param_value('vrt.consecutive_ena')
+            self.params["categories"] = self.ts.param_value('vrt.cat')
+            self.params["range_steps"] = self.ts.param_value('vrt.range_steps')
+            self.eut_startup_time = self.ts.param_value('eut.startup_time')
+            self.params["model_name"] = self.hil.rt_lab_model
+        except Exception as e:
+            self.ts.log_error('Incorrect Parameter value : %s' % e)
+            raise
+
+    def set_vrt_model_parameters_dic(self):
+        categories = self.params["categories"]
+        lf_mode = self.params["lf_mode"]
+        hf_mode = self.params["hf_mode"]
+        model_name = self.params["model_name"]
+        range_steps = self.params["range_steps"]
+
+        if lf_mode == 'Enabled':
+            # Timestep is cumulative
+            if categories == CAT_2 or categories == 'Both':
+                self.mode.append(f'{LV}_{CAT_2}')
+                self.vrt_start_time = self.eut_startup_time
+                self.vrt_stop_time = 12 + self.vrt_start_time
+                # TODO change sequence parameter for parameter to be chosen by users or average of both max & min values?
+                self.parameters_dic.update({f'{LV}_{CAT_2}': [
+                    # Add ROCOM only for condition E
+                    (model_name + '/SM_Source/Waveform_Generator/ROCOM_START_TIME/Value', 10 + self.vrt_start_time),
+                    (model_name + '/SM_Source/Waveform_Generator/ROCOM_END_TIME/Value', 12 + self.vrt_start_time),
+                    # Enable needed conditions
+                    (model_name + '/SM_Source/VRT/VRT_State_Machine/cond_a_ena/Value', 1),
+                    (model_name + '/SM_Source/VRT/VRT_State_Machine/cond_b_ena/Value', 1),
+                    (model_name + '/SM_Source/VRT/VRT_State_Machine/cond_c_ena/Value', 1),
+                    (model_name + '/SM_Source/VRT/VRT_State_Machine/cond_d_ena/Value', 1),
+                    (model_name + '/SM_Source/VRT/VRT_State_Machine/cond_e_ena/Value', 1),
+                    (model_name + '/SM_Source/VRT/VRT_State_Machine/cond_f_ena/Value', 1),
+                    # Timesteps
+                    # (model_name + '/SM_Source/VRT/VRT_State_Machine/condition A/Threshold', 20 + self.vrt_start_time),
+                    # (model_name + '/SM_Source/VRT/VRT_State_Machine/condition B/Threshold', 20.16 + self.vrt_start_time),
+                    # (model_name + '/SM_Source/VRT/VRT_State_Machine/condition C/Threshold', 20.32 + self.vrt_start_time),
+                    # (model_name + '/SM_Source/VRT/VRT_State_Machine/condition D/Threshold', 23 + self.vrt_start_time),
+                    # (model_name + '/SM_Source/VRT/VRT_State_Machine/condition E/Threshold', 25 + self.vrt_start_time),
+                    # (model_name + '/SM_Source/VRT/VRT_State_Machine/condition F/Threshold', 125 + self.vrt_start_time),
+
+                    (model_name + '/SM_Source/VRT/VRT_State_Machine/condition A/Threshold', 2 + self.vrt_start_time),
+                    (model_name + '/SM_Source/VRT/VRT_State_Machine/condition B/Threshold', 4 + self.vrt_start_time),
+                    (model_name + '/SM_Source/VRT/VRT_State_Machine/condition C/Threshold', 6 + self.vrt_start_time),
+                    (model_name + '/SM_Source/VRT/VRT_State_Machine/condition D/Threshold', 8 + self.vrt_start_time),
+                    (model_name + '/SM_Source/VRT/VRT_State_Machine/condition E/Threshold', 10 + self.vrt_start_time),
+                    (model_name + '/SM_Source/VRT/VRT_State_Machine/condition F/Threshold', self.vrt_stop_time),
+                    # Values
+                    (model_name + '/SM_Source/VRT/VRT_State_Machine/voltage_ph_seqA/Value', 0.94 * 120),
+                    (model_name + '/SM_Source/VRT/VRT_State_Machine/condition B/Threshold', 0.28 * 120),
+                    (model_name + '/SM_Source/VRT/VRT_State_Machine/condition C/Threshold', 0.43 * 120),
+                    (model_name + '/SM_Source/VRT/VRT_State_Machine/condition D/Threshold', 0.65 * 120),
+                    (model_name + '/SM_Source/VRT/VRT_State_Machine/condition E/Threshold', 0.88 * 120),
+                    (model_name + '/SM_Source/VRT/VRT_State_Machine/condition F/Threshold', 0.94 * 120)]})
+
+    """
+    Getter functions
+    """
+    """
+    def get_modes(self):
+        return self.mode
+
+    def get_model_parameters(self,current_mode):
+        self.ts.log(f'Getting HIL parameters for {current_mode}')
+        return self.parameters_dic[current_mode],self.vrt_start_time, self.vrt_stop_time 
+
+    def get_waveform_config(self,current_mode,offset):
+        params = {}
+        params["start_time_value"] = float(self.vrt_start_time - offset)
+        params["end_time_value"] = float(self.vrt_stop_time + offset)
+        params["start_time_variable"] = "Tstart"
+        params["end_time_variable"] = "Tend"
+        return params
+    """
+
+class FrequencyRideThrough(HilModel):
+    def __init__(self):
+        HilModel.__init__()
+        self._config()
+
+    def _config(self):
+        self.set_frt_params()
+        self.set_model_on()
+        self.set_frt_model_parameters_dic()
+
+    """
+    Setter functions
+    """
+
+    def set_params(self):
+        try:
+            # RT test parameters
+            self.params["lf_mode"] = self.ts.param_value('frt.lv_ena')
+            self.params["hf_mode"] = self.ts.param_value('frt.hv_ena')
+
+            # consecutive_ena = ts.param_value('vrt.consecutive_ena')
+            self.params["categories"] = self.ts.param_value('frt.cat')
+            self.params["range_steps"] = self.ts.param_value('frt.range_steps')
+            self.eut_startup_time = self.ts.param_value('eut.startup_time')
+            self.params["model_name"] = self.hil.rt_lab_model
+        except Exception as e:
+            self.ts.log_error('Incorrect Parameter value : %s' % e)
+            raise
+
+    # TODO to be completed with FRT
+    def set_model_parameters_dic(self):
+        categories = self.params["categories"]
+        lf_mode = self.params["lf_mode"]
+        hf_mode = self.params["hf_mode"]
+        model_name = self.params["model_name"]
+        range_steps = self.params["range_steps"]
+
+        if lf_mode == 'Enabled':
+            # Timestep is cumulative
+            if categories == CAT_2 or categories == 'Both':
+                self.mode.append(f'{LV}_{CAT_2}')
+                self.vrt_start_time = self.eut_startup_time
+                self.vrt_stop_time = 12 + self.vrt_start_time
+                # TODO change sequence parameter for parameter to be chosen by users or average of both max & min values?
+                self.parameters_dic.update({f'{LV}_{CAT_2}': [
+                    # Add ROCOM only for condition E
+                    (model_name + '/SM_Source/Waveform_Generator/ROCOM_START_TIME/Value', 10 + self.vrt_start_time),
+                    (model_name + '/SM_Source/Waveform_Generator/ROCOM_END_TIME/Value', 12 + self.vrt_start_time),
+                    # Enable needed conditions
+                    (model_name + '/SM_Source/VRT/VRT_State_Machine/cond_a_ena/Value', 1),
+                    (model_name + '/SM_Source/VRT/VRT_State_Machine/cond_b_ena/Value', 1),
+                    (model_name + '/SM_Source/VRT/VRT_State_Machine/cond_c_ena/Value', 1),
+                    (model_name + '/SM_Source/VRT/VRT_State_Machine/cond_d_ena/Value', 1),
+                    (model_name + '/SM_Source/VRT/VRT_State_Machine/cond_e_ena/Value', 1),
+                    (model_name + '/SM_Source/VRT/VRT_State_Machine/cond_f_ena/Value', 1),
+                    # Timesteps
+                    # (model_name + '/SM_Source/VRT/VRT_State_Machine/condition A/Threshold', 20 + self.vrt_start_time),
+                    # (model_name + '/SM_Source/VRT/VRT_State_Machine/condition B/Threshold', 20.16 + self.vrt_start_time),
+                    # (model_name + '/SM_Source/VRT/VRT_State_Machine/condition C/Threshold', 20.32 + self.vrt_start_time),
+                    # (model_name + '/SM_Source/VRT/VRT_State_Machine/condition D/Threshold', 23 + self.vrt_start_time),
+                    # (model_name + '/SM_Source/VRT/VRT_State_Machine/condition E/Threshold', 25 + self.vrt_start_time),
+                    # (model_name + '/SM_Source/VRT/VRT_State_Machine/condition F/Threshold', 125 + self.vrt_start_time),
+
+                    (model_name + '/SM_Source/VRT/VRT_State_Machine/condition A/Threshold', 2 + self.vrt_start_time),
+                    (model_name + '/SM_Source/VRT/VRT_State_Machine/condition B/Threshold', 4 + self.vrt_start_time),
+                    (model_name + '/SM_Source/VRT/VRT_State_Machine/condition C/Threshold', 6 + self.vrt_start_time),
+                    (model_name + '/SM_Source/VRT/VRT_State_Machine/condition D/Threshold', 8 + self.vrt_start_time),
+                    (model_name + '/SM_Source/VRT/VRT_State_Machine/condition E/Threshold', 10 + self.vrt_start_time),
+                    (model_name + '/SM_Source/VRT/VRT_State_Machine/condition F/Threshold', self.vrt_stop_time),
+                    # Values
+                    (model_name + '/SM_Source/VRT/VRT_State_Machine/voltage_ph_seqA/Value', 0.94 * 120),
+                    (model_name + '/SM_Source/VRT/VRT_State_Machine/condition B/Threshold', 0.28 * 120),
+                    (model_name + '/SM_Source/VRT/VRT_State_Machine/condition C/Threshold', 0.43 * 120),
+                    (model_name + '/SM_Source/VRT/VRT_State_Machine/condition D/Threshold', 0.65 * 120),
+                    (model_name + '/SM_Source/VRT/VRT_State_Machine/condition E/Threshold', 0.88 * 120),
+                    (model_name + '/SM_Source/VRT/VRT_State_Machine/condition F/Threshold', 0.94 * 120)]})
+
+
+    def write_rslt_sum(self, analysis, step, filename):
+        """
+        Combines the analysis results, the step label and the filenamoe to return
+        a row that will go in result_summary.csv
+        :param analysis: Dictionary with all the information for result summary
+
+        :param step:   test procedure step letter or number (e.g "Step G")
+        :param filename: the dataset filename use for analysis
+
+        :return: row_data a string with all the information for result_summary.csv
+        """
+
+        xs = self.x_criteria
+        ys = self.y_criteria
+        first_iter = analysis['FIRST_ITER']
+        last_iter = analysis['LAST_ITER']
+        row_data = []
+
+        # Time response criteria will take last placed value of Y variables
+        if self.criteria_mode[0]:
+            row_data.append(str(analysis['TR_90_%_PF']))
+        if self.criteria_mode[1]:
+            row_data.append(str(analysis['%s_TR_%s_PF' % (ys[-1], first_iter)]))
+        if self.criteria_mode[2]:
+            row_data.append(str(analysis['%s_TR_%s_PF' % (ys[-1], last_iter)]))
+
+        # Default measured values are V, P and Q (F can be added) refer to set_meas_variable function
+        for meas_value in self.meas_values:
+            row_data.append(str(analysis['%s_TR_%d' % (meas_value, last_iter)]))
+            # Variables needed for variations
+            if meas_value in xs:
+                row_data.append(str(analysis['%s_TR_TARG_%d' % (meas_value, last_iter)]))
+            # Variables needed for criteria verifications with min max passfail
+            if meas_value in ys:
+                row_data.append(str(analysis['%s_TR_TARG_%s' % (meas_value, last_iter)]))
+                row_data.append(str(analysis['%s_TR_%s_MIN' % (meas_value, last_iter)]))
+                row_data.append(str(analysis['%s_TR_%s_MAX' % (meas_value, last_iter)]))
+
+        row_data.append(step)
+        row_data.append(str(filename))
+        row_data_str = ','.join(row_data) + '\n'
+
+        return row_data_str
+
+        # except Exception as e:
+        #     raise p1547Error('Error in write_rslt_sum() : %s' % (str(e)))
+
+    """
+    Getter functions
+    """
+
+    def get_measurement_total(self, data, type_meas, log=False):
+        """
+        Sum or average the EUT values from all phases
+
+        :param data:        dataset from data acquisition object
+        :param type_meas:   Either V,P or Q
+        :param log:         Boolean variable to disable or enable logging
+        :return: Any measurements from the DAQ
+        """
+        value = None
+        nb_phases = None
+
+        try:
+            if self.phases == 'Single phase':
+                value = data.get(self.get_measurement_label(type_meas)[0])
+                if log:
+                    self.ts.log_debug('        %s are: %s'
+                                      % (self.get_measurement_label(type_meas), value))
+                nb_phases = 1
+
+            elif self.phases == 'Split phase':
+                value1 = data.get(self.get_measurement_label(type_meas)[0])
+                value2 = data.get(self.get_measurement_label(type_meas)[1])
+                if log:
+                    self.ts.log_debug('        %s are: %s, %s'
+                                      % (self.get_measurement_label(type_meas), value1, value2))
+                value = value1 + value2
+                nb_phases = 2
+
+            elif self.phases == 'Three phase':
+                value1 = data.get(self.get_measurement_label(type_meas)[0])
+                value2 = data.get(self.get_measurement_label(type_meas)[1])
+                value3 = data.get(self.get_measurement_label(type_meas)[2])
+                if log:
+                    self.ts.log_debug('        %s are: %s, %s, %s'
+                                      % (self.get_measurement_label(type_meas), value1, value2, value3))
+                value = value1 + value2 + value3
+                nb_phases = 3
+
+        except Exception as e:
+            self.ts.log_error('Inverter phase parameter not set correctly.')
+            self.ts.log_error('phases=%s' % self.phases)
+            raise p1547Error('Error in get_measurement_total() : %s' % (str(e)))
+
+        # TODO : imbalance_resp should change the way you acquire the data
+        if type_meas == 'V':
+            # average value of V
+            value = value / nb_phases
+        elif type_meas == 'F':
+            # No need to do data average for frequency
+            value = data.get(self.get_measurement_label(type_meas)[0])
+
+        return round(value, 3)
+
+    def get_initial(self, daq, step):
         """
         Sum the EUT phases for given parameter (power, reactive power, etc.) from all phases
         :param daq:         data acquisition object from svpelab library
@@ -858,24 +1241,24 @@ class module_1547(object):
             'Y_MEAS': 60.998,
             'X_MEAS': 2088.702}
         """
-        # TODO : In a more sophisticated approach, get_initial['timestamp'] will come from a
-        # reliable secure thread or data acquisition timestamp
-        self.set_x_y_variable(step=step)
-        initial = {}
-        initial['timestamp'] = datetime.now()
-        daq.data_sample()
-        data = daq.data_capture_read()
+        try:
+            # TODO : In a more sophisticated approach, get_initial['timestamp'] will come from a
+            # reliable secure thread or data acquisition timestamp
+            self.set_x_y_variable(step=step)
+            initial = {}
+            initial['timestamp'] = datetime.now()
+            daq.data_sample()
+            data = daq.data_capture_read()
 
-        daq.sc['event'] = step
-        for meas_value in self.meas_values:
-            initial['%s_MEAS' % meas_value] = self.get_measurement_total(data=data, type_meas=meas_value, log=False)
-            daq.sc['%s_MEAS' % meas_value] = initial['%s_MEAS' % meas_value]
+            daq.sc['event'] = step
+            for meas_value in self.meas_values:
+                initial['%s_MEAS' % meas_value] = self.get_measurement_total(data=data, type_meas=meas_value, log=False)
+                daq.sc['%s_MEAS' % meas_value] = initial['%s_MEAS' % meas_value]
 
-        daq.data_sample()
+        except Exception as e:
+            raise p1547Error('Error in get_initial(): %s' % (str(e)))
 
-        return initial
-
-    def update_target_value(self, daq, pwr_lvl=1.0, curve=1, x_target=None, y_target=None, data=None, aif=None):
+    def get_tr_data(self, daq, step, tr, pwr_lvl=None, curve=None, target=None):
         """
         Function to update target values depending on script name
 
@@ -946,8 +1329,8 @@ class module_1547(object):
                 v_meas = daq.sc['V_MEAS']
                 daq.sc['Q_TARGET'] = self.get_targ(v_meas, pwr_lvl, curve)
                 daq.sc['Q_TARGET'] = self.get_targ(v_meas, pwr_lvl, curve)
-                daq.sc['Q_TARGET_MIN'] = self.get_targ(v_meas + self.MRA_V * 1.5, pwr_lvl, curve)-(self.MRA_Q*1.5)
-                daq.sc['Q_TARGET_MAX'] = self.get_targ(v_meas - self.MRA_V * 1.5, pwr_lvl, curve)+(self.MRA_Q*1.5)
+                daq.sc['Q_TARGET_MIN'] = self.get_targ(v_meas + self.MRA_V * 1.5, pwr_lvl, curve) - (self.MRA_Q * 1.5)
+                daq.sc['Q_TARGET_MAX'] = self.get_targ(v_meas - self.MRA_V * 1.5, pwr_lvl, curve) + (self.MRA_Q * 1.5)
             elif self.script_name == LAP:
                 p_meas = self.get_measurement_total(data=data, type_meas='P', log=False)
                 daq.sc['P_MEAS'] = p_meas
@@ -962,16 +1345,16 @@ class module_1547(object):
                 daq.sc['Q_MEAS'] = self.get_measurement_total(data=data, type_meas='Q', log=False)
                 daq.sc['Q_TARGET'] = self.get_targ(daq.sc['Q_MEAS'], pwr_lvl, pf=x_target['PF'])
                 daq.sc['Q_TARGET_MIN'] = \
-                    self.get_targ(daq.sc['Q_MEAS'] + self.MRA_P * 1.5, pwr_lvl, pf=x_target['PF']) - 1.5*self.MRA_Q
+                    self.get_targ(daq.sc['Q_MEAS'] + self.MRA_P * 1.5, pwr_lvl, pf=x_target['PF']) - 1.5 * self.MRA_Q
                 daq.sc['Q_TARGET_MAX'] = \
-                    self.get_targ(daq.sc['Q_MEAS'] - self.MRA_P * 1.5, pwr_lvl, pf=x_target['PF']) + 1.5*self.MRA_Q
+                    self.get_targ(daq.sc['Q_MEAS'] - self.MRA_P * 1.5, pwr_lvl, pf=x_target['PF']) + 1.5 * self.MRA_Q
             elif self.script_name == CRP:
                 q_meas = self.get_measurement_total(data=data, type_meas='Q', log=False)
                 daq.sc['Q_MEAS'] = q_meas
                 # regardless of the power level, the EUT should produce target reactive power
                 daq.sc['Q_TARGET'] = y_target
-                daq.sc['Q_TARGET_MIN'] = daq.sc['Q_TARGET'] - 1.5*self.MRA_Q
-                daq.sc['Q_TARGET_MAX'] = daq.sc['Q_TARGET'] + 1.5*self.MRA_Q
+                daq.sc['Q_TARGET_MIN'] = daq.sc['Q_TARGET'] - 1.5 * self.MRA_Q
+                daq.sc['Q_TARGET_MAX'] = daq.sc['Q_TARGET'] + 1.5 * self.MRA_Q
             elif self.script_name == FW:
                 p_meas = self.get_measurement_total(data=data, type_meas='P', log=False)
                 daq.sc['P_MEAS'] = p_meas
@@ -987,8 +1370,8 @@ class module_1547(object):
                 p_meas = self.get_measurement_total(data=data, type_meas='P', log=False)
                 daq.sc['P_MEAS'] = p_meas
                 daq.sc['P_TARGET'] = self.get_targ(v_meas, pwr_lvl, curve)
-                daq.sc['P_TARGET_MIN'] = self.get_targ(v_meas + self.MRA_V*1.5, pwr_lvl, curve) - (self.MRA_P*1.5)
-                daq.sc['P_TARGET_MAX'] = self.get_targ(v_meas - self.MRA_V*1.5, pwr_lvl, curve) + (self.MRA_P*1.5)
+                daq.sc['P_TARGET_MIN'] = self.get_targ(v_meas + self.MRA_V * 1.5, pwr_lvl, curve) - (self.MRA_P * 1.5)
+                daq.sc['P_TARGET_MAX'] = self.get_targ(v_meas - self.MRA_V * 1.5, pwr_lvl, curve) + (self.MRA_P * 1.5)
             elif self.script_name == WV:
                 p_meas = self.get_measurement_total(data=data, type_meas='P', log=False)
                 daq.sc['P_MEAS'] = p_meas
@@ -1003,7 +1386,7 @@ class module_1547(object):
         daq.data_sample()  # Don't remove
 
     def get_tr_value(self, daq, initial_value, tr, step, number_of_tr=2, pwr_lvl=1.0, curve=1, x_target=None,
-                     y_target=None, aif =None):
+                     y_target=None, aif=None):
         """
         Get the data from a specific time response (tr) corresponding to x and y values returns a dictionary
         but also writes in the soft channels of the DAQ system
@@ -1084,9 +1467,9 @@ class module_1547(object):
         :return: output Y(duration) anticipated based on the open loop response function
         """
 
-        time_const = tr/(-(math.log(0.1)))  # ~2.3 * time constants to reach the open loop response time in seconds
+        time_const = tr / (-(math.log(0.1)))  # ~2.3 * time constants to reach the open loop response time in seconds
         number_of_taus = duration / time_const  # number of time constants into the response
-        resp_fraction = 1-math.exp(-number_of_taus)  # fractional response after the duration, e.g. 90%
+        resp_fraction = 1 - math.exp(-number_of_taus)  # fractional response after the duration, e.g. 90%
 
         # Y must be 90% * (Y_final - Y_initial) + Y_initial
         resp = (y_ss - y0) * resp_fraction + y0  # expand to y units
@@ -1225,7 +1608,7 @@ class module_1547(object):
                         analysis['%s_TR_%s_MIN' % (meas_value, tr_iter)] = tr_value['%s_TARGET_MIN' % meas_value]
                         analysis['%s_TR_%s_MAX' % (meas_value, tr_iter)] = tr_value['%s_TARGET_MAX' % meas_value]
 
-                        if tr_iter == 1 and self.criteria_mode[0]: # Only evaluate the 90% criterion after the first Tr
+                        if tr_iter == 1 and self.criteria_mode[0]:  # Only evaluate the 90% criterion after the first Tr
                             """
                             TRANSIENT: Open Loop Time Response (OLTR) = 90% of (y_final-y_initial) + y_initial
 
@@ -1269,18 +1652,18 @@ class module_1547(object):
                                 increasing = True
                                 # Y(time) = open loop curve, so locate the Y(time) value on the curve
                                 y_min = self.get_open_loop_value(y0=y_start, y_ss=y_ss,
-                                                                 duration=duration-1.5*mra_t, tr=tr) - 1.5 * mra_y
+                                                                 duration=duration - 1.5 * mra_t, tr=tr) - 1.5 * mra_y
                                 # Determine maximum value based on the open loop response expectation
                                 y_max = self.get_open_loop_value(y0=y_start, y_ss=y_ss,
-                                                                 duration=duration+1.5*mra_t, tr=tr) + 1.5 * mra_y
+                                                                 duration=duration + 1.5 * mra_t, tr=tr) + 1.5 * mra_y
                             else:  # decreasing values of y
                                 increasing = False
                                 # Y(time) = open loop curve, so locate the Y(time) value on the curve
                                 y_min = self.get_open_loop_value(y0=y_start, y_ss=y_ss,
-                                                                 duration=duration+1.5*mra_t, tr=tr) - 1.5 * mra_y
+                                                                 duration=duration + 1.5 * mra_t, tr=tr) - 1.5 * mra_y
                                 # Determine maximum value based on the open loop response expectation
                                 y_max = self.get_open_loop_value(y0=y_start, y_ss=y_ss,
-                                                                 duration=duration-1.5*mra_t, tr=tr) + 1.5 * mra_y
+                                                                 duration=duration - 1.5 * mra_t, tr=tr) + 1.5 * mra_y
 
                             # pass/fail applied to the open loop time response
                             if self.script_name == CRP:  # 1-sided analysis
@@ -1333,74 +1716,6 @@ class module_1547(object):
                             analysis['%s_TR_%s_PF' % (y, tr_iter)]))
         return analysis
 
-    def get_params(self, curve=None, aif=None):
-        """
-        Gets the parameters for the test for a given AIF and curve number
-
-        If curve provided, this will update the curve using set_params()
-
-        :param curve: int, Curve number
-        :param aif: str, Advanced inverter function, e.g., 'VV', 'WV'
-        :return: (X, Y) pairs of the curves in a list, e.g., [P1, P2, P3, V1, V2, V3]
-        """
-        self.ts.log_debug('Getting params for aif=%s and curve=%s' % (aif, curve))
-
-        # update params if curve number is provided
-        if curve is not None:
-            self.set_params(curve=curve)
-
-        # This section is for scripts utilizing multiple AIF, such as prioritization and LAP
-        if aif is not None and curve is not None:
-            return self.param[aif][curve]
-        elif aif is not None:
-            return self.param[aif]
-        elif curve is not None:
-            return self.param[self.script_name][curve]
-        else:
-            return self.param
-
-    def get_rslt_param_plot(self):
-
-        y_variables = self.y_criteria
-        y2_variables = self.x_criteria
-
-        # For VV, VW and FW
-        y_points = []
-        y2_points = []
-        y_title = []
-        y2_title = []
-
-        for y in y_variables:
-            self.ts.log_debug('y_temp: %s' % y)
-            #y_temp = self.get_measurement_label('%s' % y)
-            y_temp = '{}'.format(','.join(str(x) for x in self.get_measurement_label('%s' % y)))
-            y_title.append(FULL_NAME[y])
-            y_points.append(y_temp)
-        self.ts.log_debug('y_points: %s' % y_points)
-        y_points = ','.join(y_points)
-        y_title = ','.join(y_title)
-
-        for y2 in y2_variables:
-            self.ts.log_debug('y2_variable for result: %s' % y2)
-            y2_temp = '{}'.format(','.join(str(x) for x in self.get_measurement_label('%s' % y2)))
-            y2_title.append(FULL_NAME[y2])
-            y2_points.append(y2_temp)
-        y2_points = ','.join(y2_points)
-        y2_title = ','.join(y2_title)
-
-        result_params = {
-            'plot.title': 'title_name',
-            'plot.x.title': 'Time (sec)',
-            'plot.x.points': 'TIME',
-            'plot.y.points': y_points,
-            'plot.y.title': y_title,
-            'plot.y2.points': y2_points,
-            'plot.y2.title': y2_title,
-            'plot.%s_TARGET.min_error' % y2_variables[-1]: '%s_TARGET_MIN' % y2_variables[-1],
-            'plot.%s_TARGET.max_error' % y2_variables[-1]: '%s_TARGET_MAX' % y2_variables[-1]
-        }
-
-        return result_params
 
     def get_targ(self, value, pwr_lvl=1.0, curve=1, pf=None, variable=None):
         """
@@ -1419,7 +1734,7 @@ class module_1547(object):
 
         # limit active power evaluation
         if self.script_name == LAP and variable is not 'F':
-            p_targ = self.p_rated - (self.p_rated-self.param[VW][curve]['P2'])*((value/self.v_nom)-1.06)/0.04
+            p_targ = self.p_rated - (self.p_rated - self.param[VW][curve]['P2']) * ((value / self.v_nom) - 1.06) / 0.04
             return p_targ
 
         if FW in self.function_used or variable == 'F':  # frequency-based evaluations, e.g., FW
@@ -1431,15 +1746,15 @@ class module_1547(object):
             if f_dub <= value <= f_dob:
                 p_targ = p_db
             elif value > f_dob:
-                p_targ = p_db - ((value - f_dob) / (self.f_nom * self.param[FW][curve]['kof'])) * p_db
+                p_targ = p_db - ((value - f_dob) / (self.f_nom * self.param[curve]['kof'])) * p_db
                 if p_targ < self.p_min:
                     p_targ = self.p_min
             elif value < f_dub:
-                p_targ = ((f_dub - value) / (self.f_nom * self.param[FW][curve]['kof'])) * p_avl + p_db
+                p_targ = ((f_dub - value) / (self.f_nom * self.param[curve]['kof'])) * p_avl + p_db
                 if p_targ > self.p_rated:
                     p_targ = self.p_rated
             p_targ *= pwr_lvl
-            return round(p_targ, 2)
+            return p_targ
 
         elif VV in self.function_used:
             x = [self.param[VV][curve]['V1'], self.param[VV][curve]['V2'],
@@ -1450,7 +1765,7 @@ class module_1547(object):
             q_value *= pwr_lvl
             return round(q_value, 1)
 
-        elif CPF in self.function_used:
+        elif self.script_name == "CPF":
             q_value = math.sqrt(pow(value, 2) * ((1 / pow(pf, 2)) - 1))
             return round(q_value, 1)
 
@@ -1533,7 +1848,7 @@ class module_1547(object):
         :param filename: result filename, e.g., VV_1
         :param pwr_lvl: DC power level used for the test (used as curve multiplier for expected results)
         :param curve: dict with curve used for the test
-        :param initial_value: the starting value for the step from lib_1547.get_initial_value()
+        :param initial_value: the starting value for the step from VoltVar.get_initial_value()
         :param x_target: input parameter target
         :param y_target: EUT output target based on the function (e.g. LAP -> act_pwrs_limits)
         :param aif: advanced inverter function name
@@ -1566,116 +1881,7 @@ class module_1547(object):
         result_summary.write(self.write_rslt_sum(analysis=analysis, step=step, filename=filename))
         return
 
-class vrt_1547(object):
-    def __init__(self, ts, support_interfaces):
-        self.params = {}
-        self.parameters_dic = {}
-        self.mode = []
-        self.ts = ts
-        self.vrt_start_time = None
-        self.vrt_stop_time = None
-        if support_interfaces.get('hil') is not None:
-            self.hil = support_interfaces.get('hil')
-        else:
-            self.hil = None
-        self._config()
-    def _config(self):
-        self.set_params()
-        self.set_vrt_on()
-        self.set_model_parameters_dic()
-    """
-    Setter functions
-    """
-
-    def set_vrt_on(self):
-        """
-        Set the HIL model to VRT
-        """
-        model_name = self.params["model_name"] 
-        self.hil.set_params(model_name +"/SM_Source/SVP Commands/mode/Value",3)
+if __name__ == "__main__":
+    pass
 
 
-    def set_params(self):
-        try:
-            # RT test parameters
-            self.params["lf_mode"] = self.ts.param_value('vrt.lv_ena')
-            self.params["hf_mode"] = self.ts.param_value('vrt.hv_ena')
-            #low_pwr_ena = self.ts.param_value('vrt.low_pwr_ena')
-            #high_pwr_ena = self.ts.param_value('vrt.high_pwr_ena')
-            #low_pwr_value = self.ts.param_value('vrt.low_pwr_value')
-            #high_pwr_value = self.ts.param_value('vrt.high_pwr_value')
-
-            #consecutive_ena = ts.param_value('vrt.consecutive_ena')
-            self.params["categories"] = self.ts.param_value('vrt.cat')
-            self.params["range_steps"] = self.ts.param_value('vrt.range_steps')
-            self.eut_startup_time = self.ts.param_value('eut.startup_time')
-            self.params["model_name"] = self.hil.rt_lab_model
-        except Exception as e:
-            self.ts.log_error('Incorrect Parameter value : %s' % e)
-            raise
-    def set_model_parameters_dic(self):
-        categories = self.params["categories"]
-        lf_mode = self.params["lf_mode"]
-        hf_mode = self.params["hf_mode"]
-        model_name =  self.params["model_name"]
-        range_steps = self.params["range_steps"]
-        
-
-        if lf_mode == 'Enabled':
-            #Timestep is cumulative
-            if categories == CAT_2 or categories == 'Both':
-                self.mode.append(f'{LV}_{CAT_2}')
-                self.vrt_start_time = self.eut_startup_time
-                self.vrt_stop_time = 12 + self.vrt_start_time
-                #TODO change sequence parameter for parameter to be chosen by users or average of both max & min values?
-                self.parameters_dic.update({f'{LV}_{CAT_2}': [
-                # Add ROCOM only for condition E
-                (model_name + '/SM_Source/Waveform_Generator/ROCOM_START_TIME/Value', 10 + self.vrt_start_time),
-                (model_name + '/SM_Source/Waveform_Generator/ROCOM_END_TIME/Value', 12 + self.vrt_start_time),
-                # Enable needed conditions
-                (model_name + '/SM_Source/VRT/VRT_State_Machine/cond_a_ena/Value', 1),
-                (model_name + '/SM_Source/VRT/VRT_State_Machine/cond_b_ena/Value', 1),
-                (model_name + '/SM_Source/VRT/VRT_State_Machine/cond_c_ena/Value', 1),
-                (model_name + '/SM_Source/VRT/VRT_State_Machine/cond_d_ena/Value', 1),
-                (model_name + '/SM_Source/VRT/VRT_State_Machine/cond_e_ena/Value', 1),
-                (model_name + '/SM_Source/VRT/VRT_State_Machine/cond_f_ena/Value', 1),
-                # Trigger for OPwritefile
-                # Timesteps
-                # (model_name + '/SM_Source/VRT/VRT_State_Machine/condition A/Threshold', 20 + self.vrt_start_time),
-                # (model_name + '/SM_Source/VRT/VRT_State_Machine/condition B/Threshold', 20.16 + self.vrt_start_time),
-                # (model_name + '/SM_Source/VRT/VRT_State_Machine/condition C/Threshold', 20.32 + self.vrt_start_time),
-                # (model_name + '/SM_Source/VRT/VRT_State_Machine/condition D/Threshold', 23 + self.vrt_start_time),
-                # (model_name + '/SM_Source/VRT/VRT_State_Machine/condition E/Threshold', 25 + self.vrt_start_time),
-                # (model_name + '/SM_Source/VRT/VRT_State_Machine/condition F/Threshold', 125 + self.vrt_start_time),
-
-                (model_name + '/SM_Source/VRT/VRT_State_Machine/condition A/Threshold', 2 + self.vrt_start_time),
-                (model_name + '/SM_Source/VRT/VRT_State_Machine/condition B/Threshold', 4 + self.vrt_start_time),
-                (model_name + '/SM_Source/VRT/VRT_State_Machine/condition C/Threshold', 6 + self.vrt_start_time),
-                (model_name + '/SM_Source/VRT/VRT_State_Machine/condition D/Threshold', 8 + self.vrt_start_time),
-                (model_name + '/SM_Source/VRT/VRT_State_Machine/condition E/Threshold', 10 + self.vrt_start_time),
-                (model_name + '/SM_Source/VRT/VRT_State_Machine/condition F/Threshold', self.vrt_stop_time ),
-                # Values
-                (model_name + '/SM_Source/VRT/VRT_State_Machine/voltage_ph_seqA/Value', 0.94*120),
-                (model_name + '/SM_Source/VRT/VRT_State_Machine/condition B/Threshold', 0.28*120),
-                (model_name + '/SM_Source/VRT/VRT_State_Machine/condition C/Threshold', 0.43*120),
-                (model_name + '/SM_Source/VRT/VRT_State_Machine/condition D/Threshold', 0.65*120),
-                (model_name + '/SM_Source/VRT/VRT_State_Machine/condition E/Threshold', 0.88*120),
-                (model_name + '/SM_Source/VRT/VRT_State_Machine/condition F/Threshold', 0.94*120)]})
-                
-    """
-    Getter functions
-    """
-    def get_modes(self):
-        return self.mode
-
-    def get_model_parameters(self,current_mode):
-        self.ts.log(f'Getting HIL parameters for {current_mode}')
-        return self.parameters_dic[current_mode],self.vrt_start_time, self.vrt_stop_time 
-
-    def get_waveform_config(self,current_mode,offset):
-        params = {}
-        params["start_time_value"] = float(self.vrt_start_time - offset)
-        params["end_time_value"] = float(self.vrt_stop_time + offset)
-        params["start_time_variable"] = "Tstart"
-        params["end_time_variable"] = "Tend"
-        return params
