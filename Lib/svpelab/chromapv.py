@@ -33,7 +33,7 @@ Questions can be directed to support@sunspec.org
 import sys
 import time
 import os
-import pvsim
+from . import pvsim
 
 EN_50530_CURVE = 'EN 50530 CURVE'
 
@@ -66,10 +66,10 @@ class ChromaPV(object):
         try:
             if self.conn is None:
                 raise ChromaPVError('GPIB connection not open')
-            print cmd_str
+            print(cmd_str)
             return self.conn.query(cmd_str)
 
-        except Exception, e:
+        except Exception as e:
             raise ChromaPVError(str(e))
 
     def query(self, cmd_str):
@@ -105,7 +105,7 @@ class ChromaPV(object):
 
                 time.sleep(1)
 
-            except Exception, e:
+            except Exception as e:
                 raise ChromaPVError('Cannot open VISA connection to %s\n\t%s' % (self.visa_device,str(e)))
         else:
             raise ValueError('Unknown communication type %s. Use Serial, GPIB or VISA' % self.comm)
@@ -113,14 +113,14 @@ class ChromaPV(object):
     def cmd(self, cmd_str):
         try:
             self._cmd(cmd_str)
-        except Exception, e:
+        except Exception as e:
             raise ChromaPVError(str(e))
 
     def _cmd(self, cmd_str):
         try:
-            print cmd_str
+            print(cmd_str)
             self.conn.write(cmd_str)
-        except Exception, e:
+        except Exception as e:
             raise
 
     def info(self):
@@ -131,7 +131,7 @@ class ChromaPV(object):
         time.sleep(5)
 
     def power_on(self):
-        print self.output_status()
+        print(self.output_status())
         if self.output_status().strip() == 'OFF':
             if self.output_mode().strip != 'SAS':
                 self.cmd('OUTPut:MODE SAS')
@@ -160,7 +160,7 @@ class ChromaPV(object):
                     self.rm.close()
 
                 time.sleep(1)
-            except Exception, e:
+            except Exception as e:
                 raise pvsim.PVSimError(str(e))
         else:
             raise ValueError('Unknown communication type %s. Use Serial, GPIB or VISA' % self.comm)
@@ -182,7 +182,7 @@ class ChromaPV(object):
     def irradiance_set(self, irradiance, voc, isc, pmp, vmp):
         self.irradiance = irradiance
         #Since Chroma doesn't support it, we need to calcalate new parameters based on irradiance
-        print 'in irradiance'
+        print('in irradiance')
         isc = isc * irradiance/1000
         pmp = pmp * irradiance/1000
 
@@ -216,8 +216,8 @@ if __name__ == "__main__":
         # sas = TerraSAS(ipaddr='10.10.10.10')
 
         #sas.reset()
-        print sas.info()
-        print sas.status()
+        print(sas.info())
+        print(sas.status())
 
         Mvoc = 500
         Misc = 13
@@ -226,7 +226,7 @@ if __name__ == "__main__":
 
         sas.curve(None,Mvoc,Misc,Mpmp,Mvmp)
         sas.power_off()
-        print sas.output_status()
+        print(sas.output_status())
 
         time.sleep(1)
         sas.power_on()
@@ -255,6 +255,6 @@ if __name__ == "__main__":
 
         sas.close()
 
-    except Exception, e:
+    except Exception as e:
         raise
-        print 'Error running TerraSAS setup: %s' % (str(e))
+        print('Error running TerraSAS setup: %s' % (str(e)))

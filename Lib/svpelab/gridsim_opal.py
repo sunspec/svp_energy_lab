@@ -30,7 +30,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 Questions can be directed to support@sunspec.org
 """
 import os
-import gridsim
+from . import gridsim
 
 opal_info = {
     'name': os.path.splitext(os.path.basename(__file__))[0],
@@ -132,6 +132,13 @@ class GridSim(gridsim.GridSim):
         self.config_phase_angles()
         self.freq(freq=self.f_nom)
         self.voltage(voltage=self.v_nom)
+        
+    def config(self, hil_object=None):
+        """
+        This will create alias for all the needed signals needed in 
+        the model.
+        """
+        
 
     def set_parameters(self, parameters):
         """
@@ -158,37 +165,19 @@ class GridSim(gridsim.GridSim):
         self.ts.log('type(self.model_name) = %s, self.model_name=%s' % (type(self.model_name), self.model_name))
         if len(self.frequency_block_list) == 1:  # single phase
             # Phase A Switching times and Phase Angles
-            parameters.append((self.model_name + '/SM_Source/Switch1/Threshold', 1e10))  # never conduct phase jump
-            parameters.append((self.model_name + '/SM_Source/Switch2/Threshold', 1e10))  # never conduct phase jump
-            parameters.append((self.model_name + '/SM_Source/Phase Angle Phase A0/Value', 0))
-            parameters.append((self.model_name + '/SM_Source/Phase Angle Phase A1/Value', 0))
+            parameters.append((self.model_name + '/SM_Source/SVP Commands/phase_ph_a/Value', 0))
         elif len(self.frequency_block_list) == 2:  # split phase
             # Phase A Switching times and Phase Angles
-            parameters.append((self.model_name + '/SM_Source/Switch1/Threshold', 1e10))  # never conduct phase jump
-            parameters.append((self.model_name + '/SM_Source/Switch2/Threshold', 1e10))  # never conduct phase jump
-            parameters.append((self.model_name + '/SM_Source/Phase Angle Phase A0/Value', 0))
-            parameters.append((self.model_name + '/SM_Source/Phase Angle Phase A1/Value', 0))
+            parameters.append((self.model_name + '/SM_Source/SVP Commands/phase_ph_a/Value', 0))
             # Phase B Switching times and Phase Angles
-            parameters.append((self.model_name + '/SM_Source/Switch3/Threshold', 1e10))  # never conduct phase jump
-            parameters.append((self.model_name + '/SM_Source/Switch4/Threshold', 1e10))  # never conduct phase jump
-            parameters.append((self.model_name + '/SM_Source/Phase Angle Phase B0/Value', 180))
-            parameters.append((self.model_name + '/SM_Source/Phase Angle Phase B1/Value', 180))
+            parameters.append((self.model_name + '/SM_Source/SVP Commands/phase_ph_b/Value', 180))
         elif len(self.frequency_block_list) == 3:  # three phase
             # Phase A Switching times and Phase Angles
-            parameters.append((self.model_name + '/SM_Source/Switch1/Threshold', 1e10))  # never conduct phase jump
-            parameters.append((self.model_name + '/SM_Source/Switch2/Threshold', 1e10))  # never conduct phase jump
-            parameters.append((self.model_name + '/SM_Source/Phase Angle Phase A0/Value', 0))
-            parameters.append((self.model_name + '/SM_Source/Phase Angle Phase A1/Value', 0))
+            parameters.append((self.model_name + '/SM_Source/SVP Commands/phase_ph_a/Value', 0))
             # Phase B Switching times and Phase Angles
-            parameters.append((self.model_name + '/SM_Source/Switch3/Threshold', 1e10))  # never conduct phase jump
-            parameters.append((self.model_name + '/SM_Source/Switch4/Threshold', 1e10))  # never conduct phase jump
-            parameters.append((self.model_name + '/SM_Source/Phase Angle Phase B0/Value', -120))
-            parameters.append((self.model_name + '/SM_Source/Phase Angle Phase B1/Value', -120))
+            parameters.append((self.model_name + '/SM_Source/SVP Commands/phase_ph_b/Value', -120))
             # Phase C Switching times and Phase Angles
-            parameters.append((self.model_name + '/SM_Source/Switch7/Threshold', 1e10))  # never conduct phase jump
-            parameters.append((self.model_name + '/SM_Source/Switch8/Threshold', 1e10))  # never conduct phase jump
             parameters.append((self.model_name + '/SM_Source/Phase Angle Phase C0/Value', 120))
-            parameters.append((self.model_name + '/SM_Source/Phase Angle Phase C1/Value', 120))
         else:
             self.ts.log_warning('Phase angles not set for simulation because the number of grid simulation '
                                 'waveforms is not 1, 2, or 3.')
@@ -222,7 +211,7 @@ class GridSim(gridsim.GridSim):
             self.f = freq
             parameters = []
             for freq_block in self.frequency_block_list:
-                parameters.append((self.model_name + '/SM_Source/' + freq_block + '/Value', freq))
+                parameters.append((self.model_name + '/SM_Source/SVP Commands/' + freq_block + '/Value', freq))
 
         freq = self.f
         return freq
@@ -248,6 +237,36 @@ class GridSim(gridsim.GridSim):
         RELAY_CLOSED. If none is provided, obtains the state of the relay.
         """
         pass
+    def rocof(self, rocof=None, init_value = None):
+        """
+        Set the rate of change of frequency (ROCOF) if provided. If none provided, obtains the ROCOF.
+
+        :param rocof: ROCOF in Hz/s
+        :param init_value: Initialisation value in frequency (Hz)
+
+        """
+        parameters = []
+        parameters.append((self.model_name + '/SM_Source/Waveform_Generator/ROCOF_ENABLE/Value', 1))
+        parameters.append((self.model_name + '/SM_Source/Waveform_Generator/ROCOF_INIT/Value', init_value))
+        parameters.append((self.model_name + '/SM_Source/Waveform_Generator/ROCOF_VALUE/Value', rocof))
+
+        self.set_parameters(parameters)
+
+
+        return rocof
+    def rocom(self, rocom=None, init_value = None):
+        """
+        Set the rate of change of magnitude (ROCOM) if provided. If none provided, obtains the ROCOM.
+
+        :param rocom: ROCOM in V/s
+        :param init_value: Initialisation value for voltage (V)
+
+        """
+        parameters = []
+        parameters.append((self.model_name + '/SM_Source/Waveform_Generator/ROCOM_INIT/Value', init_value))
+        parameters.append((self.model_name + '/SM_Source/Waveform_Generator/ROCOM_VALUE/Value', rocom))
+        self.set_parameters(parameters)
+        return rocom
 
     def voltage(self, voltage=None):
         """
@@ -262,9 +281,9 @@ class GridSim(gridsim.GridSim):
             if type(voltage) is not list and type(voltage) is not tuple:
                 self.v = voltage
                 for volt_block in self.voltage_block_list:
-                    # self.ts.log_debug('self.model_name = %s' % (self.model_name))
-                    # self.ts.log_debug('volt_block = %s' % (volt_block))
-                    parameters.append((self.model_name + '/SM_Source/' + volt_block + '/Value', voltage))
+                    #self.ts.log_debug('self.model_name = %s' % (self.model_name))
+                    #self.ts.log_debug('volt_block = %s' % (volt_block))
+                    parameters.append((self.model_name + '/SM_Source/SVP Commands/' + volt_block + '/Value', voltage))
                 self.v1 = self.v
                 self.v2 = self.v
                 self.v3 = self.v
@@ -279,7 +298,7 @@ class GridSim(gridsim.GridSim):
                     self.v1 = voltage[0]
                     self.v2 = voltage[1]
                     self.v3 = voltage[2]
-                    parameters.append((self.model_name + '/SM_Source/' + volt_block + '/Value', voltage[phase-1]))
+                    parameters.append((self.model_name + '/SM_Source/SVP Commands/' + volt_block + '/Value', voltage[phase-1]))
                 self.v = v_sum/phase
 
             # write the new voltages to the simulation blocks

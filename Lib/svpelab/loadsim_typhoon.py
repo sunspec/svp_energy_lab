@@ -31,13 +31,13 @@ Questions can be directed to support@sunspec.org
 """
 
 import os
-import loadsim
+from . import loadsim
 try:
     import typhoon.api.hil as cp  # control panel
     from typhoon.api.schematic_editor import model
     import typhoon.api.pv_generator as pv
-except Exception, e:
-    print('Typhoon HIL API not installed. %s' % e)
+except Exception as e:
+    print(('Typhoon HIL API not installed. %s' % e))
 
 typhoon_info = {
     'name': os.path.splitext(os.path.basename(__file__))[0],

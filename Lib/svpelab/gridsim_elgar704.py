@@ -1,9 +1,9 @@
 
 import os
-import grid_profiles
-import gridsim
-import wavegen
-import switch
+from . import grid_profiles
+from . import gridsim
+from . import wavegen
+from . import switch
 import collections
 
 elgar_info = {'name': os.path.splitext(os.path.basename(__file__))[0],
@@ -164,12 +164,12 @@ class GridSim(gridsim.GridSim):
                     self.conn = self.rm.open_resource(self.visa_device)
                     self.ts.log('Gridsim Visa config')
 
-                except Exception, e:
+                except Exception as e:
                     raise gridsim.GridSimError('Cannot open VISA connection to %s\n\t%s' % (self.visa_device,str(e)))
             elif self.comm == 'WAVEGEN':
                 try:
                     self.wg.open()
-                except Exception, e:
+                except Exception as e:
                     raise gridsim.GridSimError('Cannot open Wavegen connection : \n\t%s' % (str(e)))
             else:
                 raise ValueError('Unknown communication type %s. Use GPIB or VISA' % self.comm)
@@ -178,13 +178,13 @@ class GridSim(gridsim.GridSim):
 
             self.ts.sleep(2)
 
-        except Exception, e:
+        except Exception as e:
             raise gridsim.GridSimError(str(e))
 
     def cmd(self, cmd_str):
         try:
             self.conn.write(cmd_str)
-        except Exception, e:
+        except Exception as e:
             raise
 
     def query(self, cmd_str):
@@ -212,12 +212,12 @@ class GridSim(gridsim.GridSim):
                     # self.rm.close()
 
                 self.ts.sleep(1)
-            except Exception, e:
+            except Exception as e:
                 raise gridsim.GridSimError(str(e))
         elif self.comm == 'WAVEGEN':
             try:
                 self.wg.close()
-            except Exception, e:
+            except Exception as e:
                 raise gridsim.GridSimError('Cannot close Wavegen connection : \n\t%s' % (str(e)))
         else:
             raise ValueError('Unknown communication type %s. Use Serial, GPIB or VISA' % self.comm)
@@ -273,7 +273,7 @@ class GridSim(gridsim.GridSim):
                     self.cmd('VOLTC {}'.format(voltage[2]))
         elif self.comm == 'WAVEGEN':
             if voltage is not None and voltage is dict:
-                for phase,magnitude in params.iteritems():
+                for phase,magnitude in params.items():
                     self.wg.voltage(channel=phase, voltage=magnitude)
             else:
                 if type(voltage) is not list and type(voltage) is not tuple:

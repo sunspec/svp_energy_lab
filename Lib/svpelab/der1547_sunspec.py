@@ -4,7 +4,7 @@ DER1547 methods defined for SunSpec Modbus devices
 
 import os
 import sunspec.core.client as client
-import der1547
+from . import der1547
 import script
 
 sunspec_info = {
@@ -243,7 +243,7 @@ class DER1547(der1547.DER1547):
                     params['Model'] = self.inv.common.Md
                     params['SerialNumber'] = self.inv.common.SN
                     params['Version'] = self.inv.common.Vr
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -277,7 +277,7 @@ class DER1547(der1547.DER1547):
                 params['Hz'] = self.inv.nameplate.Hz
                 params['St'] = self.inv.nameplate.St
                 params['Alrm'] = self.inv.nameplate.Alrm
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -302,7 +302,7 @@ class DER1547(der1547.DER1547):
                 params['PFWInjEna'] = self.inv.pf.WRtg
                 params['PF'] = self.inv.pf.VARtg
                 params['Ext'] = self.inv.pf.VArRtgQ1
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -334,7 +334,7 @@ class DER1547(der1547.DER1547):
                 if self.ts is not None:
                     self.ts.log_warning('No params sent to set_fixed_pf')
 
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -368,7 +368,7 @@ class DER1547(der1547.DER1547):
                 params['VoltVar.Crv.Pt'] = self.inv.vv.VoltVar.Crv.Pt
                 params['RspTms'] = self.inv.vv.RspTms
 
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -437,7 +437,7 @@ class DER1547(der1547.DER1547):
                             v_len = len(v)
                             if v_len > n_pt:
                                 raise der.DERError('Voltage point count out of range: %d' % (v_len))
-                            for i in xrange(v_len):  # SunSpec point index starts at 1
+                            for i in range(v_len):  # SunSpec point index starts at 1
                                 v_point = 'V%d' % (i + 1)
                                 setattr(curve, v_point, v[i])
 
@@ -447,7 +447,7 @@ class DER1547(der1547.DER1547):
                             var_len = len(watt)
                             if var_len > n_pt:
                                 raise der.DERError('W point count out of range: %d' % (var_len))
-                            for i in xrange(var_len):  # SunSpec point index starts at 1
+                            for i in range(var_len):  # SunSpec point index starts at 1
                                 var_point = 'VAR%d' % (i + 1)
                                 setattr(curve, var_point, var[i])
 
@@ -457,7 +457,7 @@ class DER1547(der1547.DER1547):
                 if self.ts is not None:
                     self.ts.log_warning('No params sent to set_volt_var')
 
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -552,7 +552,7 @@ class DER1547(der1547.DER1547):
                 if self.ts is not None:
                     self.ts.log_warning('No params sent to set_watt_var')
 
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -581,7 +581,7 @@ class DER1547(der1547.DER1547):
                 params['VoltVar.Crv.Pt'] = self.inv.wv.VoltVar.Crv.Pt
                 params['RspTms'] = self.inv.wv.RspTms
 
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params

@@ -36,29 +36,29 @@ import os
 import time
 import traceback
 import glob
-import waveform
-import dataset
+from . import waveform
+from . import dataset
 import sys
 
 # Wrap driver import statements in try-except clauses to avoid SVP initialization errors
 try:
     from PyDAQmx import *
-except Exception, e:
+except Exception as e:
     print('Error: PyDAQmx python package not found!')
 
 try:
     import numpy as np
-except Exception, e:
+except Exception as e:
     print('Error: numpy python package not found!')
 
 try:
-    import waveform_analysis
-except Exception, e:
+    from . import waveform_analysis
+except Exception as e:
     print('Error: waveform_analysis file not found!')
 
 try:
     from ctypes import *
-except Exception, e:
+except Exception as e:
     print('Error: ctypes file not found!')
 
 
@@ -209,7 +209,7 @@ class Device(object):
 
         # Create list of analog channels to capture
         self.analog_channels = []
-        for key, value in self.points_map.iteritems():
+        for key, value in self.points_map.items():
             self.analog_channels.append(value)
         self.analog_channels = sorted(self.analog_channels)  # alphabetize
         # self.ts.log_debug('analog_channels  = %s' % self.analog_channels)
@@ -321,12 +321,12 @@ class Device(object):
             status = DAQmxConnectTerms('/Dev%s/20MHzTimebase' % self.dev_numbers[0],
                                        '/Dev%s/RTSI7' % self.dev_numbers[len(self.sorted_unique)-1],
                                        DAQmx_Val_DoNotInvertPolarity)
-        except Exception, e:
-            print('Error: Task does not support DAQmxConnectTerms: %s' % e)
+        except Exception as e:
+            print(('Error: Task does not support DAQmxConnectTerms: %s' % e))
 
         for k in range(len(self.sorted_unique)-1, -1, -1):
             # Start Master last so slave(s) will wait for trigger from master over RSTI bus
-            print('Starting Task: %s.' % k)
+            print(('Starting Task: %s.' % k))
             self.analog_input[k].StartTask()
 
         # DAQmx Read Code
@@ -411,7 +411,7 @@ class Device(object):
             for k in range(len(self.sorted_unique)-1, -1, -1):
                 self.analog_input[k].StopTask()
                 self.analog_input[k].TaskControl(DAQmx_Val_Task_Unreserve)
-        except Exception, e:
+        except Exception as e:
             self.ts.log_error('Error with DAQmx in StopTask. Returning nones... %s' % e)
             return datarec
 
@@ -441,7 +441,7 @@ class Device(object):
                 datarec[svp_name] = rms_data[self.analog_channels[k]]  # add RMS data to recorded data under SVP name
 
             # check to see if this data also belongs to other channels
-            for key, value in self.duplicate_channels.iteritems():
+            for key, value in self.duplicate_channels.items():
                 if key == self.analog_channels[k]:
                     for j in value:
                         svp_name = dsm_points_mcc_reversed.get(j)
@@ -460,7 +460,7 @@ class Device(object):
             ac_current_a = None
             ac_current_b = None
             ac_current_c = None
-            for analog_chan_name, dsm_name in dsm_points_mcc.iteritems():
+            for analog_chan_name, dsm_name in dsm_points_mcc.items():
                 # self.ts.log_debug('Checking to see if %s is in %s' % (s, k))
                 if analog_chan_name.find(s) != -1:
                     self.ts.log_debug('Found Channel %s' % analog_chan_name)
@@ -571,12 +571,12 @@ class Device(object):
                 status = DAQmxConnectTerms('/Dev%s/20MHzTimebase' % self.dev_numbers[0],
                                            '/Dev%s/RTSI7' % self.dev_numbers[len(self.sorted_unique)-1],
                                            DAQmx_Val_DoNotInvertPolarity)
-            except Exception, e:
-                print('Error: Task does not support DAQmxConnectTerms: %s' % e)
+            except Exception as e:
+                print(('Error: Task does not support DAQmxConnectTerms: %s' % e))
 
             for k in range(len(self.sorted_unique)-1, -1, -1):
                 # Start Master last so slave(s) will wait for trigger from master over RSTI bus
-                print('Starting Task: %s.' % k)
+                print(('Starting Task: %s.' % k))
                 self.analog_input[k].StartTask()
 
             for k in range(len(self.sorted_unique)):
@@ -609,7 +609,7 @@ class Device(object):
                 for k in range(len(self.sorted_unique)-1, -1, -1):
                     self.analog_input[k].StopTask()
                     self.analog_input[k].TaskControl(DAQmx_Val_Task_Unreserve)
-            except Exception, e:
+            except Exception as e:
                 self.ts.log_error('Error with DAQmx in StopTask. Returning nones... %s' % e)
 
         else:
@@ -668,7 +668,7 @@ def c7_relay(new_state='close', device=(3, 0, 17)):
         ditigal_wfm_data = np.array([1], dtype=np.uint8)
         # print('Closing C7 Relay')
     else:
-        print('Unknown new switch state: %s' % new_state)
+        print(('Unknown new switch state: %s' % new_state))
         return
 
     task = Task()
@@ -724,7 +724,7 @@ if __name__ == "__main__":
         n_channels.append(i)
         raw_data.append(np.zeros((n_points*i,), dtype=np.float64))
     print(n_channels)
-    print('raw_data length: %s' % len(raw_data[0]))
+    print(('raw_data length: %s' % len(raw_data[0])))
 
     # print('sorted_unique: %s' % sorted_unique)
 
@@ -742,8 +742,8 @@ if __name__ == "__main__":
     for dev in range(len(sorted_unique)):  # clean up last comma
         physical_channels[dev] = physical_channels[dev][:-1]  # Remove the last comma.
 
-    print('Capturing Waveforms on Channels: %s' % physical_channels)
-    print('Waveforms Channels are: %s' % chan_decoder)
+    print(('Capturing Waveforms on Channels: %s' % physical_channels))
+    print(('Waveforms Channels are: %s' % chan_decoder))
 
     # Step 1, virtual channels are created. Each one of the virtual channels in question here is used to acquire
     # from an analog voltage signal(s).
@@ -758,7 +758,7 @@ if __name__ == "__main__":
 
     for i in range(len(sorted_unique)-1, -1, -1):
         # Start Master last so slave(s) will wait for trigger from master over RSTI bus
-        print('Starting Task: %s.' % i)
+        print(('Starting Task: %s.' % i))
         analog_input[i].StartTask()
 
     # DAQmx Read Code
@@ -776,8 +776,8 @@ if __name__ == "__main__":
                                       byref(read),    # int32 *sampsPerChanRead,
                                       None)   # bool32 *reserved);
 
-        print "Acquired %d points" % read.value
-        print('raw_data length: %s' % len(raw_data[i]))
+        print("Acquired %d points" % read.value)
+        print(('raw_data length: %s' % len(raw_data[i])))
 
     for i in range(len(sorted_unique)-1, -1, -1):
         analog_input[i].StopTask()
@@ -831,7 +831,7 @@ if __name__ == "__main__":
                                                                data[analog_channels[1]],
                                                                sample_rate, None)
 
-    print('Power = %s, Q = %s' % (avg_P, Q1))
+    print(('Power = %s, Q = %s' % (avg_P, Q1)))
 
     f = open('C:\\SVP\\MCC_waveforms-P=%s, Q=%s.csv' % (avg_P, Q1), 'w')
     f.write('Python Time (s), AC Voltage (V), AC Current (A)\n')

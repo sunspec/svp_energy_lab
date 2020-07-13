@@ -37,19 +37,14 @@ import datetime
 import numpy as np
 
 try:
-    import dewenetcontroller.dewenetcontroller as dewe
-except Exception, e:
-    print('Missing dewecontroller. %s' % e)
-
-
+    from .dewenetcontroller import dewenetcontroller as dewe
+except Exception as e:
+    print(('Missing dewecontroller. %s' % e))
 
 """
 todo: thread needs to be joined and stopped!
 
 """
-
-
-
 
 """
 This is a really bad hack! 
@@ -124,7 +119,7 @@ def update_value(channel_name, timestamp, value):
     ts_m = (np.float64(timestamp.strftime('%M.0'))*60)*1000
     ts_us = np.longlong(ts_m+np.float64(timestamp.strftime('%S.%f'))*1000)
 
-    for k in dewe_channelmap.keys():
+    for k in list(dewe_channelmap.keys()):
         if dewe_channelmap[k]:
             if dewe_channelmap[k] in channel_name:
                 try:
@@ -139,7 +134,7 @@ class Device(object):
         if self.ts:
             self.ts.log(msg)
         else:
-            print '%s' % msg
+            print('%s' % msg)
 
 
     def __init__(self, params=None):
@@ -193,10 +188,10 @@ class Device(object):
             self.deweproxyhost = self.params['deweproxy_ip_addr']
             self.deweproxyport = self.params['deweproxy_ip_port']
 
-        except Exception, e:
+        except Exception as e:
             self.deweproxyhost = '127.0.0.1'
             self.deweproxyport = 9000
-            print 'Using default map'
+            print('Using default map')
 
 
         try:
@@ -219,7 +214,7 @@ class Device(object):
 
         self.channellist = []
 
-        for k in dewe_channelmap.keys():
+        for k in list(dewe_channelmap.keys()):
             if dewe_channelmap[k] is not None:
                 if dewe_channelmap[k] not in self.channellist:
                     self.channellist.append(dewe_channelmap[k])
@@ -283,7 +278,7 @@ class Device(object):
 
                 self.deweDevice.start_dewe_measurement()
 
-            except Exception, e:
+            except Exception as e:
                 self.__logevent__('Error on establishing connection to dewe! [%s]' % e)
                 raise
 
@@ -333,7 +328,7 @@ class Device(object):
                     data.append(0)                  #channel TRIG
                     data.append(0)                  #channel TRIG_GRID
                     return data
-                except Exception, e:
+                except Exception as e:
                     pass
         else:
             raise ValueError("Not connected to DAS - open() was not called prior")
@@ -407,7 +402,7 @@ if __name__ == "__main__":
     while True:
         count +=1
         time.sleep(0.25)
-        print "[%s] -> %s" % (count, d.data_read())
+        print("[%s] -> %s" % (count, d.data_read()))
         if count > 200: break
     d.close()
 

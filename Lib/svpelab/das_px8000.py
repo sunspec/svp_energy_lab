@@ -32,8 +32,8 @@ Questions can be directed to support@sunspec.org
 
 import os
 
-import device_px8000
-import das
+from . import device_px8000
+from . import das
 
 px8000_info = {
     'name': os.path.splitext(os.path.basename(__file__))[0],

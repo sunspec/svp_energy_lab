@@ -57,7 +57,11 @@ WV = 'WV'  # Watt-Var
 CRP = 'CRP'  # Constant Reactive Power
 LAP = 'LAP'  # Limit Active Power
 PRI = 'PRI'  # Priority
-
+IOP = 'IOP'  # Interoperability Tests
+LV = 'Low-Voltage'
+HV = 'High-Voltage'
+CAT_2 = 'Category II'
+CAT_3 = 'Category III'
 VOLTAGE = 'V'
 FREQUENCY = 'F'
 FULL_NAME = {'V': 'Voltage',
@@ -93,7 +97,7 @@ class module_1547(object):
         self.pairs = {}
         self.mag = {}
         self.ang = {}
-        self.param = {FW: {}, CPF: {}, VW: {}, VV: {}, WV: {}, CRP: {}, PRI: {}}
+        self.param = {FW: {}, CPF: {}, VW: {}, VV: {}, WV: {}, CRP: {}, PRI: {}, IOP: {}}
         self.target_dict = []
         self.x_criteria = None
         self.y_criteria = None
@@ -197,6 +201,8 @@ class module_1547(object):
             # self.meas_values.remove('P')
         if self.script_name == WV:
             self.meas_values.remove('V')
+        if self.script_name == IOP:
+            self.meas_values.append(['PF', 'F', 'Q'])
 
         self.ts.log('Measured values variables to be initialized: %s' % self.meas_values)
 
@@ -218,6 +224,8 @@ class module_1547(object):
             self.script_complete_name = 'Watt-Var'
         elif self.script_name == CRP:
             self.script_complete_name = 'Constant Reactive Power'
+        elif self.script_name == IOP:
+            self.script_complete_name = 'Interoperability Tests'
         else:
             self.script_complete_name = self.script_name
 
@@ -314,6 +322,9 @@ class module_1547(object):
         elif self.script_name == WV:
             self.function_used = [WV]
 
+        elif self.script_name == IOP:
+            self.function_used = [VW, VV, FW, CPF, CRP, WV]
+
     def set_criteria_mode(self):
         """
         This functions set the criteria mode required for different functions.
@@ -333,6 +344,8 @@ class module_1547(object):
             self.criteria_mode = [True, False, False]
         elif self.script_name == PRI:
             self.criteria_mode = [False, False, True]
+        elif self.script_name == IOP:
+            self.criteria_mode = [False, False, False]
 
     def set_params(self, curve=1):
         """
@@ -515,6 +528,10 @@ class module_1547(object):
                 ]
             self.param[PRI] = self.target_dict
 
+        if IOP in self.function_used:
+            self.target_dict = []
+            self.param[IOP] = self.target_dict
+
     def set_grid_asymmetric(self, grid, case):
         """
         Configure the grid simulator to change the magnitude and angles.
@@ -631,7 +648,12 @@ class module_1547(object):
                 self.x_criteria = ['V', 'P', 'PF']
             elif self.script_name == WV:
                 self.x_criteria = ['P']
+
         elif self.script_name == PRI:
+            self.y_criteria = ['P', 'Q']
+            self.x_criteria = ['V', 'F']
+
+        elif self.script_name == IOP:
             self.y_criteria = ['P', 'Q']
             self.x_criteria = ['V', 'F']
 
@@ -892,12 +914,12 @@ class module_1547(object):
         """
 
         if isinstance(x_target, dict):
-            for x_meas_variable, x_meas_value in x_target.iteritems():
+            for x_meas_variable, x_meas_value in x_target.items():
                 daq.sc['%s_MEAS' % x_meas_variable] = self.get_measurement_total(data=data, type_meas=x_meas_variable)
                 daq.sc['%s_TARGET' % x_meas_variable] = x_meas_value
 
         if isinstance(y_target, dict):
-            for y_meas_variable, y_meas_value in y_target.iteritems():
+            for y_meas_variable, y_meas_value in y_target.items():
                 daq.sc['%s_MEAS' % y_meas_variable] = self.get_measurement_total(data=data, type_meas=y_meas_variable)
                 daq.sc['%s_TARGET' % y_meas_variable] = y_meas_value
 
@@ -1037,7 +1059,7 @@ class module_1547(object):
                         # self.ts.log('Y Value (%s) = %s. Pass/fail bounds = [%s, %s]' %
                         #             (meas_value, daq.sc['%s_MEAS' % meas_value],
                         #              daq.sc['%s_TARGET_MIN' % meas_value], daq.sc['%s_TARGET_MAX' % meas_value]))
-                except Exception, e:
+                except Exception as e:
                     self.ts.log_debug('Measured value (%s) not recorded: %s' % (meas_value, e))
 
             tr_value[tr_iter]["timestamp"] = tr_
@@ -1175,14 +1197,14 @@ class module_1547(object):
         xs = self.x_criteria
         ys = self.y_criteria
 
-        analysis['FIRST_ITER'] = next(iter(tr_values.keys()))
+        analysis['FIRST_ITER'] = next(iter(list(tr_values.keys())))
         analysis['LAST_ITER'] = len(tr_values)
 
         if isinstance(ys, list):
             for y in ys:
                 analysis['%s_INITIAL' % y] = initial_value['%s_MEAS' % y]
 
-        for tr_iter, tr_value in tr_values.items():
+        for tr_iter, tr_value in list(tr_values.items()):
             self.ts.log_debug('tr_iter=%s, Tr value=%s' % (tr_iter, tr_value))
 
             for meas_value in self.meas_values:
@@ -1291,7 +1313,7 @@ class module_1547(object):
         # Note: Note sure where criteria_mode[1] (SS accuracy after 1 Tr) is used in IEEE 1547.1
         if self.criteria_mode[1] or self.criteria_mode[2]:  # STEADY-STATE pass/fail evaluation
             for y in ys:
-                for tr_iter, tr_dic in tr_values.items():
+                for tr_iter, tr_dic in list(tr_values.items()):
                     if (analysis['FIRST_ITER'] == tr_iter and self.criteria_mode[1]) or \
                             (analysis['LAST_ITER'] == tr_iter and self.criteria_mode[2]):
 
@@ -1539,11 +1561,121 @@ class module_1547(object):
 
         # get pass-fail criteria for this test step
         analysis = self.get_analysis(initial_value=initial_value, tr_values=tr_values, tr=tr)
-        # self.ts.log_debug('analysis: %s' % analysis)
+        # self.ts.log_debug(s'analysis: %s' % analysis)
 
         result_summary.write(self.write_rslt_sum(analysis=analysis, step=step, filename=filename))
         return
 
+class vrt_1547(object):
+    def __init__(self, ts, support_interfaces):
+        self.params = {}
+        self.parameters_dic = {}
+        self.mode = []
+        self.ts = ts
+        self.vrt_start_time = None
+        self.vrt_stop_time = None
+        if support_interfaces.get('hil') is not None:
+            self.hil = support_interfaces.get('hil')
+        else:
+            self.hil = None
+        self._config()
+    def _config(self):
+        self.set_params()
+        self.set_vrt_on()
+        self.set_model_parameters_dic()
+    """
+    Setter functions
+    """
 
-if __name__ == "__main__":
-    pass
+    def set_vrt_on(self):
+        """
+        Set the HIL model to VRT
+        """
+        model_name = self.params["model_name"] 
+        self.hil.set_params(model_name +"/SM_Source/SVP Commands/mode/Value",3)
+
+
+    def set_params(self):
+        try:
+            # RT test parameters
+            self.params["lf_mode"] = self.ts.param_value('vrt.lv_ena')
+            self.params["hf_mode"] = self.ts.param_value('vrt.hv_ena')
+            #low_pwr_ena = self.ts.param_value('vrt.low_pwr_ena')
+            #high_pwr_ena = self.ts.param_value('vrt.high_pwr_ena')
+            #low_pwr_value = self.ts.param_value('vrt.low_pwr_value')
+            #high_pwr_value = self.ts.param_value('vrt.high_pwr_value')
+
+            #consecutive_ena = ts.param_value('vrt.consecutive_ena')
+            self.params["categories"] = self.ts.param_value('vrt.cat')
+            self.params["range_steps"] = self.ts.param_value('vrt.range_steps')
+            self.eut_startup_time = self.ts.param_value('eut.startup_time')
+            self.params["model_name"] = self.hil.rt_lab_model
+        except Exception as e:
+            self.ts.log_error('Incorrect Parameter value : %s' % e)
+            raise
+    def set_model_parameters_dic(self):
+        categories = self.params["categories"]
+        lf_mode = self.params["lf_mode"]
+        hf_mode = self.params["hf_mode"]
+        model_name =  self.params["model_name"]
+        range_steps = self.params["range_steps"]
+        
+
+        if lf_mode == 'Enabled':
+            #Timestep is cumulative
+            if categories == CAT_2 or categories == 'Both':
+                self.mode.append(f'{LV}_{CAT_2}')
+                self.vrt_start_time = self.eut_startup_time
+                self.vrt_stop_time = 12 + self.vrt_start_time
+                #TODO change sequence parameter for parameter to be chosen by users or average of both max & min values?
+                self.parameters_dic.update({f'{LV}_{CAT_2}': [
+                # Add ROCOM only for condition E
+                (model_name + '/SM_Source/Waveform_Generator/ROCOM_START_TIME/Value', 10 + self.vrt_start_time),
+                (model_name + '/SM_Source/Waveform_Generator/ROCOM_END_TIME/Value', 12 + self.vrt_start_time),
+                # Enable needed conditions
+                (model_name + '/SM_Source/VRT/VRT_State_Machine/cond_a_ena/Value', 1),
+                (model_name + '/SM_Source/VRT/VRT_State_Machine/cond_b_ena/Value', 1),
+                (model_name + '/SM_Source/VRT/VRT_State_Machine/cond_c_ena/Value', 1),
+                (model_name + '/SM_Source/VRT/VRT_State_Machine/cond_d_ena/Value', 1),
+                (model_name + '/SM_Source/VRT/VRT_State_Machine/cond_e_ena/Value', 1),
+                (model_name + '/SM_Source/VRT/VRT_State_Machine/cond_f_ena/Value', 1),
+                # Trigger for OPwritefile
+                # Timesteps
+                # (model_name + '/SM_Source/VRT/VRT_State_Machine/condition A/Threshold', 20 + self.vrt_start_time),
+                # (model_name + '/SM_Source/VRT/VRT_State_Machine/condition B/Threshold', 20.16 + self.vrt_start_time),
+                # (model_name + '/SM_Source/VRT/VRT_State_Machine/condition C/Threshold', 20.32 + self.vrt_start_time),
+                # (model_name + '/SM_Source/VRT/VRT_State_Machine/condition D/Threshold', 23 + self.vrt_start_time),
+                # (model_name + '/SM_Source/VRT/VRT_State_Machine/condition E/Threshold', 25 + self.vrt_start_time),
+                # (model_name + '/SM_Source/VRT/VRT_State_Machine/condition F/Threshold', 125 + self.vrt_start_time),
+
+                (model_name + '/SM_Source/VRT/VRT_State_Machine/condition A/Threshold', 2 + self.vrt_start_time),
+                (model_name + '/SM_Source/VRT/VRT_State_Machine/condition B/Threshold', 4 + self.vrt_start_time),
+                (model_name + '/SM_Source/VRT/VRT_State_Machine/condition C/Threshold', 6 + self.vrt_start_time),
+                (model_name + '/SM_Source/VRT/VRT_State_Machine/condition D/Threshold', 8 + self.vrt_start_time),
+                (model_name + '/SM_Source/VRT/VRT_State_Machine/condition E/Threshold', 10 + self.vrt_start_time),
+                (model_name + '/SM_Source/VRT/VRT_State_Machine/condition F/Threshold', self.vrt_stop_time ),
+                # Values
+                (model_name + '/SM_Source/VRT/VRT_State_Machine/voltage_ph_seqA/Value', 0.94*120),
+                (model_name + '/SM_Source/VRT/VRT_State_Machine/condition B/Threshold', 0.28*120),
+                (model_name + '/SM_Source/VRT/VRT_State_Machine/condition C/Threshold', 0.43*120),
+                (model_name + '/SM_Source/VRT/VRT_State_Machine/condition D/Threshold', 0.65*120),
+                (model_name + '/SM_Source/VRT/VRT_State_Machine/condition E/Threshold', 0.88*120),
+                (model_name + '/SM_Source/VRT/VRT_State_Machine/condition F/Threshold', 0.94*120)]})
+                
+    """
+    Getter functions
+    """
+    def get_modes(self):
+        return self.mode
+
+    def get_model_parameters(self,current_mode):
+        self.ts.log(f'Getting HIL parameters for {current_mode}')
+        return self.parameters_dic[current_mode],self.vrt_start_time, self.vrt_stop_time 
+
+    def get_waveform_config(self,current_mode,offset):
+        params = {}
+        params["start_time_value"] = float(self.vrt_start_time - offset)
+        params["end_time_value"] = float(self.vrt_stop_time + offset)
+        params["start_time_variable"] = "Tstart"
+        params["end_time_variable"] = "Tend"
+        return params

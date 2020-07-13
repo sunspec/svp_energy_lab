@@ -32,8 +32,8 @@ Questions can be directed to support@sunspec.org
 
 import os
 
-import device_wt1600
-import das
+from . import device_wt1600
+from . import das
 
 wt1600_info = {
     'name': os.path.splitext(os.path.basename(__file__))[0],

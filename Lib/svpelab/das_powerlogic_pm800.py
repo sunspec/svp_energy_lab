@@ -35,8 +35,8 @@ Questions can be directed to support@sunspec.org
 
 import os
 
-import device_das_powerlogic_pm800
-import das
+from . import device_das_powerlogic_pm800
+from . import das
 
 pm_info = {
     'name': os.path.splitext(os.path.basename(__file__))[0],

@@ -130,6 +130,6 @@ class AgentClient():
             self.socket.send(req_msg)
 
             data = self.socket.recv(32768)
-            print('%s: received "%s"' % (self.socket.getsockname(), data))
+            print(('%s: received "%s"' % (self.socket.getsockname(), data)))
 
         return data

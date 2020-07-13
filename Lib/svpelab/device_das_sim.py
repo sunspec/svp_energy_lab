@@ -32,7 +32,7 @@ Questions can be directed to support@sunspec.org
 
 import os
 import time
-import dataset
+from . import dataset
 
 
 class DeviceError(Exception):

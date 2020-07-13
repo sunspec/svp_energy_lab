@@ -32,7 +32,7 @@ Questions can be directed to support@sunspec.org
 
 import os
 
-import der
+from . import der
 
 manual_info = {
     'name': os.path.splitext(os.path.basename(__file__))[0],
@@ -270,7 +270,7 @@ class DER(der.DER):
                 pass
             else:
                 params = {}
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -302,7 +302,7 @@ class DER(der.DER):
             else:
                 params = {}
 
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -332,7 +332,7 @@ class DER(der.DER):
             else:
                 params = {}
 
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -454,7 +454,7 @@ class DER(der.DER):
             else:
                 params = {}
                 params['ChaState'] = 50
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params

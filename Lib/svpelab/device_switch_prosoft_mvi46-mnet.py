@@ -14,7 +14,7 @@ try:
     import sunspec.core.modbus.client as client
     import sunspec.core.util as suns_util
     import binascii
-except Exception, e:
+except Exception as e:
     print('SunSpec or binascii packages did not import!')
 import time
 

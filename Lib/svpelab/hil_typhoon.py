@@ -31,15 +31,15 @@ Questions can be directed to support@sunspec.org
 """
 
 import os
-import hil
+from . import hil
 
 try:
     import typhoon
     import typhoon.api.hil as cp  # control panel
     from typhoon.api.schematic_editor import model
     import typhoon.api.pv_generator as pv
-except Exception, e:
-    print('Typhoon HIL API not installed. %s' % e)
+except Exception as e:
+    print(('Typhoon HIL API not installed. %s' % e))
 
 typhoon_info = {
     'name': os.path.splitext(os.path.basename(__file__))[0],
@@ -226,10 +226,10 @@ class HIL(hil.HIL):
             cp.set_pv_amb_params("PV1", illumination=995.)
             self.ts.sleep(1)
             cp.set_pv_amb_params("PV1", illumination=1000.)
-        except Exception, e:
+        except Exception as e:
             self.ts.log('Attempted to perturb PV1 irradiance to get inverter to start. This failed. %s' % e)
         for i in range(1, sleeptime):
-            print ("Waiting another %d seconds until the inverter starts." % (sleeptime-i))
+            print(("Waiting another %d seconds until the inverter starts." % (sleeptime-i)))
             self.ts.sleep(1)
 
     def load_schematic(self):
@@ -345,14 +345,14 @@ if __name__ == "__main__":
 
     class ts(object):
         def param_value(self, v):
-            if v == "hil.typhoon.hil_working_dir": return u'C:\\Users\\AblingerR\\Documents\\AITProjects\\EPRI\\Anti-Islanding'
+            if v == "hil.typhoon.hil_working_dir": return 'C:\\Users\\AblingerR\\Documents\\AITProjects\\EPRI\\Anti-Islanding'
             if v == "hil.typhoon.model_name": return 'ASGC_TestSuite_AI_V6_3_YtoMP_EPRI_60Hz_50p'
             if v == "hil.typhoon.hil.typhoon.setting_name": return 'ASGC_TestSuite_AI_full_settings_HIL402'
 
             return v
 
         def log(self, e):
-            print ("{}".format(e))
+            print(("{}".format(e)))
 
         def log_debug(self, e):
             self.log("DEBUG: {}".format(e))

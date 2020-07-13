@@ -32,7 +32,7 @@ Questions can be directed to support@sunspec.org
 
 import os
 from svpelab import device_terrasas as terrasas
-import pvsim
+from . import pvsim
 
 terrasas_info = {
     'name': os.path.splitext(os.path.basename(__file__))[0],

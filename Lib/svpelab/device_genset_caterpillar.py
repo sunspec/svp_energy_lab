@@ -9,16 +9,16 @@ try:
     import sunspec.core.modbus.client as client
     import sunspec.core.util as suns_util
     import binascii
-except Exception, e:
+except Exception as e:
     print('SunSpec or binascii packages did not import!')
 try:
     import numpy as np
-except Exception, e:
+except Exception as e:
     print('Error: numpy python package not found!')  # This will appear in the SVP log file.
     # raise  # programmers can raise this error to expose the error to the SVP user
 try:
     from scapy.all import *
-except Exception, e:
+except Exception as e:
     print('Error: scapy file not found!')  # This will appear in the SVP log file.
     # raise  # programmers can raise this error to expose the error to the SVP user
 
@@ -212,7 +212,7 @@ if __name__ == '__main__':
     print('Woodward 1 Data')
     for reg in range(modbus_read_length):
         data_point = suns_util.data_to_u16(data[reg*2:2+reg*2])
-        print('Register: %s = %s' % (reg+reg_start, data_point))
+        print(('Register: %s = %s' % (reg+reg_start, data_point)))
 
     ipaddr = '192.168.0.1'
     reg_start = 50105
@@ -222,7 +222,7 @@ if __name__ == '__main__':
     print('\nWoodward 2 Data')
     for reg in range(modbus_read_length):
         data_point = suns_util.data_to_u16(data[reg*2:2+reg*2])
-        print('Register: %s = %s' % (reg+reg_start, data_point))
+        print(('Register: %s = %s' % (reg+reg_start, data_point)))
 
     # sniff(count=10)
     # a = sniff(filter='port 502 && src 192.168.0.33 && dst 192.168.0.100', count=1, prn=lambda x: x.sprintf('Packet {} ==> {}'.format(x[0][1].src, x[0][1].dst)))

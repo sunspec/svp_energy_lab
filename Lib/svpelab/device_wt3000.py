@@ -31,7 +31,7 @@ Questions can be directed to support@sunspec.org
 """
 
 import time
-import vxi11
+from . import vxi11
 
 '''
 data_query_str = (
@@ -187,7 +187,7 @@ class Device(object):
 
                 self.ts.sleep(1)
 
-            except Exception, e:
+            except Exception as e:
                 raise Exception('Cannot open VISA connection to %s\n\t%s' % (params.get('visa_id'), str(e)))
 
         # clear any error conditions
@@ -206,7 +206,7 @@ class Device(object):
             frame = chr(0x80) + chr(0x00) + chr((framesize >> 8) & 0xFF) + chr(framesize & 0xFF) + cmd_str
             self.conn.send(frame)
 
-        except Exception, e:
+        except Exception as e:
             raise
 
     def _query(self, cmd_str):
@@ -226,7 +226,7 @@ class Device(object):
                         if d == '\r':
                             more_data = False
                             break
-            except Exception, e:
+            except Exception as e:
                 raise DeviceError('Timeout waiting for response')
         return resp
 
@@ -236,14 +236,14 @@ class Device(object):
                 # self.vx.write(cmd_str)
                 self._cmd(cmd_str)
 
-            except Exception, e:
+            except Exception as e:
                 raise DeviceError('WT3000 communication error: %s' % str(e))
 
         elif self.params['comm'] == 'VISA':
             try:
                 # self.ts.log(self.conn.query(cmd_str))
                 self.conn.write(cmd_str)
-            except Exception, e:
+            except Exception as e:
                 raise DeviceError('WT3000 communication error: %s' % str(e))
 
     def query(self, cmd_str):
@@ -254,7 +254,7 @@ class Device(object):
                 resp = self._query(cmd_str).strip()
             elif self.params.get('comm') == 'VISA':
                 resp = self.conn.query(cmd_str)
-        except Exception, e:
+        except Exception as e:
             raise DeviceError('WT3000 communication error: %s' % str(e))
 
         return resp
@@ -269,7 +269,7 @@ class Device(object):
             #     self.vx = None
             if self.conn is not None:
                 self.conn.close()
-        except Exception, e:
+        except Exception as e:
             pass
         finally:
             self.conn = None
@@ -360,7 +360,7 @@ if __name__ == "__main__":
     rm = visa.ResourceManager()
     conn = rm.open_resource(visa_device)
 
-    print(conn.query('*IDN?'))
+    print((conn.query('*IDN?')))
 
     '''   
 

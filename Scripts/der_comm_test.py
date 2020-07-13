@@ -305,7 +305,7 @@ def run(test_script):
         if result == script.RESULT_FAIL:
             rc = 1
 
-    except Exception, e:
+    except Exception as e:
         ts.log_error('Test script exception: %s' % traceback.format_exc())
         rc = 1
 

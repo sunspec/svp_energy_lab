@@ -30,7 +30,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 Questions can be directed to support@sunspec.org
 """
 import os
-import hil
+from . import hil
 import sys
 from time import sleep
 # import glob
@@ -39,13 +39,16 @@ from time import sleep
 try:
     sys.path.insert(0, "C://OPAL-RT//RT-LAB//2019.1//common//python")
     import RtlabApi
+    import OpalApiPy
 except ImportError as e:
     print(e)
 
 
 # Dictionary used to create a mapping between a realTimeModeString and a realTimeId
-realTimeModeList = {'Hardware Synchronized': 0, 'Simulation': 1,
-                    'Software Synchronized': 2, 'Simulation with no data loss': 3,
+realTimeModeList = {'Hardware Synchronized': 0, 
+                    'Simulation': 1,
+                    'Software Synchronized': 2, 
+                    'Simulation with no data loss': 3,
                     'Simulation with low priority': 4}
 
 opalrt_info = {
@@ -62,12 +65,11 @@ def params(info, group_name=None):
     info.param_group(gname(GROUP_NAME), label='%s Parameters' % mode, active=gname('mode'),
                      active_value=mode, glob=True)
 
-    info.param(pname('target_name'), label='Target name in RT-LAB', default="Target_3")
-    info.param(pname('project_name'), label='RT-LAB project name (.llp)', default="IEEE 1547.1 Phase Jump.llp")
-    info.param(pname('project_dir'), label='Project Directory', default="\\OpalRT\\IEEE_1547.1_Phase_Jump\\")
-    info.param(pname('rt_lab_model'), label='RT-LAB model name', default='3PhaseGeneric')
-    info.param(pname('rt_lab_model_dir'), label='RT-LAB Model Directory',
-               default="\\OpalRT\\IEEE_1547.1_Phase_Jump\\models")
+    info.param(pname('target_name'), label='Target name in RT-LAB', default="RTServer")
+    info.param(pname('workspace_path'), label='RT-LAB Workspace', default="C:\OPAL-RT\WorkspaceFOREVERYONE")
+    info.param(pname('project_name'), label='RT-LAB project name (.llp)', default="IEEE_1547_Fast_Functions.llp")
+    info.param(pname('project_dir'), label='Project Directory', default="IEEE_1547_Fast_Functions")
+    info.param(pname('rt_lab_model'), label='RT-LAB model name (.mdl or .slx)', default='IEEE_1547_Fast_Functions')
 
     info.param(pname('hil_config'), label='Configure HIL in init', default='False', values=['True', 'False'])
     info.param(pname('hil_config_open'), label='Open Project?', default="Yes", values=["Yes", "No"])
@@ -91,12 +93,14 @@ class HIL(hil.HIL):
     """
     def __init__(self, ts, group_name):
         hil.HIL.__init__(self, ts, group_name)
+        # Add REGEX or parser manipulation to get a good control over user entries.
         self.project_name = self._param_value('project_name')
         self.project_dir = self._param_value('project_dir')
+        self.workspace_path = self._param_value('workspace_path')
 
         self.target_name = self._param_value('target_name')
-
-        self.rt_lab_model = self._param_value('rt_lab_model')
+        # Get without .mdl
+        self.rt_lab_model = self._param_value('rt_lab_model').split(".")[0]
         self.rt_lab_model_dir = self._param_value('rt_lab_model_dir')
 
         self.ts = ts
@@ -228,13 +232,16 @@ class HIL(hil.HIL):
         Open the communications resources associated with the HIL.
         """
         self.ts.log('Opening Project: %s' % self.project_name)
-        if self.project_name[1] == ':':
+        if os.path.isfile(self.project_name):
             self.ts.log('Assuming project name is an absolute path to .llp file')
             proj_path = self.project_name
-        elif self.project_dir[1] == ':':
+        elif os.path.isdir(self.project_name) and os.path.isfile(self.project_name):
             self.ts.log('Assuming project directory + project name is an absolute path to .llp file')
             self.project_dir.rstrip('\\') + '\\' + self.project_name
             proj_path = self.project_dir.rstrip('\\') + '\\' + self.project_name
+        elif os.path.isdir(self.workspace_path):
+            self.ts.log('Assuming workspace is use with Project Name and directory')
+            proj_path = os.path.join(self.workspace_path, self.project_dir,self.project_name) 
         else:
             self.ts.log('Assuming project directory and .llp file are located in svpelab directory')
             svpelab_dir = os.path.abspath(os.path.dirname(__file__))
@@ -247,7 +254,7 @@ class HIL(hil.HIL):
             #                                  controlPriority=OP_CTRL_PRIO_NORMAL, returnOnAmbiguity=False)
             self.ts.log('Opening project: %s' % proj_path)
             RtlabApi.OpenProject(proj_path)
-        except Exception, e:
+        except Exception as e:
             self.ts.log_warning('Could not open the project %s: %s' % (proj_path, e))
             raise
         self.ts.log('Opened Project: %s' % self.project_name)
@@ -265,7 +272,7 @@ class HIL(hil.HIL):
         try:
             self.stop_simulation()
             RtlabApi.CloseProject()
-        except Exception, e:
+        except Exception as e:
             self.ts.log_error('Unable to close project. %s' % e)
 
     def info(self):
@@ -290,7 +297,7 @@ class HIL(hil.HIL):
                 RtlabApi.GetSystemControl(state)
             else:
                 self.ts.log_warning('Incorrect GetSystemControl state provided: state = %s' % state)
-        except Exception, e:
+        except Exception as e:
             self.ts.log_warning('Error getting system control: %s' % e)
         pass
 
@@ -390,7 +397,7 @@ class HIL(hil.HIL):
             model_info["modelId"] = RtlabApi.FindObjectId(RtlabApi.OP_TYPE_MODEL, model_info["mdlPath"])
             RtlabApi.SetAttribute(model_info["modelId"], RtlabApi.ATT_FORCE_RECOMPILE, True)
             self.ts.log('Using default model. %s%s' % (model_info["mdlFolder"], model_info["mdlName"]))
-        except Exception, e:
+        except Exception as e:
             self.ts.log_warning('Error using Current Model: %s' % e)
 
             try:
@@ -400,7 +407,7 @@ class HIL(hil.HIL):
                 model_info["modelId"] = RtlabApi.FindObjectId(RtlabApi.OP_TYPE_MODEL, model_info["mdlPath"])
                 RtlabApi.SetAttribute(model_info["modelId"], RtlabApi.ATT_FORCE_RECOMPILE, True)
 
-            except Exception, e:
+            except Exception as e:
                 self.ts.log_warning('Error compiling model %s: %s' % (model_info["mdlPath"], e))
 
         if self.model_state() == 'Model Paused':
@@ -422,6 +429,7 @@ class HIL(hil.HIL):
                 # Get new status. To be done before DisplayInformation because DisplayInformation may generate an
                 # Exception when there is nothing to read
                 status, _ = RtlabApi.GetModelState()
+                
 
                 # Display compilation log into Python console
                 _, _, msg = RtlabApi.DisplayInformation(100)
@@ -429,10 +437,11 @@ class HIL(hil.HIL):
                     self.ts.log(msg)
                     _, _, msg = RtlabApi.DisplayInformation(100)
 
-            except Exception, exc:
+            except Exception as exc:
                 # Ignore error 11 which is raised when RtlabApi.DisplayInformation is called when there is no
                 # pending message
                 info = sys.exc_info()
+                self.ts.debug(info)
                 if info[1][0] != 11:  # 'There is currently no data waiting.'
                     # If a exception occur: stop waiting
                     self.ts.debug("An error occurred during compilation: %s", exc)
@@ -440,7 +449,7 @@ class HIL(hil.HIL):
 
         # Because we use a comma after print when forward compilation log into python log we have to ensure to
         # write a carriage return when finished.
-        print ''
+        print('')
 
         # Get project status to check is compilation succeeded
         if self.model_state() == 'Model Loadable':
@@ -464,7 +473,7 @@ class HIL(hil.HIL):
             timeFactor = 1
             try:
                 RtlabApi.Load(realTimeMode, timeFactor)
-            except Exception, e:
+            except Exception as e:
                 self.ts.log_warning('Model failed to load. Recommend opening and rebuilding the model in RT-Lab. '
                                     '%s' % e)
                 raise
@@ -536,10 +545,10 @@ class HIL(hil.HIL):
         import glob
         projectName = os.path.abspath(str(glob.glob('.\\..\\*.llp')[0]))
         RtlabApi.OpenProject(projectName)
-        print "The connection with '%s' is completed." % projectName
+        print("The connection with '%s' is completed." % projectName)
 
         modelState, realTimeMode = RtlabApi.GetModelState()
-        print('Model State: %s, Real Time Mode: %s' % (modelState, realTimeMode))
+        print(('Model State: %s, Real Time Mode: %s' % (modelState, realTimeMode)))
 
         TargetPlatform = RtlabApi.GetTargetPlatform()
         nodelist = RtlabApi.GetPhysNodeList()
@@ -548,15 +557,15 @@ class HIL(hil.HIL):
             if len(nodelist) > 0:
                 TargetName = nodelist[0]
 
-                print "List of Physicals Nodes available to run the script: ", nodelist
-                print "The script will be executed on the first Physical Node"
-                print "Selected Physical Node is: ", TargetName
-                print " "
+                print("List of Physicals Nodes available to run the script: ", nodelist)
+                print("The script will be executed on the first Physical Node")
+                print("Selected Physical Node is: ", TargetName)
+                print(" ")
                 try:
                     # Register Display information to get the target script STD output
                     RtlabApi.RegisterDisplay(1)
 
-                    print("Transferring the script :\n%s \nto the physical node %s" % (scriptFullPath, TargetName))
+                    print(("Transferring the script :\n%s \nto the physical node %s" % (scriptFullPath, TargetName)))
                     RtlabApi.PutTargetFile(TargetName, scriptFullPath, "/home/ntuser/", RtlabApi.OP_TRANSFER_ASCII, 0)
 
                     # Executing the script on the target
@@ -564,7 +573,7 @@ class HIL(hil.HIL):
 
                     # Displaying the STD output of the script
                     print("*************Script output on the target************")
-                    print(RtlabApi.DisplayInformation(0)[2])
+                    print((RtlabApi.DisplayInformation(0)[2]))
                     print("****************************************************")
                 finally:
                     pass
@@ -577,7 +586,18 @@ class HIL(hil.HIL):
                   "Windows target, please select another target platform")
 
         pass
+    def set_parameters(self, parameters):
+        """
+        Sets the parameters in the RT-Lab Model
 
+        :param parameters: tuple of (parameter, value) pairs
+        :return: None
+        """
+
+        if parameters is not None:
+            for p, v in parameters:
+                self.ts.log_debug('Setting parameter %s = %s' % (p, v))
+                self.set_params(p, v)
     def get_parameters(self, verbose=False):
         """
         Get the parameters from the model
@@ -616,7 +636,36 @@ class HIL(hil.HIL):
             self.ts.log_debug('Error in the param or value types. type(param) = %s, type(value) = %s ' %
                               (type(param), type(value)))
         pass
+    def set_var(self, variable, value):
+        """
+        Set Matlab variable in the model
 
+        :param variable: variable name 
+        :param value: tuple of/or float values of the variable
+
+        :return: None
+        """
+        pass
+        modelName = self.rt_lab_model
+        attributeNumber = RtlabApi.FindObjectId(RtlabApi.OP_TYPE_VARIABLE, modelName + '/' + variable)
+        RtlabApi.SetAttribute(attributeNumber, RtlabApi.ATT_MATRIX_VALUE, value)
+
+        #attributeNumber = RtlabApi.FindObjectId(RtlabApi.OP_TYPE_VARIABLE, self.rt_lab_model + '/' + variable)
+
+
+
+    def set_variables(self, variables):
+        """
+        Sets the parameters in the RT-Lab Model
+
+        :param parameters: tuple of (parameter, value) pairs
+        :return: None
+        """
+
+        if variables is not None:
+            for variable, value in variables:
+                self.ts.log_debug(f'Setting variable {self.rt_lab_model}/{variable} = {value}')
+                self.set_var(variable, value)
     def get_signals(self, verbose=False):
         """
         Get the signals from the model
@@ -678,9 +727,9 @@ class HIL(hil.HIL):
 
                 # todo: fix this to be generic
                 try:
-                    sig = model_name + '/SM_Source/Clock1/port1'
+                    sig = model_name + '/SM_Source/Clock/port1'
                     sim_time = RtlabApi.GetSignalsByName(sig)
-                except Exception, e:
+                except Exception as e:
                     sig = model_name + '/SM_LOHO13/Dynamic Load Landfill/Clock1/port1'
                     sim_time = RtlabApi.GetSignalsByName(sig)
 
@@ -689,7 +738,7 @@ class HIL(hil.HIL):
                 self.ts.log_debug('Can not read simulation time becauase the simulation is not running. Returning 1e6.')
                 sim_time = 1.0e6  # ensures that the simulation loop will stop in the script
                 return sim_time
-        except Exception, e:
+        except Exception as e:
             self.ts.log_debug('Could not get time for simulation. Simulation likely completed. Returning 1e6. %s' % e)
             sim_time = 1.0e6  # ensures that the simulation loop will stop in the script
             return sim_time
@@ -699,8 +748,8 @@ if __name__ == "__main__":
 
     system_info = RtlabApi.GetTargetNodeSystemInfo("Target_3")
     for i in range(len(system_info)):
-        print(system_info[i])
-    print("OPAL-RT - Platform version {0} (IP address : {1})".format(system_info[1], system_info[6]))
+        print((system_info[i]))
+    print(("OPAL-RT - Platform version {0} (IP address : {1})".format(system_info[1], system_info[6])))
 
     '''
     projectName = "C:\\Users\\DETLDAQ\\OPAL-RT\\RT-LABv2019.1_Workspace\\" \

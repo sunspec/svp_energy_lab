@@ -34,8 +34,8 @@ import os
 import time
 import traceback
 import glob
-import waveform
-import dataset
+from . import waveform
+from . import dataset
 
 data_points = [
     'TIME',
@@ -271,7 +271,7 @@ class DeviceError(Exception):
 class Device(object):
 
     def extract_points(self, points_str, op):
-        x = map(op, points_str[points_str.rfind('[')+1:points_str.rfind(']')].strip().split(','))
+        x = list(map(op, points_str[points_str.rfind('[')+1:points_str.rfind(']')].strip().split(',')))
         return x
 
     def __init__(self, params):
@@ -327,7 +327,7 @@ class Device(object):
                     if self.ts is not None:
                         self.ts.log("received message: %s" % data)
                     else:
-                        print("received message: %s" % data)
+                        print(("received message: %s" % data))
             else:
                 f = open(self.points_file)
                 channels = f.read()
@@ -345,7 +345,7 @@ class Device(object):
                     except ValueError:
                         index = -1
                     self.point_indexes.append(index)
-        except Exception, e:
+        except Exception as e:
             raise DeviceError(traceback.format_exc())
     '''
         try:
@@ -384,12 +384,12 @@ class Device(object):
                     f = open(self.data_file)
                     data = f.read()
                     f.close()
-                except Exception, e:
+                except Exception as e:
                     retries -= 1
 
             if data is not None:
                 points = self.extract_points(data, float)
-                print zip(self.points, points)
+                print(list(zip(self.points, points)))
                 if points is not None:
                     if len(points) == len(self.points):
                         for index in self.point_indexes:
@@ -401,7 +401,7 @@ class Device(object):
                     else:
                         raise Exception('Error reading points: point count mismatch %d %d' % (len(points),
                                                                                               len(self.points)))
-        except Exception, e:
+        except Exception as e:
             raise Exception(traceback.format_exc())
 
         return rec
@@ -435,7 +435,7 @@ class Device(object):
             dsm_chan = wfm_dsm_channels[c]
             if dsm_chan is not None:
                 self.wfm_dsm_channels.append('%s_%s' % (dsm_chan, self.dsm_id))
-        print('Channels to record: %s' % str(self.wfm_channels))
+        print(('Channels to record: %s' % str(self.wfm_channels)))
 
 
     def waveform_capture(self, enable=True, sleep=None):
@@ -482,7 +482,7 @@ class Device(object):
 
             wait_time = self.wfm_timeout
             for i in range(int(wait_time) + 1):
-                print ('looking for %s' % self.wfm_trigger_file)
+                print(('looking for %s' % self.wfm_trigger_file))
                 if not os.path.exists(self.wfm_trigger_file):
                     break
                 if i >= wait_time:
@@ -490,7 +490,7 @@ class Device(object):
                 sleep(1)
 
             filename = os.path.join(self.file_path, '* %s' % WFM_TRIGGER_FILE)
-            print ('looking for %s' % filename)
+            print(('looking for %s' % filename))
             files = glob.glob(filename)
             if len(files) == 0:
                 raise DeviceError('No waveform trigger result file')
@@ -523,7 +523,7 @@ class Device(object):
         ds = dataset.Dataset()
         f = open(self.wfm_capture_name_path, 'r')
         ids = f.readline().strip().split('\t')
-        print (str(ids))
+        print((str(ids)))
         if ids[0] != 'Time':
             raise DeviceError('Unexpected time point name in waveform capture: %s' % ids[0])
         ds.points.append('TIME')
@@ -604,21 +604,21 @@ if __name__ == "__main__":
     import time
     import sys
 
-    print(socket.gethostbyname(socket.gethostname()))
+    print((socket.gethostbyname(socket.gethostname())))
 
     # Create a TCP/IP socket
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
     # Bind the socket to the port
     server_address = ('239.100.100.100', 51051)
-    print 'starting up on %s port %s' % server_address
+    print('starting up on %s port %s' % server_address)
     # sock.bind(server_address)
     while True:
-        print >>sys.stderr, '\nwaiting to receive message'
+        print('\nwaiting to receive message', file=sys.stderr)
         data, address = sock.recvfrom(4096)
 
-        print 'received %s bytes from %s' % (len(data), address)
-        print data
+        print('received %s bytes from %s' % (len(data), address))
+        print(data)
 
     '''
     ip_addr = '10.1.2.78'
@@ -643,7 +643,7 @@ if __name__ == "__main__":
     # sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
     for i in range(10):
         data, addr = sock.recvfrom(4096)
-        print "received message:", data
+        print("received message:", data)
         time.sleep(0.1)
 
     '''

@@ -31,12 +31,12 @@ Questions can be directed to support@sunspec.org
 """
 import os
 
-import gridsim
+from . import gridsim
 
 try:
     import typhoon.api.hil as cp  # control panel
-except Exception, e:
-    print('Typhoon HIL API not installed. %s' % e)
+except Exception as e:
+    print(('Typhoon HIL API not installed. %s' % e))
 
 typhoon_info = {
     'name': os.path.splitext(os.path.basename(__file__))[0],
@@ -316,8 +316,8 @@ class GridSim(gridsim.GridSim):
             i1 = float(cp.read_analog_signal(name='I( Anti-islanding1.Irms1_utility )'))
             i2 = float(cp.read_analog_signal(name='I( Anti-islanding1.Irms2_utility )'))
             i3 = float(cp.read_analog_signal(name='I( Anti-islanding1.Irms3_utility )'))
-            print('Utility currents are %s, %s, %s' % (i1, i2, i3))
-        except Exception, e:
+            print(('Utility currents are %s, %s, %s' % (i1, i2, i3)))
+        except Exception as e:
             i1 = i2 = i3 = None
         return i1, i2, i3
 
@@ -338,10 +338,10 @@ if __name__ == "__main__":
 
     model.get_hw_settings()
     if not model.load(r'D:/SVP/SVP 1.4.3 Directories 5-2-17/svp_energy_lab-loadsim/Lib/svpelab/Typhoon/ASGC.tse'):
-        print "Model did not load!"
+        print("Model did not load!")
 
     if not model.compile():
-        print "Model did not compile!"
+        print("Model did not compile!")
 
     # first we need to load model
     cp.load_model(file=r'D:/SVP/SVP 1.4.3 Directories 5-2-17/svp_energy_lab-loadsim/Lib'
@@ -357,11 +357,11 @@ if __name__ == "__main__":
     # let the inverter startup
     sleeptime = 15
     for i in range(1, sleeptime):
-        print ("Waiting another %d seconds until the inverter starts. Power = %f." %
-               ((sleeptime-i), cp.read_analog_signal(name='Pdc')))
+        print(("Waiting another %d seconds until the inverter starts. Power = %f." %
+               ((sleeptime-i), cp.read_analog_signal(name='Pdc'))))
         time.sleep(1)
 
-    print('Sources: %s' % cp.available_sources())
+    print(('Sources: %s' % cp.available_sources()))
 
     waveform_source_list = ['V_source_phase_A', 'V_source_phase_B', 'V_source_phase_C']
 
@@ -377,4 +377,4 @@ if __name__ == "__main__":
         v3 = float(cp.read_analog_signal(name='V( Vrms3 )'))
 
         # print('Voltage Target: %s, Voltages: %s' % (voltage, [v1, v2, v3]))
-        print('%s, %s, %s, %s, %s' % (voltage, voltage, v1, v2, v3))
+        print(('%s, %s, %s, %s, %s' % (voltage, voltage, v1, v2, v3)))

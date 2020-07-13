@@ -4,8 +4,8 @@
     (c) 2-feb-2017 Nathaniel Black at Outback Power Inc
 '''
 
-import gridsim
-import gridsim_chroma
+from . import gridsim
+from . import gridsim_chroma
 import time
 TEST = None
 TERMINATOR = '\n'
@@ -29,14 +29,14 @@ class ChromaGridSim(object):
         :return:
         """
         if TEST is not None:
-            print(cmd_str.strip())
+            print((cmd_str.strip()))
             return '0.0'
         try:
             if self.conn is None:
                 raise ChromaGridSimError('GPIB connection not open')
             return self.conn.query(cmd_str.strip('\n'))
 
-        except Exception, e:
+        except Exception as e:
             raise ChromaGridSimError(str(e))
 
     def _cmd(self, cmd_str):
@@ -46,31 +46,31 @@ class ChromaGridSim(object):
         :return:
         """
         if TEST is not None:
-            print cmd_str.strip()
+            print(cmd_str.strip())
             return
         try:
             if self.conn is None:
                 raise ChromaGridSimError('GPIB connection not open')
             return self.conn.write(cmd_str.strip('\n'))
-        except Exception, e:
+        except Exception as e:
             raise ChromaGridSimError(str(e))
 
     def cmd(self, cmd_str):
         try:
             self._cmd(cmd_str)
             resp = self._query('SYSTem:ERRor?\n') #\r
-            print 'resp\n'
-            print resp
+            print('resp\n')
+            print(resp)
             if len(resp) > 0:
                 if resp[0] != '0':
                     raise ChromaGridSimError(resp + ' ' + cmd_str)
-        except Exception, e:
+        except Exception as e:
             raise ChromaGridSimError(str(e))
 
     def query(self, cmd_str):
         try:
             resp = self._query(cmd_str).strip()
-        except Exception, e:
+        except Exception as e:
             raise ChromaGridSimError(str(e))
         return resp
 
@@ -120,7 +120,7 @@ class ChromaGridSim(object):
             # set terminator in pyvisa
             self.conn.write_termination = TERMINATOR
 
-        except Exception, e:
+        except Exception as e:
             raise ChromaGridSimError('Cannot open VISA connection to %s' % (self.visa_device))
 
     def close(self):
@@ -269,7 +269,7 @@ class ChromaGridSim(object):
             if voltage is not None:
                 if (voltage > 0 and voltage < 300):
                     self.cmd('source:volt:limit:ac %0.0f\n' % voltage)
-                else: raise(ChromaGridSimError ('Votlage out of range'))
+                else: raise ChromaGridSimError
             v1 = self.query('source:volt:limit:ac?\n')
         return float(v1), float(v1), float(v1)
 
@@ -279,18 +279,18 @@ class ChromaGridSim(object):
         elif range == 150:
             self.cmd('voltage:range low')
         else:
-            raise (ChromaGridSimError('Voltage Range is not supported'))
+            raise ChromaGridSimError
 
     def voltage_slew(self,slew):
         if slew is not None:
             self.cmd('output:slew:voltage:ac %s' % slew)
-        else: raise(ChromaGridSimError('Voltage Slew Must in range 0.0 to 1200 V/S'))
+        else: raise ChromaGridSimError
 
     def freq_slew(self,slew):
         if slew is not None:
             self.cmd('output:slew:freq %s' % slew)
         else:
-            raise (ChromaGridSimError('Voltage Slew Must in range 0.0 to 1600 Hz/S'))
+            raise ChromaGridSimError
 
 if __name__ == "__main__":
 
@@ -303,13 +303,13 @@ if __name__ == "__main__":
     cgs = ChromaGridSim(visa_device, visa_path)
     cgs.open()
 
-    print 'Testing Query String'
-    print cgs.query('*IDN?')
+    print('Testing Query String')
+    print(cgs.query('*IDN?'))
     '''
     print '\nconfig_phase_angles for Single Phase'
     cgs.config_phase_angles(1)
     '''
-    print '\nconfig_phase_angles for 3 phase'
+    print('\nconfig_phase_angles for 3 phase')
     cgs.config_phase_angles (2)
     '''
 
@@ -318,21 +318,21 @@ if __name__ == "__main__":
     print '\nRe-Opening'
     cgs.open()
     '''
-    print '\nRunning Config()'
+    print('\nRunning Config()')
     cgs.config()
 
     cgs.voltage(40)
     cgs.freq (50)
 
-    print '\nRunning Current()'
+    print('\nRunning Current()')
     cgs.current(15)
 
-    print '\nRunning freq()'
+    print('\nRunning freq()')
     cgs.freq (62)
 
     cgs.relay('closed')
 
-    print '\nRunning Profile_load()'
+    print('\nRunning Profile_load()')
     dwell_list = '2000,2000,2000,2000,2000,0.0'
     freq_start_list = '40,50,60,50,40'
     freq_end_list = '50,60,60,40,40'
@@ -367,9 +367,9 @@ if __name__ == "__main__":
     print '\nRunning Voltage()'
     cgs.voltage(122.5)
     '''
-    print '\nRunning Voltage_max()'
+    print('\nRunning Voltage_max()')
     cgs.voltage_max({125,124,124})
 
-    print '\nDone, closing connection'
+    print('\nDone, closing connection')
 
     cgs.close()

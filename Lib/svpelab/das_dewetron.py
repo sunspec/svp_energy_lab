@@ -31,8 +31,8 @@ Questions can be directed to support@sunspec.org
 """
 
 import os
-from device_das_dewetron import Device
-from das import DAS as MDAS
+from .device_das_dewetron import Device
+from .das import DAS as MDAS
 
 dewetron_info = {
     'name': os.path.splitext(os.path.basename(__file__))[0],

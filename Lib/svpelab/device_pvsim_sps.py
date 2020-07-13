@@ -69,7 +69,7 @@ class SPS(object):
                 # the default pyvisa write termination is '\r\n' which does not work with the SPS
                 self.conn.write_termination = '\n'
                 self.ts.sleep(1)
-            except Exception, e:
+            except Exception as e:
                 raise Exception('Cannot open VISA connection to %s\n\t%s' % (visa_id, str(e)))
 
     # TCP/IP command
@@ -82,7 +82,7 @@ class SPS(object):
 
             # print 'cmd> %s' % (cmd_str)
             self.conn.send(cmd_str)
-        except Exception, e:
+        except Exception as e:
             raise
 
     # TCP/IP query
@@ -101,7 +101,7 @@ class SPS(object):
                         if d == '\r':
                             more_data = False
                             break
-            except Exception, e:
+            except Exception as e:
                 raise SPSError('Timeout waiting for response')
 
         return resp
@@ -117,7 +117,7 @@ class SPS(object):
                         raise SPSError(resp)
             elif self.comm == 'VISA':
                 self.conn.write(cmd_str)
-        except Exception, e:
+        except Exception as e:
             raise SPSError(str(e))
         finally:
             self.close()
@@ -129,7 +129,7 @@ class SPS(object):
                 resp = self._query(cmd_str).strip()
             elif self.comm == 'VISA':
                 resp = self.conn.query(cmd_str)
-        except Exception, e:
+        except Exception as e:
             raise SPSError(str(e))
         finally:
             self.close()
@@ -149,7 +149,7 @@ class SPS(object):
         try:
             if self.conn is not None:
                 self.conn.close()
-        except Exception, e:
+        except Exception as e:
             pass
         finally:
             self.conn = None
@@ -162,8 +162,8 @@ class SPS(object):
 
         try:
             self.cmd('CURVe:DELEte "%s"\r' % SVP_CURVE)  # Must delete the previous curve
-        except Exception, e:
-            print('Curve not found: %s' % e)
+        except Exception as e:
+            print(('Curve not found: %s' % e))
 
         if voc is not None and isc is not None:
             self.cmd('CURVe:VIparms %s, %s\r' % (voc, isc))
@@ -299,5 +299,5 @@ if __name__ == "__main__":
 
         sps.close()
 
-    except Exception, e:
+    except Exception as e:
         raise 'Error running SPS setup: %s' % (str(e))

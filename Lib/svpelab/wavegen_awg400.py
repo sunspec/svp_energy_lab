@@ -33,8 +33,8 @@ Questions can be directed to support@sunspec.org
 import os
 
 import script
-import device_awg400
-import wavegen
+from . import device_awg400
+from . import wavegen
 
 awg400_info = {
     'name': os.path.splitext(os.path.basename(__file__))[0],

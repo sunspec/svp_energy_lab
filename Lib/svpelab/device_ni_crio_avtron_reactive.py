@@ -62,7 +62,7 @@ class AvtronReactive(object):
             self.conn = self.rm.open_resource(self.visa_device)
             self.conn.write_termination = TERMINATOR
 
-        except Exception, e:
+        except Exception as e:
             raise LoadBankError('Cannot open VISA connection to %s\n\t%s' % (self.visa_device, str(e)))
 
     def close(self):
@@ -72,7 +72,7 @@ class AvtronReactive(object):
                     self.conn.close()
                 self.rm.close()
                 time.sleep(1)
-        except Exception, e:
+        except Exception as e:
             raise LoadBankError(str(e))
 
     def info(self):
@@ -87,7 +87,7 @@ class AvtronReactive(object):
             if len(resp) > 0:
                 if resp[0] != '0':
                     raise LoadBankError(resp + ' ' + cmd_str)
-        except Exception, e:
+        except Exception as e:
             raise LoadBankError(str(e))
 
     def _query(self, cmd_str):
@@ -97,7 +97,7 @@ class AvtronReactive(object):
                 raise LoadBankError('Connection not open')
             return self.conn.query(cmd_str)
 
-        except Exception, e:
+        except Exception as e:
             raise LoadBankError(str(e))
 
     def _write(self, cmd_str):
@@ -105,7 +105,7 @@ class AvtronReactive(object):
             if self.conn is None:
                 raise LoadBankError('Connection not open')
             return self.conn.write(cmd_str)
-        except Exception, e:
+        except Exception as e:
             raise LoadBankError(str(e))
 
     def voltset(self, v):

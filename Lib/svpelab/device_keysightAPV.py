@@ -62,7 +62,7 @@ class KeysightAPV(object):
 
             # print 'cmd> %s' % (cmd_str)
             self.conn.send(cmd_str)
-        except Exception, e:
+        except Exception as e:
             raise
 
     def _query(self, cmd_str):
@@ -80,7 +80,7 @@ class KeysightAPV(object):
                         if d == '\n':
                             more_data = False
                             break
-            except Exception, e:
+            except Exception as e:
                 raise KeysightAPVError('Timeout waiting for response')
 
         return resp
@@ -93,7 +93,7 @@ class KeysightAPV(object):
             if len(resp) > 0:
                 if resp[1] != '0':
                     raise KeysightAPVError(resp)
-        except Exception, e:
+        except Exception as e:
             raise KeysightAPVError(str(e))
         finally:
             self.close()
@@ -101,7 +101,7 @@ class KeysightAPV(object):
     def query(self, cmd_str):
         try:
             resp = self._query(cmd_str).strip()
-        except Exception, e:
+        except Exception as e:
             raise KeysightAPVError(str(e))
         finally:
             self.close()
@@ -129,7 +129,7 @@ class KeysightAPV(object):
         try:
             if self.conn is not None:
                 self.conn.close()
-        except Exception, e:
+        except Exception as e:
             pass
         finally:
             self.conn = None
@@ -200,36 +200,36 @@ if __name__ == "__main__":
         ksas.profile('STPsIrradiance')
         ksas.profile('Cloudy day')
 
-        print 'groups =', ksas.groups_get()
-        print 'profiles =', ksas.profiles_get()
-        print 'curves =', ksas.curves_get()
+        print('groups =', ksas.groups_get())
+        print('profiles =', ksas.profiles_get())
+        print('curves =', ksas.curves_get())
 
         channel = ksas.channels[1]
-        print 'is on =', channel.output_is_on()
+        print('is on =', channel.output_is_on())
 
         channel.profile_set('STPsIrradiance')
         channel.curve_set(EN_50530_CURVE)
         channel.profile_start()
         channel.output_set_on()
 
-        print 'channel curve =', channel.curve_get()
-        print 'channel profile =', channel.profile_get()
-        print 'is on =', channel.output_is_on()
+        print('channel curve =', channel.curve_get())
+        print('channel profile =', channel.profile_get())
+        print('is on =', channel.output_is_on())
 
         time.sleep(10)
-        print 'is on =', channel.output_is_on()
+        print('is on =', channel.output_is_on())
         channel.profile_abort()
         channel.profile_set('Cloudy day')
         channel.curve_set('BP Solar - BP 3230T (60 cells)')
 
         channel.profile_start()
 
-        print 'channel curve =', channel.curve_get()
-        print 'channel profile =', channel.profile_get()
-        print 'is on =', channel.output_is_on()
+        print('channel curve =', channel.curve_get())
+        print('channel profile =', channel.profile_get())
+        print('is on =', channel.output_is_on())
 
         ksas.close()
 
-    except Exception, e:
+    except Exception as e:
         raise
-        print 'Error running KeysightAPV setup: %s' % (str(e))
+        print('Error running KeysightAPV setup: %s' % (str(e)))

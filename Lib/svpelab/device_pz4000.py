@@ -71,13 +71,13 @@ class Device(object):
                     self.rm = visa.ResourceManager()
                     self.conn = self.rm.open_resource(self.params['visa_address'])
 
-                except Exception, e:
+                except Exception as e:
                     raise DeviceError('PZ4000 communication error: %s' % str(e))
 
             else:
                 raise ValueError('Unknown communication type %s. Use GPIB or VISA' % self.params['comm'])
 
-        except Exception, e:
+        except Exception as e:
             raise DeviceError(str(e))
 
 
@@ -96,7 +96,7 @@ class Device(object):
                     self.rm.close()
 
 
-            except Exception, e:
+            except Exception as e:
                 raise DeviceError('PZ4000 communication error: %s' % str(e))
         else:
             raise ValueError('Unknown communication type %s. Use Serial, GPIB or VISA' % self.params['comm'])
@@ -105,7 +105,7 @@ class Device(object):
         try:
             self.conn.write(cmd_str)
 
-        except Exception, e:
+        except Exception as e:
             raise DeviceError('PZ4000 communication error: %s' % str(e))
 
     def query(self, cmd_str):

@@ -58,7 +58,7 @@ class Device(object):
                     self._host = self.params['ip_addr']
                     self._port = 4000
                     self.conn = self.rm.open_resource("TCPIP::{0}::{1}::SOCKET".format(self._host,self._port),read_termination='\n')
-                except Exception, e:
+                except Exception as e:
                     raise DeviceError('AWG400 communication error: %s' % str(e))
             elif self.params['comm'] == 'GPIB':
                 raise NotImplementedError('The driver for plain GPIB is not implemented yet. ' +
@@ -67,13 +67,13 @@ class Device(object):
                 try:
                     self.conn = self.rm.open_resource(self.params['visa_address'])
 
-                except Exception, e:
+                except Exception as e:
                     raise DeviceError('AWG400 communication error: %s' % str(e))
 
             else:
                 raise ValueError('Unknown communication type %s. Use GPIB or VISA' % self.params['comm'])
 
-        except Exception, e:
+        except Exception as e:
             raise DeviceError(str(e))
 
         self.funcgen_mode()
@@ -85,7 +85,7 @@ class Device(object):
             try:
                 if self.conn is not None:
                     self.conn.close()
-            except Exception, e:
+            except Exception as e:
                 raise DeviceError('AWG400 communication error: %s' % str(e))
         elif self.params['comm'] == 'GPIB':
             raise NotImplementedError('The driver for plain GPIB is not implemented yet.')
@@ -93,7 +93,7 @@ class Device(object):
             try:
                 if self.conn is not None:
                     self.conn.close()
-            except Exception, e:
+            except Exception as e:
                 raise DeviceError('AWG400 communication error: %s' % str(e))
         else:
             raise ValueError('Unknown communication type %s. Use Serial, GPIB or VISA' % self.params['comm'])
@@ -112,7 +112,7 @@ class Device(object):
     def info(self):
         try:
             resp = self.conn.query("*IDN?")
-        except Exception, e:
+        except Exception as e:
             raise DeviceError('AWG400 communication error: %s' % str(e))
         return resp
 
@@ -214,7 +214,7 @@ class Device(object):
                 voltage *= 0.005925
             elif channel == 3:
                 voltage *= 0.005891
-            print("AWGControl:FG{}:VOLTage {}".format(channel, voltage))
+            print(("AWGControl:FG{}:VOLTage {}".format(channel, voltage)))
             self.cmd("AWGControl:FG{}:VOLTage {}".format(channel, voltage))
 
     def frequency(self, frequency):

@@ -34,8 +34,8 @@ try:
     import typhoon.api.hil as cp  # control panel
     from typhoon.api.schematic_editor import model
     import typhoon.api.pv_generator as pv
-except Exception, e:
-    print('Typhoon HIL API not installed. %s' % e)
+except Exception as e:
+    print(('Typhoon HIL API not installed. %s' % e))
 
 class Device(object):
 

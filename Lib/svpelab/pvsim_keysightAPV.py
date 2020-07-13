@@ -31,8 +31,8 @@ Questions can be directed to support@sunspec.org
 """
 
 import os
-import device_keysightAPV as keysightAPV
-import pvsim
+from . import device_keysightAPV as keysightAPV
+from . import pvsim
 
 keysightAPV_info = {
     'name': os.path.splitext(os.path.basename(__file__))[0],
