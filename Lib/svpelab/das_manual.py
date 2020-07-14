@@ -66,8 +66,8 @@ def params(info, group_name):
 
 class DAS(das.DAS):
 
-    def __init__(self, ts, group_name, points=None, sc_points=None):
-        das.DAS.__init__(self, ts, group_name, points=points, sc_points=sc_points)
+    def __init__(self, ts, group_name, points=None, sc_points=None, support_interfaces=None):
+        das.DAS.__init__(self, ts, group_name, points=points, sc_points=sc_points, support_interfaces=support_interfaces)
         self.params['ip_address'] = self._param_value('ip_address')
         self.params['comm'] = self._param_value('comm')
         self.params['wiring_system'] = self._param_value('wiring_system')
