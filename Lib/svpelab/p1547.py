@@ -147,6 +147,12 @@ class UtilParameters:
 
     def __init__(self):
         self.step_label = None
+        self.pwr = 1.0
+        self.curve = 1
+
+    def reset_param(self, pwr=None, curve=None):
+        self.pwr = pwr
+        self.curve = curve
 
     def set_step_label(self, starting_label=None):
         """
@@ -277,6 +283,7 @@ class DataLogging:
         #self._config()
         self.set_sc_points()
         self.set_result_summary_name()
+        self.previous_tr_value = {}
     #def __config__(self):
 
     def set_sc_points(self):
@@ -454,6 +461,110 @@ class DataLogging:
 
         # except Exception as e:
         #     raise p1547Error('Error in write_rslt_sum() : %s' % (str(e)))
+
+    def start(self, daq, step):
+        """
+        Sum the EUT reactive power from all phases
+        :param daq:         data acquisition object from svpelab library
+        :param step:        test procedure step letter or number (e.g "Step G")
+        :return: returns a dictionary with the timestamp, event and total EUT reactive power
+        """
+        # TODO : In a more sophisticated approach, get_initial['timestamp'] will come from a
+        #  reliable secure thread or data acquisition timestamp
+        #self.set_x_y_variable(step=step)
+        #initial = {}
+        self.previous_tr_value['timestamp'] = datetime.now()
+        #x = self.get_x_y_variable('x')
+        #y = self.get_x_y_variable('y')
+        daq.data_sample()
+        data = daq.data_capture_read()
+        daq.sc['event'] = step
+        if isinstance(self.x_criteria, list):
+            for xs in self.x_criteria:
+                self.previous_tr_value[xs] = {'x_value': self.get_measurement_total(data=data, type_meas=xs, log=False)}
+                daq.sc['%s_MEAS' % xs] = self.previous_tr_value[xs]['x_value']
+        else:
+            self.previous_tr_value[self.x_criteria] = {'x_value': self.get_measurement_total(data=data, type_meas=self.x_criteria, log=False)}
+            daq.sc['%s_MEAS' % self.x_criteria] = self.previous_tr_value[self.x_criteria]['x_value']
+        if isinstance(self.y_criteria, list):
+            for ys in self.y_criteria:
+                self.previous_tr_value[ys] = {'y_value': self.get_measurement_total(data=data, type_meas=ys, log=False)}
+                daq.sc['%s_MEAS' % ys] = self.previous_tr_value[ys]["y_value"]
+        else:
+            self.previous_tr_value[self.y_criteria] = {'y_value': self.get_measurement_total(data=data, type_meas=self.y_criteria, log=False)}
+            daq.sc['%s_MEAS' % self.y_criteria] = self.previous_tr_value[self.y_criteria]['y_value']
+        daq.data_sample()
+
+        return self.previous_tr_value
+
+    def record_timeresponse(self, daq, tr, step, n_tr=2, pwr_lvl=1.0, curve=1, x_target=None, y_target=None):
+        """
+        Get the data from a specific time response (tr) corresponding to x and y values returns a dictionary
+        but also writes in the soft channels of the DAQ system
+        :param daq:             data acquisition object from svpelab library
+        :param initial_value:   the dictionary with the initial values (X, Y and timestamp)
+        :param pwr_lvl:         The input power level in p.u.
+        :param curve:           The characteristic curve number
+        :param x_target:        The target value of X value (e.g. FW -> f_step)
+        :param y_target:        The target value of Y value (e.g. LAP -> act_pwrs_limits)
+        :param n_tr:            The number of time responses used to validate the response and steady state values
+
+        :return: returns a dictionary with the timestamp, event and total EUT reactive power
+        """
+
+        tr_value = collections.OrderedDict()
+        x = self.x_criteria
+        y = self.y_criteria
+
+        first_tr = self.previous_tr_value['timestamp'] + timedelta(seconds=tr)
+        tr_list = [first_tr]
+        for i in range(n_tr - 1):
+            tr_list.append(tr_list[i] + timedelta(seconds=tr))
+
+        tr_iter = 1
+        for tr_ in tr_list:
+            now = datetime.now()
+            if now <= tr_:
+                time_to_sleep = tr_ - datetime.now()
+                self.ts.log('Waiting %s seconds to get the next Tr data for analysis...' %
+                            time_to_sleep.total_seconds())
+                self.ts.sleep(time_to_sleep.total_seconds())
+            daq.data_sample()  # sample new data
+            data = daq.data_capture_read()  # Return dataset created from last data capture
+            daq.sc['EVENT'] = "{0}_TR_{1}".format(step, tr_iter)
+
+            # update daq.sc values for Y_TARGET, Y_TARGET_MIN, and Y_TARGET_MAX
+            #self.update_target_value(daq=daq, pwr_lvl=pwr_lvl, curve=curve, x_target=x_target, y_target=y_target,
+            #                         data=data)
+            self.calculate_min_max_values(daq=daq, data=data)
+            # store the daq.sc['Y_TARGET'], daq.sc['Y_TARGET_MIN'], and daq.sc['Y_TARGET_MAX'] in tr_value
+            tr_value[tr_iter] = {}
+            for meas_value in self.meas_values:
+                try:
+                    tr_value[tr_iter]['%s_MEAS' % meas_value] = daq.sc['%s_MEAS' % meas_value]
+                    # self.ts.log('Value %s: %s' % (meas_value, daq.sc['%s_MEAS' % meas_value]))
+                    if meas_value in x:
+                        tr_value[tr_iter]['%s_TARGET' % meas_value] = daq.sc['%s_TARGET' % meas_value]
+                        # self.ts.log('X Value (%s) = %s' % (meas_value, daq.sc['%s_MEAS' % meas_value]))
+                    elif meas_value in y:
+                        tr_value[tr_iter]['%s_TARGET' % meas_value] = daq.sc['%s_TARGET' % meas_value]
+                        tr_value[tr_iter]['%s_TARGET_MIN' % meas_value] = daq.sc['%s_TARGET_MIN' % meas_value]
+                        tr_value[tr_iter]['%s_TARGET_MAX' % meas_value] = daq.sc['%s_TARGET_MAX' % meas_value]
+                        # self.ts.log('Y Value (%s) = %s. Pass/fail bounds = [%s, %s]' %
+                        #             (meas_value, daq.sc['%s_MEAS' % meas_value],
+                        #              daq.sc['%s_TARGET_MIN' % meas_value], daq.sc['%s_TARGET_MAX' % meas_value]))
+                except Exception as e:
+                    self.ts.log_debug('Measured value (%s) not recorded: %s' % (meas_value, e))
+
+            tr_value[tr_iter]["timestamp"] = tr_
+            tr_iter = tr_iter + 1
+
+        return tr_value
+
+        # except Exception as e:
+        #    raise p1547Error('Error in get_tr_data(): %s' % (str(e)))
+
+
 
 class CriteriaValidation:
     def __init__(self, criteria):
@@ -656,22 +767,22 @@ class VoltVar(EutParameters, UtilParameters, DataLogging, ImbalanceComponent):
             'Q4': round(self.var_rated * -1.0, 2)
         }
 
-    def update_target_value(self, value, pwr_lvl=1.0, curve=1):
+    def update_target_value(self, value):
 
-        x = [self.param[curve]['V1'], self.param[curve]['V2'],
-             self.param[curve]['V3'], self.param[curve]['V4']]
-        y = [self.param[curve]['Q1'], self.param[curve]['Q2'],
-             self.param[curve]['Q3'], self.param[curve]['Q4']]
+        x = [self.param[self.curve]['V1'], self.param[self.curve]['V2'],
+             self.param[self.curve]['V3'], self.param[self.curve]['V4']]
+        y = [self.param[self.curve]['Q1'], self.param[self.curve]['Q2'],
+             self.param[self.curve]['Q3'], self.param[self.curve]['Q4']]
         q_value = float(np.interp(value, x, y))
-        q_value *= pwr_lvl
+        q_value *= self.pwr
         return round(q_value, 1)
 
-    def calculate_min_max_values(self, daq, data,):
+    def calculate_min_max_values(self, daq, data):
         y = 'Q'
         v_meas = self.get_measurement_total(data=data, type_meas='V', log=False)
-        daq.sc['%s_TARGET' % y] = self.get_targ(daq.sc['V_TARGET'])
-        daq.sc['%s_TARGET_MIN' % y] = self.update_target_value(v_meas + self.MRA_V * 1.5, pwr_lvl, curve) - (self.MSA_Q * 1.5)
-        daq.sc['%s_TARGET_MAX' % y] = self.update_target_value(v_meas - self.MRA_V * 1.5, pwr_lvl, curve) + (self.MSA_Q * 1.5)
+        daq.sc['%s_TARGET' % y] = self.update_target_value(daq.sc['V_TARGET'])
+        daq.sc['%s_TARGET_MIN' % y] = self.update_target_value(v_meas + self.MRA_V * 1.5) - (self.MRA_Q * 1.5)
+        daq.sc['%s_TARGET_MAX' % y] = self.update_target_value(v_meas - self.MRA_V * 1.5) + (self.MRA_Q * 1.5)
 
 
 class VoltWatt(EutParameters, UtilParameters, DataLogging, ImbalanceComponent):
@@ -1224,33 +1335,40 @@ class FrequencyRideThrough(HilModel):
 
         return round(value, 3)
 
-    def get_initial(self, daq, step):
+    def get_initial_value(self, daq, step):
         """
-        Sum the EUT phases for given parameter (power, reactive power, etc.) from all phases
+        Sum the EUT reactive power from all phases
         :param daq:         data acquisition object from svpelab library
         :param step:        test procedure step letter or number (e.g "Step G")
-        :return: returns a dictionary with the timestamp, event, and total EUT phase, e.g.,
-            {'timestamp': datetime.datetime(2020, 4, 3, 10, 23, 21, 786000),
-            'Y_MEAS': 60.998,
-            'X_MEAS': 2088.702}
+        :return: returns a dictionary with the timestamp, event and total EUT reactive power
         """
-        try:
-            # TODO : In a more sophisticated approach, get_initial['timestamp'] will come from a
-            # reliable secure thread or data acquisition timestamp
-            self.set_x_y_variable(step=step)
-            initial = {}
-            initial['timestamp'] = datetime.now()
-            daq.data_sample()
-            data = daq.data_capture_read()
+        # TODO : In a more sophisticated approach, get_initial['timestamp'] will come from a
+        #  reliable secure thread or data acquisition timestamp
+        self.set_x_y_variable(step=step)
+        initial = {}
+        initial['timestamp'] = datetime.now()
+        x = self.get_x_y_variable('x')
+        y = self.get_x_y_variable('y')
+        daq.data_sample()
+        data = daq.data_capture_read()
+        daq.sc['event'] = step
+        if isinstance(x, list):
+            for xs in x:
+                initial[xs] = {'x_value': self.get_measurement_total(data=data, type_meas=xs, log=False)}
+                daq.sc['%s_MEAS' % xs] = initial[xs]['x_value']
+        else:
+            initial[x] = {'x_value': self.get_measurement_total(data=data, type_meas=x, log=False)}
+            daq.sc['%s_MEAS' % x] = initial[x]['x_value']
+        if isinstance(y, list):
+            for ys in y:
+                initial[ys] = {'y_value': self.get_measurement_total(data=data, type_meas=ys, log=False)}
+                daq.sc['%s_MEAS' % ys] = initial[ys]["y_value"]
+        else:
+            initial[y] = {'y_value': self.get_measurement_total(data=data, type_meas=y, log=False)}
+            daq.sc['%s_MEAS' % y] = initial[y]['y_value']
+        daq.data_sample()
 
-            daq.sc['event'] = step
-            for meas_value in self.meas_values:
-                initial['%s_MEAS' % meas_value] = self.get_measurement_total(data=data, type_meas=meas_value, log=False)
-                daq.sc['%s_MEAS' % meas_value] = initial['%s_MEAS' % meas_value]
-
-        except Exception as e:
-            raise p1547Error('Error in get_initial(): %s' % (str(e)))
-
+        return initial
     def get_tr_data(self, daq, step, tr, pwr_lvl=None, curve=None, target=None):
         """
         Function to update target values depending on script name
