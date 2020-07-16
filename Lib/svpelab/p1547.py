@@ -41,7 +41,8 @@ from collections import OrderedDict
 import time
 import collections
 import numpy as np
-
+import pandas as pd
+import random
 # import sys
 # import os
 # import glob
@@ -943,13 +944,14 @@ This section is for Ride-Through test
 
 class VoltageRideThrough(HilModel):
     def __init__(self):
+        EutParameters.__init__(self, ts)
         HilModel.__init__()
         self._config()
 
     def _config(self):
         self.set_vrt_params()
         self.set_model_on()
-        self.set_vrt_model_parameters_dic()
+        self.set_vrt_model_parameters()
 
     """
     Setter functions
@@ -968,78 +970,128 @@ class VoltageRideThrough(HilModel):
             # consecutive_ena = ts.param_value('vrt.consecutive_ena')
             self.params["categories"] = self.ts.param_value('vrt.cat')
             self.params["range_steps"] = self.ts.param_value('vrt.range_steps')
-            self.eut_startup_time = self.ts.param_value('eut.startup_time')
+            self.params["eut_startup_time"] = self.ts.param_value('eut.startup_time')
             self.params["model_name"] = self.hil.rt_lab_model
+            self.params["range_steps"] = self.ts.param_value('vrt.range_steps')
+            self.params["test_conditions"] = self.get_test_conditions()
         except Exception as e:
             self.ts.log_error('Incorrect Parameter value : %s' % e)
             raise
 
-    def set_vrt_model_parameters_dic(self):
-        categories = self.params["categories"]
-        lf_mode = self.params["lf_mode"]
-        hf_mode = self.params["hf_mode"]
-        model_name = self.params["model_name"]
-        range_steps = self.params["range_steps"]
+    def set_vrt_model_parameters(self):
+        tc = self.params["test_condition"]
+        mn = self.params["model_name"]
+        parameters = []
 
-        if lf_mode == 'Enabled':
-            # Timestep is cumulative
-            if categories == CAT_2 or categories == 'Both':
-                self.mode.append(f'{LV}_{CAT_2}')
-                self.vrt_start_time = self.eut_startup_time
-                self.vrt_stop_time = 12 + self.vrt_start_time
-                # TODO change sequence parameter for parameter to be chosen by users or average of both max & min values?
-                self.parameters_dic.update({f'{LV}_{CAT_2}': [
-                    # Add ROCOM only for condition E
-                    (model_name + '/SM_Source/Waveform_Generator/ROCOM_START_TIME/Value', 10 + self.vrt_start_time),
-                    (model_name + '/SM_Source/Waveform_Generator/ROCOM_END_TIME/Value', 12 + self.vrt_start_time),
-                    # Enable needed conditions
-                    (model_name + '/SM_Source/VRT/VRT_State_Machine/cond_a_ena/Value', 1),
-                    (model_name + '/SM_Source/VRT/VRT_State_Machine/cond_b_ena/Value', 1),
-                    (model_name + '/SM_Source/VRT/VRT_State_Machine/cond_c_ena/Value', 1),
-                    (model_name + '/SM_Source/VRT/VRT_State_Machine/cond_d_ena/Value', 1),
-                    (model_name + '/SM_Source/VRT/VRT_State_Machine/cond_e_ena/Value', 1),
-                    (model_name + '/SM_Source/VRT/VRT_State_Machine/cond_f_ena/Value', 1),
-                    # Timesteps
-                    # (model_name + '/SM_Source/VRT/VRT_State_Machine/condition A/Threshold', 20 + self.vrt_start_time),
-                    # (model_name + '/SM_Source/VRT/VRT_State_Machine/condition B/Threshold', 20.16 + self.vrt_start_time),
-                    # (model_name + '/SM_Source/VRT/VRT_State_Machine/condition C/Threshold', 20.32 + self.vrt_start_time),
-                    # (model_name + '/SM_Source/VRT/VRT_State_Machine/condition D/Threshold', 23 + self.vrt_start_time),
-                    # (model_name + '/SM_Source/VRT/VRT_State_Machine/condition E/Threshold', 25 + self.vrt_start_time),
-                    # (model_name + '/SM_Source/VRT/VRT_State_Machine/condition F/Threshold', 125 + self.vrt_start_time),
-
-                    (model_name + '/SM_Source/VRT/VRT_State_Machine/condition A/Threshold', 2 + self.vrt_start_time),
-                    (model_name + '/SM_Source/VRT/VRT_State_Machine/condition B/Threshold', 4 + self.vrt_start_time),
-                    (model_name + '/SM_Source/VRT/VRT_State_Machine/condition C/Threshold', 6 + self.vrt_start_time),
-                    (model_name + '/SM_Source/VRT/VRT_State_Machine/condition D/Threshold', 8 + self.vrt_start_time),
-                    (model_name + '/SM_Source/VRT/VRT_State_Machine/condition E/Threshold', 10 + self.vrt_start_time),
-                    (model_name + '/SM_Source/VRT/VRT_State_Machine/condition F/Threshold', self.vrt_stop_time),
-                    # Values
-                    (model_name + '/SM_Source/VRT/VRT_State_Machine/voltage_ph_seqA/Value', 0.94 * 120),
-                    (model_name + '/SM_Source/VRT/VRT_State_Machine/condition B/Threshold', 0.28 * 120),
-                    (model_name + '/SM_Source/VRT/VRT_State_Machine/condition C/Threshold', 0.43 * 120),
-                    (model_name + '/SM_Source/VRT/VRT_State_Machine/condition D/Threshold', 0.65 * 120),
-                    (model_name + '/SM_Source/VRT/VRT_State_Machine/condition E/Threshold', 0.88 * 120),
-                    (model_name + '/SM_Source/VRT/VRT_State_Machine/condition F/Threshold', 0.94 * 120)]})
+        self.ts.log_debug(tc)
+        self.vrt_start_time = tc.head(1)["StartTime"].item()
+        self.vrt_stop_time = tc.tail(1)["StopTime"].item()
+        # Add ROCOM only for LVRT CAT II needs rocom
+        if self.params["lv_mode"] == 'Enabled' and (self.params["categories"] == CAT_2 or self.params["categories"] == 'Both'):
+            parameters.append((mn + '/SM_Source/Waveform_Generator/ROCOM_START_TIME/Value', tc.loc["E"]["StartTime"].item()))
+            parameters.append((mn + '/SM_Source/Waveform_Generator/ROCOM_END_TIME/Value', tc.loc["E"]["StopTime"].item()))
+        for index, row in tc.iterrows():
+            # Enable needed conditions
+            parameters.append((mn + f'/SM_Source/VRT/VRT_State_Machine/cond_{index}_ena/Value', 1))
+            # Start time of condition
+            parameters.append((mn + f'/SM_Source/VRT/VRT_State_Machine/condition {index}/Threshold', row["StartTime"].item()))
+            # Voltage value of condition
+            parameters.append((mn + f'/SM_Source/VRT/VRT_State_Machine/voltage_ph_seq{index}/Value', row["Voltage"].item()))
+        return parameters
+    
+    def set_test_conditions(self):
+        t0 = self.params["eut_startup_time"]
+        # Table 4 - Category II LVRT
+        if self.params["lv_mode"] == 'Enabled' and (self.params["categories"] == CAT_2 or self.params["categories"] == 'Both'):
+            t1 = t0 + 10
+            t2 = t1 + 0.16
+            t3 = t1 + 0.32
+            t4 = t1 + 3
+            t5 = t1 + 5
+            t6 = t5 + 120.0
+            if self.params["range_steps"] == "Figure":
+                voltage = [0.94,0.3-2*self.MRA_V,0.45-2*self.MRA_V,0.65,0.88,0.94]     
+            elif self.params["range_steps"] == "Random": 
+                voltage = [random.uniform(0.88,1.0),
+                random.uniform(0.0,0.3),
+                random.uniform(0.0,0.45),
+                random.uniform(0.45,0.65),
+                random.uniform(0.65,0.88),
+                random.uniform(0.88,1.0)]     
+            test_condition = pd.DataFrame({'Voltage' :   voltage,
+                                            'StartTime' : [t0,t1,t2,t3,t4,t5],
+                                            'StopTime' : [t1,t2,t3,t4,t5,t6]},
+                                            index = ["A","B","C","D","E","F"])
+        # Table 5 - Category III LVRT
+        elif self.params["lv_mode"] == 'Enabled' and (self.params["categories"] == CAT_3 or self.params["categories"] == 'Both'):
+            t1 = t0 + 5
+            t2 = t1 + 1
+            t3 = t1 + 10
+            t4 = t1 + 20
+            t5 = t4 + 120
+            if self.params["range_steps"] == "Figure":
+                voltage = [0.94,0.05-2*self.MRA_V,0.5,0.7,0.94]     
+            elif self.params["range_steps"] == "Random": 
+                voltage = [random.uniform(0.88,1.0),
+                random.uniform(0.0,0.05),
+                random.uniform(0.0,0.5),
+                random.uniform(0.5,0.7),
+                random.uniform(0.88,1.0)]     
+            test_condition = pd.DataFrame({'Voltage' :   voltage,
+                                            'StartTime' : [t0,t1,t2,t3,t4],
+                                            'StopTime' : [t1,t2,t3,t4,t5]},
+                                            index = ["A","B","C","D","E"])
+        # Table 7 - Category II HVRT
+        elif self.params["hv_mode"] == 'Enabled' and (self.params["categories"] == CAT_3 or self.params["categories"] == 'Both'):
+            t1 = t0 + 10
+            t2 = t1 + 0.2
+            t3 = t1 + 0.5
+            t4 = t1 + 1.0
+            t5 = t4 + 120
+            if self.params["range_steps"] == "Figure":
+                voltage = [1.0,1.2,1.175,1.15,1.0]     
+            elif self.params["range_steps"] == "Random": 
+                voltage = [random.uniform(1.0,1.1),
+                random.uniform(1.18,1.2),
+                random.uniform(1.155,1.175),
+                random.uniform(1.13,1.15),
+                random.uniform(1.0,1.1)] 
+            test_condition = pd.DataFrame({'Voltage' :   voltage,
+                                        'StartTime' : [t0,t1,t2,t3,t4],
+                                        'StopTime' : [t1,t2,t3,t4,t5]},
+                                        index = ["A","B","C","D","E"])
+        # Table 7 - Category II HVRT
+        elif self.params["hv_mode"] == 'Enabled' and (self.params["categories"] == CAT_3 or self.params["categories"] == 'Both'):
+            t1 = t0 + 5
+            t2 = t1 + 12
+            t3 = t2 + 120
+            if self.params["range_steps"] == "Figure":
+                voltage = [1.0,1.2,1.175,1.15,1.0]     
+            elif self.params["range_steps"] == "Random": 
+                voltage = [random.uniform(1.0,1.1),
+                random.uniform(1.18,1.2),
+                random.uniform(1.0,1.1)] 
+            test_condition = pd.DataFrame({'Voltage' :   voltage,
+                                        'StartTime' : [t0,t1,t2],
+                                        'StopTime' : [t1,t2,t3]},
+                                        index = ["A","B","C"])
+        else :
+             self.ts.log_error('No test_condition value')
+        self.params["test_condition"] = test_condition
+        return test_condition
 
     """
     Getter functions
     """
-    """
-    def get_modes(self):
-        return self.mode
+    
+
 
     def get_model_parameters(self,current_mode):
         self.ts.log(f'Getting HIL parameters for {current_mode}')
         return self.parameters_dic[current_mode],self.vrt_start_time, self.vrt_stop_time 
 
-    def get_waveform_config(self,current_mode,offset):
-        params = {}
-        params["start_time_value"] = float(self.vrt_start_time - offset)
-        params["end_time_value"] = float(self.vrt_stop_time + offset)
-        params["start_time_variable"] = "Tstart"
-        params["end_time_variable"] = "Tend"
-        return params
-    """
+
+    
 
 class FrequencyRideThrough(HilModel):
     def __init__(self):
@@ -1876,5 +1928,4 @@ class FrequencyRideThrough(HilModel):
 
 if __name__ == "__main__":
     pass
-
 
