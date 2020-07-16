@@ -720,6 +720,8 @@ class CriteriaValidation:
 
         #TODO to be completed
         # Note: Note sure where criteria_mode[1] (SS accuracy after 1 Tr) is used in IEEE 1547.1
+        pass
+        '''
         if self.criteria_mode[1] or self.criteria_mode[2]:  # STEADY-STATE pass/fail evaluation
             for y in ys:
                 for tr_iter, tr_dic in list(tr_values.items()):
@@ -741,7 +743,7 @@ class CriteriaValidation:
                             analysis['%s_TR_%s_MAX' % (y, tr_iter)],
                             analysis['%s_TR_%s_PF' % (y, tr_iter)]))
 
-
+        '''
 class ImbalanceComponent:
 
     def __init__(self):
