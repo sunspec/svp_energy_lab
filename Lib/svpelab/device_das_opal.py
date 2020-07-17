@@ -58,7 +58,7 @@ WFM_CHANNELS = {'Generic': ['TIME', 'AC_V_1', 'AC_V_2', 'AC_V_3', 'AC_I_1', 'AC_
                                  'Total_RMS_Current', 'Time_Below_80pct_Current', 'Time_Phase_Misalignment'],
                 'VRT': ['TIME', 'AC_V_1', 'AC_V_2', 'AC_V_3',
                                 'AC_I_1', 'AC_I_2', 'AC_I_3', 
-                                'AC_V_1_TARGET','AC_V_2_TARGET','AC_V_3_TARGET','Trigger'],
+                                'AC_V_1_TARGET','AC_V_2_TARGET','AC_V_3_TARGET'],
                 }
 
 
@@ -206,12 +206,12 @@ class Device(object):
             'TIME': self.model_name + '/SM_Source/Clock/port1',
             # Voltage
             'AC_VRMS_1': self.model_name + '/SM_Source/Signal_conditionning/AC_VRMS_1/Switch/port1',
-            'AC_VRMS_1': self.model_name + '/SM_Source/Signal_conditionning/AC_VRMS_2/Switch/port1',
-            'AC_VRMS_1': self.model_name + '/SM_Source/Signal_conditionning/AC_VRMS_3/Switch/port1',
+            'AC_VRMS_2': self.model_name + '/SM_Source/Signal_conditionning/AC_VRMS_2/Switch/port1',
+            'AC_VRMS_3': self.model_name + '/SM_Source/Signal_conditionning/AC_VRMS_3/Switch/port1',
             # Current
             'AC_IRMS_1': self.model_name + '/SM_Source/Signal_conditionning/AC_IRMS_1/Switch/port1',
-            'AC_IRMS_1': self.model_name + '/SM_Source/Signal_conditionning/AC_IRMS_2/Switch/port1',
-            'AC_IRMS_1': self.model_name + '/SM_Source/Signal_conditionning/AC_IRMS_3/Switch/port1',
+            'AC_IRMS_2': self.model_name + '/SM_Source/Signal_conditionning/AC_IRMS_2/Switch/port1',
+            'AC_IRMS_3': self.model_name + '/SM_Source/Signal_conditionning/AC_IRMS_3/Switch/port1',
             # Frequency
             'AC_FREQ_1': self.model_name + '/SM_Source/Signal_conditionning/AC_FREQ_1/port1',
             'AC_FREQ_2': self.model_name + '/SM_Source/Signal_conditionning/AC_FREQ_2/port1',
@@ -229,9 +229,9 @@ class Device(object):
             'AC_S_2': self.model_name + '/SM_Source/Signal_conditionning/AC_S_2/port1(2)',
             'AC_S_3': self.model_name + '/SM_Source/Signal_conditionning/AC_S_3/port1(2)',
             # Power Factor
-            'AC_PF_1': self.model_name + '/SM_Source/Signal_conditionning/AC_PF_3/port1(2)',
-            'AC_PF_1': self.model_name + '/SM_Source/Signal_conditionning/AC_PF_3/port1(2)',
-            'AC_PF_1': self.model_name + '/SM_Source/Signal_conditionning/AC_PF_3/port1(2)', 
+            'AC_PF_1': self.model_name + '/SM_Source/Signal_conditionning/AC_PF_1/port1(2)',
+            'AC_PF_2': self.model_name + '/SM_Source/Signal_conditionning/AC_PF_2/port1(2)',
+            'AC_PF_3': self.model_name + '/SM_Source/Signal_conditionning/AC_PF_3/port1(2)', 
          
             # TODO : As some point this will be read it from HIL
             'DC_V': None,
@@ -265,7 +265,7 @@ class Device(object):
         # location where opal saves the waveform data (.mat)
         self.mat_location = self.wfm_dir + self.data_name
         # location where matlab saves the waveform data (.csv)
-        self.csv_location = self.wfm_dir + f'\{self.data_name.split(".mat")}_temp.csv'
+        self.csv_location = self.wfm_dir + f'\{self.data_name.split(".mat")[0]}_temp.csv'
         # delete the old data file
         try:
             os.remove(self.csv_location)
@@ -365,8 +365,6 @@ class Device(object):
             # self.ts.log_warning('self.data_points = %s.  Writing all Nones.' % self.data_points_device)
             data = [None]*len(self.data_points_device)  # Return list of Nones when simulations stops.
             # todo: this should be fixed in das.py sometime where a None can be returned and not added to the database
-
-        # self.ts.log_debug('Data list %s' % data)
         return data
 
     def waveform_config(self, params):
@@ -433,6 +431,12 @@ class Device(object):
         for entry in glob.glob("*.mat"):
             if "Data" in entry:
                 self.mat_location = f'{self.wfm_dir}\{entry}'
+                self.ts.log_debug(f'The model state is {self.hil.model_state()}')
+
+                while self.hil.model_state() == "Model Resetting":
+                    self.ts.log_debug('The model is still resetting. Waiting 10 sec')
+                    self.ts.sleep(10)
+
                 self.ts.log_debug('Processing data in the .mat file at %s' % self.mat_location)
                 # Check that the data file is not still being written to
                 # attempts = 5
@@ -450,7 +454,7 @@ class Device(object):
                 self.ts.log('Loading %s file in matlab...' % self.mat_location)
                 m_cmd = "load('" + self.mat_location + "')"
                 self.ts.log_debug('Running matlab command: %s' % m_cmd)
-                self.ts.log_debug('Matlab: ' + self.matlab_cmd(m_cmd))
+                #self.ts.log_debug('Matlab: ' + self.matlab_cmd(m_cmd))
                 if isinstance(self.matlab_cmd(m_cmd), MatlabException):
                     self.ts.log_warning('Matlab command failed. Waiting 10 sec and retrying...')
                     self.ts.sleep(10)
