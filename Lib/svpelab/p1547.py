@@ -1372,7 +1372,16 @@ class VoltageRideThrough(HilModel, EutParameters,DataLogging):
             modes.append(f"{HV}_{CAT_3}")
         self.params["modes"] = modes
         self.ts.log_debug(self.params)
-
+    
+    def waveform_config(self, param):  
+        parameters = []
+        mn = self.params["model_name"]
+        pre_trigger = param["pre_trigger"]
+        post_trigger = param["post_trigger"]
+        parameters.append((mn + '/SM_Source/VRT/VRT_Trigger_Start/Threshold',pre_trigger))
+        parameters.append((mn + '/SM_Source/VRT/VRT_Trigger_End/Threshold',post_trigger))
+        self.hil.set_parameters(parameters)
+        
 
     """
     Getter functions
