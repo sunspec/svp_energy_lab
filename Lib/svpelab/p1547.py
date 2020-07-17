@@ -48,8 +48,8 @@ import random
 # import glob
 # import importlib
 
-VERSION = '1.4.0'
-LATEST_MODIFICATION = '8th July 2020'
+VERSION = '1.4.1'
+LATEST_MODIFICATION = '17th July 2020'
 
 FW = 'FW'  # Frequency-Watt
 CPF = 'CPF'  # Constant Power Factor
@@ -60,10 +60,10 @@ CRP = 'CRP'  # Constant Reactive Power
 LAP = 'LAP'  # Limit Active Power
 PRI = 'PRI'  # Priority
 IOP = 'IOP'  # Interoperability Tests
-LV = 'Low-Voltage'
-HV = 'High-Voltage'
-CAT_2 = 'Category II'
-CAT_3 = 'Category III'
+LV = 'LV'
+HV = 'HV'
+CAT_2 = 'CAT_2'
+CAT_3 = 'CAT_3'
 VOLTAGE = 'V'
 FREQUENCY = 'F'
 FULL_NAME = {'V': 'Voltage',
@@ -853,9 +853,6 @@ class HilModel(object):
     Getter functions
     """
 
-    def get_modes(self):
-        return self.mode
-
     def get_model_parameters(self, current_mode):
         self.ts.log(f'Getting HIL parameters for {current_mode}')
         return self.parameters_dic[current_mode], self.start_time, self.stop_time
@@ -1224,16 +1221,15 @@ This section is for Ride-Through test
 """
 
 
-class VoltageRideThrough(HilModel):
-    def __init__(self):
+class VoltageRideThrough(HilModel, EutParameters,DataLogging):
+    def __init__(self,ts,support_interfaces):
         EutParameters.__init__(self, ts)
-        HilModel.__init__()
+        HilModel.__init__(self,ts, support_interfaces)
         self._config()
 
     def _config(self):
         self.set_vrt_params()
-        self.set_model_on()
-        self.set_vrt_model_parameters()
+        self.set_vrt_modes()
 
     """
     Setter functions
@@ -1244,18 +1240,11 @@ class VoltageRideThrough(HilModel):
             # RT test parameters
             self.params["lv_mode"] = self.ts.param_value('vrt.lv_ena')
             self.params["hv_mode"] = self.ts.param_value('vrt.hv_ena')
-            # low_pwr_ena = self.ts.param_value('vrt.low_pwr_ena')
-            # high_pwr_ena = self.ts.param_value('vrt.high_pwr_ena')
-            # low_pwr_value = self.ts.param_value('vrt.low_pwr_value')
-            # high_pwr_value = self.ts.param_value('vrt.high_pwr_value')
-
-            # consecutive_ena = ts.param_value('vrt.consecutive_ena')
             self.params["categories"] = self.ts.param_value('vrt.cat')
             self.params["range_steps"] = self.ts.param_value('vrt.range_steps')
             self.params["eut_startup_time"] = self.ts.param_value('eut.startup_time')
             self.params["model_name"] = self.hil.rt_lab_model
             self.params["range_steps"] = self.ts.param_value('vrt.range_steps')
-            self.params["test_conditions"] = self.get_test_conditions()
         except Exception as e:
             self.ts.log_error('Incorrect Parameter value : %s' % e)
             raise
@@ -1266,25 +1255,30 @@ class VoltageRideThrough(HilModel):
         parameters = []
 
         self.ts.log_debug(tc)
-        self.vrt_start_time = tc.head(1)["StartTime"].item()
-        self.vrt_stop_time = tc.tail(1)["StopTime"].item()
-        # Add ROCOM only for LVRT CAT II needs rocom
+        self.params["vrt_start_time"] = tc.head(1)["StartTime"].item()
+        self.params["vrt_stop_time"] = tc.tail(1)["StopTime"].item()
+        # Add ROCOM only for LVRT CAT II
         if self.params["lv_mode"] == 'Enabled' and (self.params["categories"] == CAT_2 or self.params["categories"] == 'Both'):
+            parameters.append((mn + '/SM_Source/Waveform_Generator/ROCOM_ENABLE/Value',1))
+            # 0.115 p.u. Volt per second
+            parameters.append((mn + '/SM_Source/Waveform_Generator/ROCOM_VALUE/Value',0.115*self.v_nom))
+            parameters.append((mn + '/SM_Source/Waveform_Generator/ROCOM_INIT/Value',tc.loc["D"]["Voltage"].item()))
             parameters.append((mn + '/SM_Source/Waveform_Generator/ROCOM_START_TIME/Value', tc.loc["E"]["StartTime"].item()))
             parameters.append((mn + '/SM_Source/Waveform_Generator/ROCOM_END_TIME/Value', tc.loc["E"]["StopTime"].item()))
         for index, row in tc.iterrows():
             # Enable needed conditions
-            parameters.append((mn + f'/SM_Source/VRT/VRT_State_Machine/cond_{index}_ena/Value', 1))
+            parameters.append((mn + f'/SM_Source/VRT/VRT_State_Machine/Condition_{index}_Enable/Value', 1))
             # Start time of condition
-            parameters.append((mn + f'/SM_Source/VRT/VRT_State_Machine/condition {index}/Threshold', row["StartTime"].item()))
+            parameters.append((mn + f'/SM_Source/VRT/VRT_State_Machine/Condition_{index}_Time/Threshold', row["StartTime"].item()))
             # Voltage value of condition
-            parameters.append((mn + f'/SM_Source/VRT/VRT_State_Machine/voltage_ph_seq{index}/Value', row["Voltage"].item()))
-        return parameters
+            parameters.append((mn + f'/SM_Source/VRT/VRT_State_Machine/Condition_{index}_Voltage/Value', row["Voltage"].item()))
+        self.params["parameters"] = parameters
     
-    def set_test_conditions(self):
+    def set_test_conditions(self,current_mode):
         t0 = self.params["eut_startup_time"]
         # Table 4 - Category II LVRT
-        if self.params["lv_mode"] == 'Enabled' and (self.params["categories"] == CAT_2 or self.params["categories"] == 'Both'):
+        mra_v_pu = self.MRA["V"]/self.v_nom
+        if CAT_2 in current_mode  and LV in current_mode :
             t1 = t0 + 10
             t2 = t1 + 0.16
             t3 = t1 + 0.32
@@ -1292,7 +1286,7 @@ class VoltageRideThrough(HilModel):
             t5 = t1 + 5
             t6 = t5 + 120.0
             if self.params["range_steps"] == "Figure":
-                voltage = [0.94,0.3-2*self.MRA_V,0.45-2*self.MRA_V,0.65,0.88,0.94]     
+                voltage = [0.94,0.3-2*mra_v_pu,0.45-2*mra_v_pu,0.65,0.88,0.94]     
             elif self.params["range_steps"] == "Random": 
                 voltage = [random.uniform(0.88,1.0),
                 random.uniform(0.0,0.3),
@@ -1300,31 +1294,31 @@ class VoltageRideThrough(HilModel):
                 random.uniform(0.45,0.65),
                 random.uniform(0.65,0.88),
                 random.uniform(0.88,1.0)]     
-            test_condition = pd.DataFrame({'Voltage' :   voltage,
+            test_condition = pd.DataFrame({'Voltage' :   np.array(voltage)*self.v_nom,
                                             'StartTime' : [t0,t1,t2,t3,t4,t5],
                                             'StopTime' : [t1,t2,t3,t4,t5,t6]},
                                             index = ["A","B","C","D","E","F"])
         # Table 5 - Category III LVRT
-        elif self.params["lv_mode"] == 'Enabled' and (self.params["categories"] == CAT_3 or self.params["categories"] == 'Both'):
+        elif CAT_3 in current_mode  and LV in current_mode :
             t1 = t0 + 5
             t2 = t1 + 1
             t3 = t1 + 10
             t4 = t1 + 20
             t5 = t4 + 120
             if self.params["range_steps"] == "Figure":
-                voltage = [0.94,0.05-2*self.MRA_V,0.5,0.7,0.94]     
+                voltage = [0.94,0.05-2*mra_v_pu,0.5,0.7,0.94]     
             elif self.params["range_steps"] == "Random": 
                 voltage = [random.uniform(0.88,1.0),
                 random.uniform(0.0,0.05),
                 random.uniform(0.0,0.5),
                 random.uniform(0.5,0.7),
                 random.uniform(0.88,1.0)]     
-            test_condition = pd.DataFrame({'Voltage' :   voltage,
+            test_condition = pd.DataFrame({'Voltage' :   np.array(voltage)*self.v_nom,
                                             'StartTime' : [t0,t1,t2,t3,t4],
                                             'StopTime' : [t1,t2,t3,t4,t5]},
                                             index = ["A","B","C","D","E"])
         # Table 7 - Category II HVRT
-        elif self.params["hv_mode"] == 'Enabled' and (self.params["categories"] == CAT_3 or self.params["categories"] == 'Both'):
+        elif CAT_2 in current_mode  and HV in current_mode :
             t1 = t0 + 10
             t2 = t1 + 0.2
             t3 = t1 + 0.5
@@ -1338,29 +1332,47 @@ class VoltageRideThrough(HilModel):
                 random.uniform(1.155,1.175),
                 random.uniform(1.13,1.15),
                 random.uniform(1.0,1.1)] 
-            test_condition = pd.DataFrame({'Voltage' :   voltage,
+            test_condition = pd.DataFrame({'Voltage' :   np.array(voltage)*self.v_nom,
                                         'StartTime' : [t0,t1,t2,t3,t4],
                                         'StopTime' : [t1,t2,t3,t4,t5]},
                                         index = ["A","B","C","D","E"])
-        # Table 7 - Category II HVRT
-        elif self.params["hv_mode"] == 'Enabled' and (self.params["categories"] == CAT_3 or self.params["categories"] == 'Both'):
+        # Table 7 - Category III HVRT
+        elif CAT_3 in current_mode  and HV in current_mode :
             t1 = t0 + 5
             t2 = t1 + 12
             t3 = t2 + 120
             if self.params["range_steps"] == "Figure":
-                voltage = [1.0,1.2,1.175,1.15,1.0]     
+                voltage = [1.05,1.2,1.05]     
             elif self.params["range_steps"] == "Random": 
                 voltage = [random.uniform(1.0,1.1),
                 random.uniform(1.18,1.2),
                 random.uniform(1.0,1.1)] 
-            test_condition = pd.DataFrame({'Voltage' :   voltage,
+            test_condition = pd.DataFrame({'Voltage' :   np.array(voltage)*self.v_nom,
                                         'StartTime' : [t0,t1,t2],
                                         'StopTime' : [t1,t2,t3]},
                                         index = ["A","B","C"])
         else :
              self.ts.log_error('No test_condition value')
+             self.ts.log_debug(self.params)
         self.params["test_condition"] = test_condition
+        
+        self.set_vrt_model_parameters()
+
         return test_condition
+
+    def set_vrt_modes(self):
+        modes= []
+        if self.params["lv_mode"] == 'Enabled' and (self.params["categories"] == CAT_2 or self.params["categories"] == 'Both'):
+            modes.append(f"{LV}_{CAT_2}")
+        if self.params["lv_mode"] == 'Enabled' and (self.params["categories"] == CAT_3 or self.params["categories"] == 'Both'):
+            modes.append(f"{LV}_{CAT_3}")
+        if self.params["hv_mode"] == 'Enabled' and (self.params["categories"] == CAT_2 or self.params["categories"] == 'Both'):
+            modes.append(f"{HV}_{CAT_2}")
+        if self.params["hv_mode"] == 'Enabled' and (self.params["categories"] == CAT_3 or self.params["categories"] == 'Both'):
+            modes.append(f"{HV}_{CAT_3}")
+        self.params["modes"] = modes
+        self.ts.log_debug(self.params)
+
 
     """
     Getter functions
@@ -1369,9 +1381,12 @@ class VoltageRideThrough(HilModel):
 
 
     def get_model_parameters(self,current_mode):
-        self.ts.log(f'Getting HIL parameters for {current_mode}')
-        return self.parameters_dic[current_mode],self.vrt_start_time, self.vrt_stop_time 
+        self.ts.log(f"Getting HIL parameters for mode '{current_mode}''")
+        self.set_test_conditions(current_mode)
+        return self.params["parameters"],self.params["vrt_start_time"], self.params["vrt_stop_time"] 
 
+    def get_modes(self):
+        return self.params["modes"]
 
     
 
