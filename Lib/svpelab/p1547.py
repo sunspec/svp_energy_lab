@@ -1235,7 +1235,8 @@ class VoltageRideThrough(HilModel, EutParameters,DataLogging):
         tc = self.params["test_condition"]
         mn = self.params["model_name"]
         parameters = []
-
+        # Enable VRT in the model
+		parameters.append((mn + '/SM_Source/SVP Commands/mode/Value',3))
         self.ts.log_debug(tc)
         self.params["vrt_start_time"] = tc.head(1)["StartTime"].item()
         self.params["vrt_stop_time"] = tc.tail(1)["StopTime"].item()
