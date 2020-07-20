@@ -293,8 +293,6 @@ class DataLogging:
         self.tr = None
         self.initial_value = {}
         self.tr_value = collections.OrderedDict()
-
-
     #def __config__(self):
 
     def set_sc_points(self):
