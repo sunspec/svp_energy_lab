@@ -33,7 +33,6 @@ Questions can be directed to support@sunspec.org
 import os
 from . import device_das_sim
 from . import das
-import script
 
 sim_info = {
     'name': os.path.splitext(os.path.basename(__file__))[0],
@@ -50,33 +49,65 @@ def params(info, group_name=None):
     info.param_add_value(gname('mode'), mode)
     info.param_group(gname(GROUP_NAME), label='%s Parameters' % mode,
                      active=gname('mode'),  active_value=mode)
-    info.param(pname('data_file'), label='Data File (in SVP Files directory)', default='data.csv')
-    info.param(pname('use_timestamp'), label='Use Data File Timestamp', default='Enabled', values=['Enabled',
-                                                                                                   'Disabled'])
-    info.param(pname('at_end'), label='At End of Data', default='Repeat last record', values=['Loop to start',
-                                                                                              'Repeat last record',
-                                                                                              'Return an error'])
+    info.param(pname('Sim_mode'), label='Simulation mode', default='Disabled', values=['Disabled', 'Random'])
+    info.param(pname('sample_interval'), label='Sample Interval (ms)', default=1000, active=pname('Sim_mode'),
+               active_value='Random')
+    info.param(pname('chan_1'), label='Channel 1', default='AC', values=['AC', 'DC', 'Unused'],
+               active=pname('Sim_mode'), active_value='Random')
+    info.param(pname('chan_1_label'), label='Channel 1 Label', default='1', active=pname('chan_1'),
+               active_value=['AC', 'DC'])
+    info.param(pname('chan_2'), label='Channel 2', default='Unused', values=['AC', 'DC', 'Unused'],
+               active=pname('Sim_mode'), active_value='Random')
+    info.param(pname('chan_2_label'), label='Channel 2 Label', default='2', active=pname('chan_2'),
+               active_value=['AC', 'DC'])
+    info.param(pname('chan_3'), label='Channel 3', default='Unused', values=['AC', 'DC', 'Unused'],
+               active=pname('Sim_mode'), active_value='Random')
+    info.param(pname('chan_3_label'), label='Channel 3 Label', default='3', active=pname('chan_3'),
+               active_value=['AC', 'DC'])
 
 GROUP_NAME = 'sim'
 
 
-class DAS(das.DAS):
-    def __init__(self, ts, group_name, points=None, sc_points=None):
-        das.DAS.__init__(self, ts, group_name, points=points, sc_points=sc_points)
-        data_file = self._param_value('data_file')
-        if data_file and data_file != 'None':
-            data_file = os.path.join(self.files_dir, data_file)
-        self.params['points'] = self.points
-        self.params['data_file'] = data_file
-        self.params['use_timestamp'] = self._param_value('use_timestamp')
-        self.params['at_end'] = self._param_value('at_end')
-        self.params['ts'] = self.ts
+class DASError(Exception):
+    """
+    Exception to wrap all das generated exceptions.
+    """
+    pass
 
-        self.ts.log('results_dir = %s' % (ts._results_dir))
+
+class DAS(das.DAS):
+    def __init__(self, ts, group_name, points=None, sc_points=None, support_interfaces=None):
+        das.DAS.__init__(self, ts, group_name, points=points, sc_points=sc_points, support_interfaces=support_interfaces)
+        # create channel info for each channel from parameters
+        self.params['Sim_mode'] = self._param_value('Sim_mode')
+        self.params['sample_interval'] = self._param_value('sample_interval')
+        if self.params['Sim_mode'] == 'Random':
+            channels = [None]
+            for i in range(1, 8):
+                chan_type = self._param_value('chan_%d' % (i))
+                chan_label = self._param_value('chan_%d_label' % (i))
+                chan_ratio = self._param_value('chan_%d_i_ratio' % (i))
+                if chan_label == 'None':
+                    chan_label = ''
+                chan = {'type': chan_type, 'points': self.points.get(chan_type), 'label': chan_label, 'ratio': chan_ratio}
+                channels.append(chan)
+
+            self.params['channels'] = channels
+
+            ts.log('In the Report :')
+            ts.log('Voltage = 123')
+            ts.log('Current = 12')
+            ts.log('Active Power (P) = 12345')
+            ts.log('Reactive Power (Q) = 11111')
+            ts.log('Apparent Power (S) = 16609')
+            ts.log('Frequency = 67')
+            ts.log('Power Factor = 0.12')
+            ts.log('unassigned = 9991 (go to device_das_sim.py to add the missing measurement type)')
+        else:
+            raise DASError('You need to select Random as the Simulation mode')
 
         self.device = device_das_sim.Device(self.params)
         self.data_points = self.device.data_points
-
         # initialize soft channel points
         self._init_sc_points()
 
