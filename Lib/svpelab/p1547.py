@@ -155,9 +155,15 @@ class UtilParameters:
         self.curve = 1
         self.filename = None
 
-    def reset_param(self, filename, pwr=1.0, curve=1):
-        self.pwr = pwr
+    def reset_curve(self, curve=1):
         self.curve = curve
+        self.ts.log_debug(f'P1547 Librairy curve has been set {curve}')
+
+    def reset_pwr(self, pwr=1.0):
+        self.pwr = pwr
+        self.ts.log_debug(f'P1547 Librairy power level has been set {round(pwr*100)}%')
+
+    def reset_filename(self, filename):
         self.filename = filename
 
     def set_step_label(self, starting_label=None):
@@ -181,7 +187,7 @@ class UtilParameters:
         if curve == None:
             return self.param
         else:
-            return self.param[curve]
+            return self.param[self.curve]
 
     def get_step_label(self):
         """
@@ -274,6 +280,11 @@ class UtilParameters:
 
         return round(value, 3)
 
+    def get_script_name(self):
+        if self.script_complete_name is None:
+            self.script_complete_name = 'Script name not initialized'
+        return self.script_complete_name
+
 
 class DataLogging:
     def __init__(self, meas_values, x_criteria, y_criteria):
@@ -291,9 +302,17 @@ class DataLogging:
         self.set_sc_points()
         self.set_result_summary_name()
         self.tr = None
+        self.n_tr = None
         self.initial_value = {}
         self.tr_value = collections.OrderedDict()
+        self.current_step_label = None
     #def __config__(self):
+
+    def reset_time_settings(self, tr, number_tr=2):
+        self.tr = tr
+        self.ts.log_debug(f'P1547 Time response has been set to {self.tr} seconds')
+        self.n_tr = number_tr
+        self.ts.log_debug(f'P1547 Number of Time response has been set to {self.n_tr} cycles')
 
     def set_sc_points(self):
         """
@@ -422,7 +441,7 @@ class DataLogging:
         """
         return self.rslt_sum_col_name
 
-    def write_rslt_sum(self, step):
+    def write_rslt_sum(self):
         """
         Combines the analysis results, the step label and the filenamoe to return
         a row that will go in result_summary.csv
@@ -461,8 +480,9 @@ class DataLogging:
                 row_data.append(str(self.tr_value['%s_TR_%s_MIN' % (meas_value, last_iter)]))
                 row_data.append(str(self.tr_value['%s_TR_%s_MAX' % (meas_value, last_iter)]))
 
-        row_data.append(step)
+        row_data.append(self.current_step_label)
         row_data.append(str(self.filename))
+        #self.ts.log_debug(f'rowdata={row_data}')
         row_data_str = ','.join(row_data) + '\n'
 
         return row_data_str
@@ -470,7 +490,7 @@ class DataLogging:
         # except Exception as e:
         #     raise p1547Error('Error in write_rslt_sum() : %s' % (str(e)))
 
-    def start(self, daq, step):
+    def start(self, daq, step_label):
         """
         Sum the EUT reactive power from all phases
         :param daq:         data acquisition object from svpelab library
@@ -481,10 +501,10 @@ class DataLogging:
         #  reliable secure thread or data acquisition timestamp
 
         self.initial_value['timestamp'] = datetime.now()
-
+        self.current_step_label = step_label
         daq.data_sample()
         data = daq.data_capture_read()
-        daq.sc['event'] = step
+        daq.sc['event'] = self.current_step_label
         if isinstance(self.x_criteria, list):
             for xs in self.x_criteria:
                 self.initial_value[xs] = {'x_value': self.get_measurement_total(data=data, type_meas=xs, log=False)}
@@ -501,9 +521,9 @@ class DataLogging:
             daq.sc['%s_MEAS' % self.y_criteria] = self.initial_value[self.y_criteria]['y_value']
         daq.data_sample()
 
-        return self.initial_value
+        #return self.initial_value
 
-    def record_timeresponse(self, daq, tr, step_value, step, n_tr=2, pwr_lvl=1.0, curve=1, x_target=None, y_target=None):
+    def record_timeresponse(self, daq, step_value, pwr_lvl=1.0, curve=1, x_target=None, y_target=None):
         """
         Get the data from a specific time response (tr) corresponding to x and y values returns a dictionary
         but also writes in the soft channels of the DAQ system
@@ -520,13 +540,13 @@ class DataLogging:
 
         x = self.x_criteria
         y = self.y_criteria
-        self.tr = tr
+        #self.tr = tr
 
-        first_tr = self.initial_value['timestamp'] + timedelta(seconds=tr)
+        first_tr = self.initial_value['timestamp'] + timedelta(seconds=self.tr)
         tr_list = [first_tr]
 
-        for i in range(n_tr - 1):
-            tr_list.append(tr_list[i] + timedelta(seconds=tr))
+        for i in range(self.n_tr - 1):
+            tr_list.append(tr_list[i] + timedelta(seconds=self.tr))
             for meas_value in self.meas_values:
                 self.tr_value['%s_TR_%s' % (meas_value, i)] = None
                 if meas_value in x:
@@ -537,7 +557,7 @@ class DataLogging:
                     self.tr_value['%s_TR_%s_MAX' % (meas_value, i)] = None
         tr_iter = 1
         for tr_ in tr_list:
-            self.ts.log_debug(f'tr_={tr_list}')
+            #self.ts.log_debug(f'tr_={tr_list}')
             now = datetime.now()
             if now <= tr_:
                 time_to_sleep = tr_ - datetime.now()
@@ -546,7 +566,7 @@ class DataLogging:
                 self.ts.sleep(time_to_sleep.total_seconds())
             daq.data_sample()  # sample new data
             data = daq.data_capture_read()  # Return dataset created from last data capture
-            daq.sc['EVENT'] = "{0}_TR_{1}".format(step, tr_iter)
+            daq.sc['EVENT'] = "{0}_TR_{1}".format(self.current_step_label, tr_iter)
 
             # update daq.sc values for Y_TARGET, Y_TARGET_MIN, and Y_TARGET_MAX
 
@@ -649,7 +669,7 @@ class CriteriaValidation:
             y_start = 0.0  # only look at 90% of target
             mra_t = 0  # direct 90% evaluation without consideration of MRA(time)
         else:
-            self.ts.log_debug(f'{self.initial_value[y]}')
+            #self.ts.log_debug(f'{self.initial_value[y]}')
             y_start = self.initial_value[y]['y_value']
             #y_start = tr_value['%s_INITIAL' % y]
             mra_t = self.MRA['T'] * duration  # MRA(X) = MRA(time) = 0.01*duration
@@ -657,8 +677,7 @@ class CriteriaValidation:
         y_ss = self.tr_value[f'{y}_TR_TARG_{tr}']
         y_target = self.calculate_open_loop_value(y0=y_start, y_ss=y_ss, duration=duration, tr=tr)  # 90%
         y_meas = self.tr_value[f'{y}_TR_{tr}']
-        self.ts.log_debug('y_target = %s, y_ss [%s], y_start [%s], duration = %s, tr=%s' %
-                           (y_target, y_ss, y_start, duration, tr))
+        self.ts.log_debug(f'y_target = {y_target:.2f}, y_ss [{y_ss:.2f}], y_start [{y_start:.2f}], duration = {duration}, tr={tr}')
 
         if y_start <= y_target:  # increasing values of y
             increasing = True
@@ -702,8 +721,10 @@ class CriteriaValidation:
                 self.tr_value['TR_90_%_PF'] = 'Pass'
             else:
                 self.tr_value['TR_90_%_PF'] = 'Fail'
-            self.ts.log_debug('Transient y_targ = %s, y_min [%s] <= y_meas [%s] <= y_max [%s] = %s'
-                              % (y_target, y_min, y_meas, y_max, self.tr_value['TR_90_%_PF']))
+            display_value_p1 = f'Transient y_targ ={y_target:.2f}, y_min [{y_min:.2f}] <= y_meas'
+            display_value_p2 = f'[{y_meas:.2f}] <= y_max [{y_max:.2f}] = {self.tr_value["TR_90_%_PF"]}'
+
+            self.ts.log_debug(f'{display_value_p1} {display_value_p2}')
 
     def result_accuracy_criteria(self):
 
@@ -716,7 +737,7 @@ class CriteriaValidation:
 
 
                     # pass/fail assessment for the steady-state values
-                    self.ts.log_debug(f'current iter={tr_iter}')
+                    #self.ts.log_debug(f'current iter={tr_iter}')
                     if self.tr_value['%s_TR_%s_MIN' % (y, tr_iter)] <= \
                             self.tr_value['%s_TR_%s' % (y, tr_iter)] <= self.tr_value['%s_TR_%s_MAX' % (y, tr_iter)]:
                         self.tr_value['%s_TR_%s_PF' % (y, tr_iter)] = 'Pass'
@@ -771,8 +792,7 @@ class ImbalanceComponent:
         shall be evaluated.
         '''
         try:
-
-            if imbalance_angle_fix == 'Yes':
+            if imbalance_angle_fix == 'std':
                 # Case A
                 self.mag['case_a'] = [1.07 * self.v_nom, 0.91 * self.v_nom, 0.91 * self.v_nom]
                 self.ang['case_a'] = [0., 120, -120]
@@ -780,7 +800,23 @@ class ImbalanceComponent:
                 self.mag['case_b'] = [0.91 * self.v_nom, 1.07 * self.v_nom, 1.07 * self.v_nom]
                 self.ang['case_b'] = [0., 120.0, -120.0]
                 self.ts.log("Setting test with imbalanced test with FIXED angles/values")
-            elif imbalance_angle_fix == 'No':
+            elif imbalance_angle_fix == 'fix_mag':
+                # Case A
+                self.mag['case_a'] = [1.07 * self.v_nom, 0.91 * self.v_nom, 0.91 * self.v_nom]
+                self.ang['case_a'] = [0., 126.59, -126.59]
+                # Case B
+                self.mag['case_b'] = [0.91 * self.v_nom, 1.07 * self.v_nom, 1.07 * self.v_nom]
+                self.ang['case_b'] = [0., 114.5, -114.5]
+                self.ts.log("Setting test with imbalanced test with NOT FIXED angles/values")
+            elif imbalance_angle_fix == 'fix_ang':
+                # Case A
+                self.mag['case_a'] = [1.08 * self.v_nom, 0.91 * self.v_nom, 0.91 * self.v_nom]
+                self.ang['case_a'] = [0., 120, -120]
+                # Case B
+                self.mag['case_b'] = [0.9 * self.v_nom, 1.08 * self.v_nom, 1.08 * self.v_nom]
+                self.ang['case_a'] = [0., 120, -120]
+                self.ts.log("Setting test with imbalanced test with NOT FIXED angles/values")
+            elif imbalance_angle_fix == 'not_fix':
                 # Case A
                 self.mag['case_a'] = [1.08 * self.v_nom, 0.91 * self.v_nom, 0.91 * self.v_nom]
                 self.ang['case_a'] = [0., 126.59, -126.59]
@@ -794,17 +830,28 @@ class ImbalanceComponent:
             self.ts.log_error('Incorrect Parameter value : %s' % e)
             raise
 
-    def set_grid_asymmetric(self, grid, case):
+    def set_grid_asymmetric(self, grid, case, imbalance_resp='AVG_3PH_RMS'):
         """
         Configure the grid simulator to change the magnitude and angles.
         :param grid:   A gridsim object from the svpelab library
         :param case:   string (case_a or case_b)
         :return: nothing
         """
+        self.ts.log_debug(f'mag={self.mag}')
+        self.ts.log_debug(f'grid={grid}')
+        self.ts.log_debug(f'imbalance_resp={imbalance_resp}')
 
         if grid is not None:
             grid.config_asymmetric_phase_angles(mag=self.mag[case], angle=self.ang[case])
-
+        if imbalance_resp == 'AVG_3PH_RMS':
+            self.ts.log_debug(f'mag={self.mag[case]}')
+            return round(sum(self.mag[case])/3.0,2)
+        elif imbalance_resp is 'INDIVIDUAL_PHASES_VOLTAGES':
+            #TODO TO BE COMPLETED
+            pass
+        elif imbalance_resp is 'POSITIVE_SEQUENCE_VOLTAGES':
+            #TODO to be completed
+            pass
 """
 Section for criteria validation
 """
@@ -862,14 +909,14 @@ class VoltVar(EutParameters, UtilParameters, DataLogging, CriteriaValidation, Im
     """
 
     # Default curve initialization will be 1
-    def __init__(self, ts, imbalance=None):
+    def __init__(self, ts, imbalance=False):
         self.ts = ts
         self.criteria_mode = [True, True, True]
         EutParameters.__init__(self, ts)
         UtilParameters.__init__(self)
         DataLogging.__init__(self, meas_values=['V', 'Q'], x_criteria=['V'], y_criteria=['Q'])
         CriteriaValidation.__init__(self, self.criteria_mode)
-        if imbalance is not None:
+        if imbalance:
             ImbalanceComponent.__init__(self)
         self.pairs = {}
         self.param = [0, 0, 0, 0]
