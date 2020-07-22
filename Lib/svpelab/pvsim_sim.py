@@ -57,16 +57,16 @@ class PVSim(pvsim.PVSim):
         pvsim.PVSim.__init__(self, ts, group_name)
 
     def irradiance_set(self, irradiance=1000):
-        self.ts.log('Setting PV irradiance to %0.1f W/m^2.' % irradiance)
+        self.ts.log('Simulation mode in use, no PV irradiance has been set')
 
     def power_set(self, power):
-        self.ts.log('Setting PV power to %0.1f W.' % power)
+        self.ts.log('Simulation mode in use, no PV power has been set')
 
     def power_on(self):
-        self.ts.log('Powering on PV simulator to give EUT DC power.')
+        self.ts.log('No PV Powering on since in Simulation mode')
 
     def profile_start(self):
-        self.ts.log('Starting PV simulator profile.')
+        self.ts.log('No Starting PV simulator profile since in Simulation mode')
 
 if __name__ == "__main__":
     pass
