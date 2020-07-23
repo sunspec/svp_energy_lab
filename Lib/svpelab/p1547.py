@@ -1272,6 +1272,8 @@ class VoltageRideThrough(HilModel, EutParameters,DataLogging):
             self.params["eut_startup_time"] = self.ts.param_value('eut.startup_time')
             self.params["model_name"] = self.hil.rt_lab_model
             self.params["range_steps"] = self.ts.param_value('vrt.range_steps')
+            self.params["phase_comb"] = self.ts.param_value('vrt.phase_comb')
+
         except Exception as e:
             self.ts.log_error('Incorrect Parameter value : %s' % e)
             raise
@@ -1279,9 +1281,11 @@ class VoltageRideThrough(HilModel, EutParameters,DataLogging):
     def set_vrt_model_parameters(self):
         tc = self.params["test_condition"]
         mn = self.params["model_name"]
+        
         parameters = []
         # Enable VRT mode in the IEEE1547_fast_functions model
         parameters.append((mn + '/SM_Source/SVP Commands/mode/Value',3))
+        parameters.append((mn + '/SM_Source/VRT/VRT_State_Machine/Phase_combination/Value',int(self.params["phase_comb"])))
         self.ts.log_debug(tc)
         self.params["vrt_start_time"] = tc.head(1)["StartTime"].item()
         self.params["vrt_stop_time"] = tc.tail(1)["StopTime"].item()
