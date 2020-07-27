@@ -59,6 +59,10 @@ WFM_CHANNELS = {'Generic': ['TIME', 'AC_V_1', 'AC_V_2', 'AC_V_3', 'AC_I_1', 'AC_
                 'VRT': ['TIME', 'AC_V_1', 'AC_V_2', 'AC_V_3',
                                 'AC_I_1', 'AC_I_2', 'AC_I_3', 
                                 'AC_V_1_TARGET','AC_V_2_TARGET','AC_V_3_TARGET'],
+                'VRT_RMS': ['TIME', 'AC_I1', 'AC_I2', 'AC_I3'
+                                'AC_V1', 'AC_V2', 'AC_V3', 
+                                'AC_P1','AC_P2','AC_P3',
+                               'AC_Q1','AC_Q2','AC_Q3', 'Trigger'],
                 }
 
 

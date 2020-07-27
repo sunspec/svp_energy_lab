@@ -1273,6 +1273,7 @@ class VoltageRideThrough(HilModel, EutParameters,DataLogging):
             self.params["model_name"] = self.hil.rt_lab_model
             self.params["range_steps"] = self.ts.param_value('vrt.range_steps')
             self.params["phase_comb"] = self.ts.param_value('vrt.phase_comb')
+            self.params["dataset"] = self.ts.param_value('vrt.dataset_type')
 
         except Exception as e:
             self.ts.log_error('Incorrect Parameter value : %s' % e)
@@ -1410,8 +1411,12 @@ class VoltageRideThrough(HilModel, EutParameters,DataLogging):
         mn = self.params["model_name"]
         pre_trigger = param["pre_trigger"]
         post_trigger = param["post_trigger"]
-        parameters.append((mn + '/SM_Source/VRT/VRT_Trigger_Start/Threshold',pre_trigger))
-        parameters.append((mn + '/SM_Source/VRT/VRT_Trigger_End/Threshold',post_trigger))
+        if self.params["model_name"] == "WAVEFORM":
+            parameters.append((mn + '/SM_Source/VRT/Waveform/VRT_Trigger_Start/Threshold',pre_trigger))
+            parameters.append((mn + '/SM_Source/VRT/Waveform/VRT_Trigger_End/Threshold',post_trigger))
+        if self.params["model_name"] == "RMS":
+            parameters.append((mn + '/SM_Source/VRT/RMS/VRT_Trigger_Start/Threshold',pre_trigger))
+            parameters.append((mn + '/SM_Source/VRT/RMS/VRT_Trigger_End/Threshold',post_trigger))
         self.hil.set_parameters(parameters)
         
 
