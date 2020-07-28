@@ -1411,10 +1411,10 @@ class VoltageRideThrough(HilModel, EutParameters,DataLogging):
         mn = self.params["model_name"]
         pre_trigger = param["pre_trigger"]
         post_trigger = param["post_trigger"]
-        if self.params["model_name"] == "WAVEFORM":
+        if self.params["dataset"] == "WAVEFORM":
             parameters.append((mn + '/SM_Source/VRT/Waveform/VRT_Trigger_Start/Threshold',pre_trigger))
             parameters.append((mn + '/SM_Source/VRT/Waveform/VRT_Trigger_End/Threshold',post_trigger))
-        if self.params["model_name"] == "RMS":
+        if self.params["dataset"] == "RMS":
             parameters.append((mn + '/SM_Source/VRT/RMS/VRT_Trigger_Start/Threshold',pre_trigger))
             parameters.append((mn + '/SM_Source/VRT/RMS/VRT_Trigger_End/Threshold',post_trigger))
         self.hil.set_parameters(parameters)
