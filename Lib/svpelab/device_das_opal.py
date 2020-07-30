@@ -14,7 +14,7 @@ import sys
 import glob, os
 
 try:
-    sys.path.insert(0, "C://OPAL-RT//RT-LAB//2019.1//common//python")
+    sys.path.insert(0, "C://OPAL-RT//RT-LAB//2020.1//common//python")
     import RtlabApi
 except Exception as e:
     print(('Opal RT-Lab API not installed. %s' % e))
@@ -58,11 +58,13 @@ WFM_CHANNELS = {'Generic': ['TIME', 'AC_V_1', 'AC_V_2', 'AC_V_3', 'AC_I_1', 'AC_
                                  'Total_RMS_Current', 'Time_Below_80pct_Current', 'Time_Phase_Misalignment'],
                 'VRT': ['TIME', 'AC_V_1', 'AC_V_2', 'AC_V_3',
                                 'AC_I_1', 'AC_I_2', 'AC_I_3', 
-                                'AC_V_1_TARGET','AC_V_2_TARGET','AC_V_3_TARGET'],
-                'VRT_RMS': ['TIME', 'AC_I1', 'AC_I2', 'AC_I3',
-                                'AC_V1', 'AC_V2', 'AC_V3', 
-                                'AC_P1','AC_P2','AC_P3',
-                               'AC_Q1','AC_Q2','AC_Q3', 'Trigger'],
+                                'AC_V_1_TARGET', 'AC_V_2_TARGET', 'AC_V_3_TARGET'],
+                'VRT_RMS': ['TIME',
+                            'AC_I_1', 'AC_I_2', 'AC_I_3',
+                            'AC_V_1', 'AC_V_2', 'AC_V_3',
+                            'AC_P_1', 'AC_P_2', 'AC_P_3',
+                            'AC_Q_1', 'AC_Q_2', 'AC_Q_3',
+                            'Trigger'],
                 }
 
 
@@ -237,7 +239,7 @@ class Device(object):
             'AC_PF_2': self.model_name + '/SM_Source/Signal_conditionning/AC_PF_2/port1(2)',
             'AC_PF_3': self.model_name + '/SM_Source/Signal_conditionning/AC_PF_3/port1(2)', 
          
-            # TODO : As some point this will be read it from HIL
+            # TODO : At some point this will be read from HIL
             'DC_V': None,
             'DC_I': None,
             'DC_P': None}

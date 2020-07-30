@@ -37,7 +37,7 @@ from time import sleep
 # import numpy as np
 
 try:
-    sys.path.insert(0, "C://OPAL-RT//RT-LAB//2019.1//common//python")
+    sys.path.insert(0, "C://OPAL-RT//RT-LAB//2020.1//common//python")
     import RtlabApi
     import OpalApiPy
 except ImportError as e:

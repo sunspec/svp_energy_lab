@@ -43,6 +43,7 @@ import collections
 import numpy as np
 import pandas as pd
 import random
+
 # import sys
 # import os
 # import glob
@@ -75,9 +76,12 @@ FULL_NAME = {'V': 'Voltage',
 
 class p1547Error(Exception):
     pass
+
+
 """
 This section is for EUT parameters needed such as V, P, Q, etc.
 """
+
 
 class EutParameters(object):
     def __init__(self, ts):
@@ -107,10 +111,10 @@ class EutParameters(object):
             Time            2 cycles                        N/A                     100 ms < 5 s
             ______________________________________________________________________________________________
             '''
-            self.MRA={
-                'V': 0.01*self.v_nom,
-                'Q': 0.05*ts.param_value('eut.s_rated'),
-                'P': 0.05*ts.param_value('eut.s_rated'),
+            self.MRA = {
+                'V': 0.01 * self.v_nom,
+                'Q': 0.05 * ts.param_value('eut.s_rated'),
+                'P': 0.05 * ts.param_value('eut.s_rated'),
                 'F': 0.01,
                 'T': 0.01
             }
@@ -143,9 +147,11 @@ class EutParameters(object):
             self.ts.log_error('Incorrect Parameter value : %s' % e)
             raise
 
+
 """
 This section is utility function needed to run the scripts such as data acquisition.
 """
+
 
 class UtilParameters:
 
@@ -182,6 +188,7 @@ class UtilParameters:
     """
     Getter functions
     """
+
     def get_params(self, curve=None):
 
         if curve == None:
@@ -298,7 +305,7 @@ class DataLogging:
         self.y_criteria = y_criteria
         self.rslt_sum_col_name = ''
         self.sc_points = {}
-        #self._config()
+        # self._config()
         self.set_sc_points()
         self.set_result_summary_name()
         self.tr = None
@@ -306,7 +313,8 @@ class DataLogging:
         self.initial_value = {}
         self.tr_value = collections.OrderedDict()
         self.current_step_label = None
-    #def __config__(self):
+
+    # def __config__(self):
 
     def reset_time_settings(self, tr, number_tr=2):
         self.tr = tr
@@ -352,7 +360,6 @@ class DataLogging:
         ys = self.y_criteria
         row_data = []
 
-
         # Time response criteria will take last placed value of Y variables
         if self.criteria_mode[0]:  # transient response pass/fail
             row_data.append('90%_BY_TR=1')
@@ -360,7 +367,6 @@ class DataLogging:
             row_data.append('WITHIN_BOUNDS_BY_TR=1')
         if self.criteria_mode[2]:  # steady-state accuracy
             row_data.append('WITHIN_BOUNDS_BY_LAST_TR')
-
 
         for meas_value in self.meas_values:
             row_data.append('%s_MEAS' % meas_value)
@@ -392,12 +398,12 @@ class DataLogging:
         y_title = []
         y2_title = []
 
-        #y_points = '%s_TARGET,%s_MEAS' % (y, y)
-        #y2_points = '%s_TARGET,%s_MEAS' % (y2, y2)
+        # y_points = '%s_TARGET,%s_MEAS' % (y, y)
+        # y2_points = '%s_TARGET,%s_MEAS' % (y2, y2)
 
         for y in y_variables:
             self.ts.log_debug('y_temp: %s' % y)
-            #y_temp = self.get_measurement_label('%s' % y)
+            # y_temp = self.get_measurement_label('%s' % y)
             y_temp = '{}'.format(','.join(str(x) for x in self.get_measurement_label('%s' % y)))
             y_title.append(FULL_NAME[y])
             y_points.append(y_temp)
@@ -459,7 +465,6 @@ class DataLogging:
         last_iter = self.tr_value['LAST_ITER']
         row_data = []
 
-
         # Time response criteria will take last placed value of Y variables
         if self.criteria_mode[0]:
             row_data.append(str(self.tr_value['TR_90_%_PF']))
@@ -482,7 +487,7 @@ class DataLogging:
 
         row_data.append(self.current_step_label)
         row_data.append(str(self.filename))
-        #self.ts.log_debug(f'rowdata={row_data}')
+        # self.ts.log_debug(f'rowdata={row_data}')
         row_data_str = ','.join(row_data) + '\n'
 
         return row_data_str
@@ -510,18 +515,20 @@ class DataLogging:
                 self.initial_value[xs] = {'x_value': self.get_measurement_total(data=data, type_meas=xs, log=False)}
                 daq.sc['%s_MEAS' % xs] = self.initial_value[xs]['x_value']
         else:
-            self.initial_value[self.x_criteria] = {'x_value': self.get_measurement_total(data=data, type_meas=self.x_criteria, log=False)}
+            self.initial_value[self.x_criteria] = {
+                'x_value': self.get_measurement_total(data=data, type_meas=self.x_criteria, log=False)}
             daq.sc['%s_MEAS' % self.x_criteria] = self.initial_value[self.x_criteria]['x_value']
         if isinstance(self.y_criteria, list):
             for ys in self.y_criteria:
                 self.initial_value[ys] = {'y_value': self.get_measurement_total(data=data, type_meas=ys, log=False)}
                 daq.sc['%s_MEAS' % ys] = self.initial_value[ys]["y_value"]
         else:
-            self.initial_value[self.y_criteria] = {'y_value': self.get_measurement_total(data=data, type_meas=self.y_criteria, log=False)}
+            self.initial_value[self.y_criteria] = {
+                'y_value': self.get_measurement_total(data=data, type_meas=self.y_criteria, log=False)}
             daq.sc['%s_MEAS' % self.y_criteria] = self.initial_value[self.y_criteria]['y_value']
         daq.data_sample()
 
-        #return self.initial_value
+        # return self.initial_value
 
     def record_timeresponse(self, daq, step_value, pwr_lvl=1.0, curve=1, x_target=None, y_target=None):
         """
@@ -540,7 +547,7 @@ class DataLogging:
 
         x = self.x_criteria
         y = self.y_criteria
-        #self.tr = tr
+        # self.tr = tr
 
         first_tr = self.initial_value['timestamp'] + timedelta(seconds=self.tr)
         tr_list = [first_tr]
@@ -557,7 +564,7 @@ class DataLogging:
                     self.tr_value['%s_TR_%s_MAX' % (meas_value, i)] = None
         tr_iter = 1
         for tr_ in tr_list:
-            #self.ts.log_debug(f'tr_={tr_list}')
+            # self.ts.log_debug(f'tr_={tr_list}')
             now = datetime.now()
             if now <= tr_:
                 time_to_sleep = tr_ - datetime.now()
@@ -589,12 +596,12 @@ class DataLogging:
                         self.tr_value[f'{meas_value}_TR_{tr_iter}_MIN'] = daq.sc['%s_TARGET_MIN' % meas_value]
                         self.tr_value[f'{meas_value}_TR_{tr_iter}_MAX'] = daq.sc['%s_TARGET_MAX' % meas_value]
                         self.ts.log('Y Value (%s) = %s. Pass/fail bounds = [%s, %s]' %
-                                     (meas_value, daq.sc['%s_MEAS' % meas_value],
-                                      daq.sc['%s_TARGET_MIN' % meas_value], daq.sc['%s_TARGET_MAX' % meas_value]))
+                                    (meas_value, daq.sc['%s_MEAS' % meas_value],
+                                     daq.sc['%s_TARGET_MIN' % meas_value], daq.sc['%s_TARGET_MAX' % meas_value]))
                 except Exception as e:
                     self.ts.log_debug('Measured value (%s) not recorded: %s' % (meas_value, e))
 
-            #self.tr_value[tr_iter]["timestamp"] = tr_
+            # self.tr_value[tr_iter]["timestamp"] = tr_
             self.tr_value[f'timestamp_{tr_iter}'] = tr_
             self.tr_value['LAST_ITER'] = tr_iter
             tr_iter = tr_iter + 1
@@ -669,32 +676,33 @@ class CriteriaValidation:
             y_start = 0.0  # only look at 90% of target
             mra_t = 0  # direct 90% evaluation without consideration of MRA(time)
         else:
-            #self.ts.log_debug(f'{self.initial_value[y]}')
+            # self.ts.log_debug(f'{self.initial_value[y]}')
             y_start = self.initial_value[y]['y_value']
-            #y_start = tr_value['%s_INITIAL' % y]
+            # y_start = tr_value['%s_INITIAL' % y]
             mra_t = self.MRA['T'] * duration  # MRA(X) = MRA(time) = 0.01*duration
 
         y_ss = self.tr_value[f'{y}_TR_TARG_{tr}']
         y_target = self.calculate_open_loop_value(y0=y_start, y_ss=y_ss, duration=duration, tr=tr)  # 90%
         y_meas = self.tr_value[f'{y}_TR_{tr}']
-        self.ts.log_debug(f'y_target = {y_target:.2f}, y_ss [{y_ss:.2f}], y_start [{y_start:.2f}], duration = {duration}, tr={tr}')
+        self.ts.log_debug(
+            f'y_target = {y_target:.2f}, y_ss [{y_ss:.2f}], y_start [{y_start:.2f}], duration = {duration}, tr={tr}')
 
         if y_start <= y_target:  # increasing values of y
             increasing = True
             # Y(time) = open loop curve, so locate the Y(time) value on the curve
             y_min = self.calculate_open_loop_value(y0=y_start, y_ss=y_ss,
-                                             duration=duration - 1.5 * mra_t, tr=tr) - 1.5 * mra_y
+                                                   duration=duration - 1.5 * mra_t, tr=tr) - 1.5 * mra_y
             # Determine maximum value based on the open loop response expectation
             y_max = self.calculate_open_loop_value(y0=y_start, y_ss=y_ss,
-                                             duration=duration + 1.5 * mra_t, tr=tr) + 1.5 * mra_y
+                                                   duration=duration + 1.5 * mra_t, tr=tr) + 1.5 * mra_y
         else:  # decreasing values of y
             increasing = False
             # Y(time) = open loop curve, so locate the Y(time) value on the curve
             y_min = self.calculate_open_loop_value(y0=y_start, y_ss=y_ss,
-                                             duration=duration + 1.5 * mra_t, tr=tr) - 1.5 * mra_y
+                                                   duration=duration + 1.5 * mra_t, tr=tr) - 1.5 * mra_y
             # Determine maximum value based on the open loop response expectation
             y_max = self.calculate_open_loop_value(y0=y_start, y_ss=y_ss,
-                                             duration=duration - 1.5 * mra_t, tr=tr) + 1.5 * mra_y
+                                                   duration=duration - 1.5 * mra_t, tr=tr) + 1.5 * mra_y
 
         # pass/fail applied to the open loop time response
         if self.script_name == CRP:  # 1-sided analysis
@@ -730,14 +738,13 @@ class CriteriaValidation:
 
         # Note: Note sure where criteria_mode[1] (SS accuracy after 1 Tr) is used in IEEE 1547.1
         for y in self.y_criteria:
-            for tr_iter in range(self.tr_value['FIRST_ITER'], self.tr_value['LAST_ITER']+1):
+            for tr_iter in range(self.tr_value['FIRST_ITER'], self.tr_value['LAST_ITER'] + 1):
 
                 if (self.tr_value['FIRST_ITER'] == tr_iter and self.criteria_mode[1]) or \
                         (self.tr_value['LAST_ITER'] == tr_iter and self.criteria_mode[2]):
 
-
                     # pass/fail assessment for the steady-state values
-                    #self.ts.log_debug(f'current iter={tr_iter}')
+                    # self.ts.log_debug(f'current iter={tr_iter}')
                     if self.tr_value['%s_TR_%s_MIN' % (y, tr_iter)] <= \
                             self.tr_value['%s_TR_%s' % (y, tr_iter)] <= self.tr_value['%s_TR_%s_MAX' % (y, tr_iter)]:
                         self.tr_value['%s_TR_%s_PF' % (y, tr_iter)] = 'Pass'
@@ -825,7 +832,7 @@ class ImbalanceComponent:
                 self.ang['case_b'] = [0., 114.5, -114.5]
                 self.ts.log("Setting test with imbalanced test with NOT FIXED angles/values")
 
-            #return (self.mag, self.ang)
+            # return (self.mag, self.ang)
         except Exception as e:
             self.ts.log_error('Incorrect Parameter value : %s' % e)
             raise
@@ -845,13 +852,15 @@ class ImbalanceComponent:
             grid.config_asymmetric_phase_angles(mag=self.mag[case], angle=self.ang[case])
         if imbalance_resp == 'AVG_3PH_RMS':
             self.ts.log_debug(f'mag={self.mag[case]}')
-            return round(sum(self.mag[case])/3.0,2)
+            return round(sum(self.mag[case]) / 3.0, 2)
         elif imbalance_resp is 'INDIVIDUAL_PHASES_VOLTAGES':
-            #TODO TO BE COMPLETED
+            # TODO TO BE COMPLETED
             pass
         elif imbalance_resp is 'POSITIVE_SEQUENCE_VOLTAGES':
-            #TODO to be completed
+            # TODO to be completed
             pass
+
+
 """
 Section for criteria validation
 """
@@ -862,6 +871,7 @@ class PassFail:
 """
 Section reserved for HIL model object
 """
+
 
 class HilModel(object):
     def __init__(self, ts, support_interfaces):
@@ -899,9 +909,11 @@ class HilModel(object):
         params["end_time_variable"] = "Tend"
         return params
 
+
 """
 This section is for Voltage stabilization function such as VV, VW, CPF and CRP
 """
+
 
 class VoltVar(EutParameters, UtilParameters, DataLogging, CriteriaValidation, ImbalanceComponent):
     """
@@ -964,7 +976,6 @@ class VoltVar(EutParameters, UtilParameters, DataLogging, CriteriaValidation, Im
         }
 
     def update_target_value(self, value):
-
         x = [self.param[self.curve]['V1'], self.param[self.curve]['V2'],
              self.param[self.curve]['V3'], self.param[self.curve]['V4']]
         y = [self.param[self.curve]['Q1'], self.param[self.curve]['Q2'],
@@ -981,10 +992,12 @@ class VoltVar(EutParameters, UtilParameters, DataLogging, CriteriaValidation, Im
 
         return target_min, target_max
 
+
 class VoltWatt(EutParameters, UtilParameters, DataLogging, ImbalanceComponent):
     """
     param curve: choose curve characterization [1-3] 1 is default
     """
+
     # Default curve initialization will be 1
     def __init__(self, ts, curve=1):
         EutParameters.__init__(self, ts)
@@ -1026,6 +1039,7 @@ class VoltWatt(EutParameters, UtilParameters, DataLogging, ImbalanceComponent):
             'V2': round(1.10 * self.v_nom, 2),
             'P1': round(self.p_rated, 2)
         }
+
 
 class ConstantPowerFactor(EutParameters, UtilParameters, ImbalanceComponent):
     def __init__(self, ts, curve=1):
@@ -1069,6 +1083,7 @@ class ConstantPowerFactor(EutParameters, UtilParameters, ImbalanceComponent):
             'P1': round(self.p_rated, 2)
         }
 
+
 class ConstantReactivePower(EutParameters, UtilParameters, ImbalanceComponent):
     def __init__(self, ts, curve=1):
         EutParameters.__init__(self, ts)
@@ -1111,9 +1126,11 @@ class ConstantReactivePower(EutParameters, UtilParameters, ImbalanceComponent):
             'P1': round(self.p_rated, 2)
         }
 
+
 """
 This section is for 
 """
+
 
 class FrequencyWatt(EutParameters, UtilParameters):
     def __init__(self, ts, curve=1):
@@ -1158,6 +1175,7 @@ class FrequencyWatt(EutParameters, UtilParameters):
             'f_small': p_small * self.f_nom * 0.02
         }
 
+
 class Interoperability(EutParameters, UtilParameters):
     def __init__(self, ts, curve=1):
         EutParameters.__init__(self, ts)
@@ -1199,6 +1217,7 @@ class Interoperability(EutParameters, UtilParameters):
             'V2': round(1.10 * self.v_nom, 2),
             'P1': round(self.p_rated, 2)
         }
+
 
 class WattVar(EutParameters, UtilParameters):
     def __init__(self, ts, curve=1):
@@ -1248,10 +1267,10 @@ This section is for Ride-Through test
 """
 
 
-class VoltageRideThrough(HilModel, EutParameters,DataLogging):
-    def __init__(self,ts,support_interfaces):
+class VoltageRideThrough(HilModel, EutParameters, DataLogging):
+    def __init__(self, ts, support_interfaces):
         EutParameters.__init__(self, ts)
-        HilModel.__init__(self,ts, support_interfaces)
+        HilModel.__init__(self, ts, support_interfaces)
         self._config()
 
     def _config(self):
@@ -1282,36 +1301,47 @@ class VoltageRideThrough(HilModel, EutParameters,DataLogging):
     def set_vrt_model_parameters(self):
         tc = self.params["test_condition"]
         mn = self.params["model_name"]
-        
+
         parameters = []
         # Enable VRT mode in the IEEE1547_fast_functions model
-        parameters.append((mn + '/SM_Source/SVP Commands/mode/Value',3))
-        parameters.append((mn + '/SM_Source/VRT/VRT_State_Machine/Phase_combination/Value',int(self.params["phase_comb"])))
+        parameters.append((mn + '/SM_Source/SVP Commands/mode/Value', 3))
+        parameters.append(
+            (mn + '/SM_Source/VRT/VRT_State_Machine/Phase_combination/Value', int(self.params["phase_comb"])))
         self.ts.log_debug(tc)
         self.params["vrt_start_time"] = tc.head(1)["StartTime"].item()
         self.params["vrt_stop_time"] = tc.tail(1)["StopTime"].item()
         # Add ROCOM only for LVRT CAT II
-        if self.params["lv_mode"] == 'Enabled' and (self.params["categories"] == CAT_2 or self.params["categories"] == 'Both'):
-            parameters.append((mn + '/SM_Source/Waveform_Generator/ROCOM_ENABLE/Value',1))
+        if self.params["lv_mode"] == 'Enabled' and (
+                self.params["categories"] == CAT_2 or self.params["categories"] == 'Both'):
+            parameters.append((mn + '/SM_Source/Waveform_Generator/ROCOM_ENABLE/Value', 1))
             # 0.115 p.u. Volt per second
-            parameters.append((mn + '/SM_Source/Waveform_Generator/ROCOM_VALUE/Value',0.115*self.v_nom))
-            parameters.append((mn + '/SM_Source/Waveform_Generator/ROCOM_INIT/Value',tc.loc["D"]["Voltage"].item()))
-            parameters.append((mn + '/SM_Source/Waveform_Generator/ROCOM_START_TIME/Value', tc.loc["E"]["StartTime"].item()))
-            parameters.append((mn + '/SM_Source/Waveform_Generator/ROCOM_END_TIME/Value', tc.loc["E"]["StopTime"].item()))
+            parameters.append((mn + '/SM_Source/Waveform_Generator/ROCOM_VALUE/Value', 0.115 * self.v_nom))
+            parameters.append((mn + '/SM_Source/Waveform_Generator/ROCOM_INIT/Value', tc.loc["D"]["Voltage"].item()))
+            parameters.append(
+                (mn + '/SM_Source/Waveform_Generator/ROCOM_START_TIME/Value', tc.loc["E"]["StartTime"].item()))
+            parameters.append(
+                (mn + '/SM_Source/Waveform_Generator/ROCOM_END_TIME/Value', tc.loc["E"]["StopTime"].item()))
+
+        # reset simulation steps  -- should be cleaned up
+        for index in ['A', 'B', 'C', 'D', 'E', 'F']:
+            parameters.append((mn + f'/SM_Source/VRT/VRT_State_Machine/Condition_{index}_Enable/Value', 0))
+
         for index, row in tc.iterrows():
             # Enable needed conditions
             parameters.append((mn + f'/SM_Source/VRT/VRT_State_Machine/Condition_{index}_Enable/Value', 1))
             # Start time of condition
-            parameters.append((mn + f'/SM_Source/VRT/VRT_State_Machine/Condition_{index}_Time/Threshold', row["StartTime"].item()))
+            parameters.append(
+                (mn + f'/SM_Source/VRT/VRT_State_Machine/Condition_{index}_Time/Threshold', row["StartTime"].item()))
             # Voltage value of condition
-            parameters.append((mn + f'/SM_Source/VRT/VRT_State_Machine/Condition_{index}_Voltage/Value', row["Voltage"].item()))
+            parameters.append(
+                (mn + f'/SM_Source/VRT/VRT_State_Machine/Condition_{index}_Voltage/Value', row["Voltage"].item()))
         self.params["parameters"] = parameters
-    
-    def set_test_conditions(self,current_mode):
+
+    def set_test_conditions(self, current_mode):
         t0 = self.params["eut_startup_time"]
         # Table 4 - Category II LVRT
-        mra_v_pu = self.MRA["V"]/self.v_nom
-        if CAT_2 in current_mode  and LV in current_mode :
+        mra_v_pu = self.MRA["V"] / self.v_nom
+        if CAT_2 in current_mode and LV in current_mode:
             t1 = t0 + 10
             t2 = t1 + 0.16
             t3 = t1 + 0.32
@@ -1319,122 +1349,122 @@ class VoltageRideThrough(HilModel, EutParameters,DataLogging):
             t5 = t1 + 5
             t6 = t5 + 120.0
             if self.params["range_steps"] == "Figure":
-                voltage = [0.94,0.3-2*mra_v_pu,0.45-2*mra_v_pu,0.65,0.88,0.94]     
-            elif self.params["range_steps"] == "Random": 
-                voltage = [random.uniform(0.88,1.0),
-                random.uniform(0.0,0.3),
-                random.uniform(0.0,0.45),
-                random.uniform(0.45,0.65),
-                random.uniform(0.65,0.88),
-                random.uniform(0.88,1.0)]     
-            test_condition = pd.DataFrame({'Voltage' :   np.array(voltage)*self.v_nom,
-                                            'StartTime' : [t0,t1,t2,t3,t4,t5],
-                                            'StopTime' : [t1,t2,t3,t4,t5,t6]},
-                                            index = ["A","B","C","D","E","F"])
+                voltage = [0.94, 0.3 - 2 * mra_v_pu, 0.45 - 2 * mra_v_pu, 0.65, 0.88, 0.94]
+            elif self.params["range_steps"] == "Random":
+                voltage = [random.uniform(0.88, 1.0),
+                           random.uniform(0.0, 0.3),
+                           random.uniform(0.0, 0.45),
+                           random.uniform(0.45, 0.65),
+                           random.uniform(0.65, 0.88),
+                           random.uniform(0.88, 1.0)]
+            test_condition = pd.DataFrame({'Voltage': np.array(voltage) * self.v_nom,
+                                           'StartTime': [t0, t1, t2, t3, t4, t5],
+                                           'StopTime': [t1, t2, t3, t4, t5, t6]},
+                                          index=["A", "B", "C", "D", "E", "F"])
         # Table 5 - Category III LVRT
-        elif CAT_3 in current_mode  and LV in current_mode :
+        elif CAT_3 in current_mode and LV in current_mode:
             t1 = t0 + 5
             t2 = t1 + 1
             t3 = t1 + 10
             t4 = t1 + 20
             t5 = t4 + 120
             if self.params["range_steps"] == "Figure":
-                voltage = [0.94,0.05-2*mra_v_pu,0.5,0.7,0.94]     
-            elif self.params["range_steps"] == "Random": 
-                voltage = [random.uniform(0.88,1.0),
-                random.uniform(0.0,0.05),
-                random.uniform(0.0,0.5),
-                random.uniform(0.5,0.7),
-                random.uniform(0.88,1.0)]     
-            test_condition = pd.DataFrame({'Voltage' :   np.array(voltage)*self.v_nom,
-                                            'StartTime' : [t0,t1,t2,t3,t4],
-                                            'StopTime' : [t1,t2,t3,t4,t5]},
-                                            index = ["A","B","C","D","E"])
+                voltage = [0.94, 0.05 - 2 * mra_v_pu, 0.47, 0.67, 0.94]
+            elif self.params["range_steps"] == "Random":
+                voltage = [random.uniform(0.88, 1.0),
+                           random.uniform(0.0, 0.05),
+                           random.uniform(0.0, 0.5),
+                           random.uniform(0.5, 0.7),
+                           random.uniform(0.88, 1.0)]
+            test_condition = pd.DataFrame({'Voltage': np.array(voltage) * self.v_nom,
+                                           'StartTime': [t0, t1, t2, t3, t4],
+                                           'StopTime': [t1, t2, t3, t4, t5]},
+                                          index=["A", "B", "C", "D", "E"])
         # Table 7 - Category II HVRT
-        elif CAT_2 in current_mode  and HV in current_mode :
+        elif CAT_2 in current_mode and HV in current_mode:
             t1 = t0 + 10
             t2 = t1 + 0.2
             t3 = t1 + 0.5
             t4 = t1 + 1.0
             t5 = t4 + 120
             if self.params["range_steps"] == "Figure":
-                voltage = [1.0,1.2,1.175,1.15,1.0]     
-            elif self.params["range_steps"] == "Random": 
-                voltage = [random.uniform(1.0,1.1),
-                random.uniform(1.18,1.2),
-                random.uniform(1.155,1.175),
-                random.uniform(1.13,1.15),
-                random.uniform(1.0,1.1)] 
-            test_condition = pd.DataFrame({'Voltage' :   np.array(voltage)*self.v_nom,
-                                        'StartTime' : [t0,t1,t2,t3,t4],
-                                        'StopTime' : [t1,t2,t3,t4,t5]},
-                                        index = ["A","B","C","D","E"])
+                voltage = [1.0, 1.2, 1.175, 1.15, 1.0]
+            elif self.params["range_steps"] == "Random":
+                voltage = [random.uniform(1.0, 1.1),
+                           random.uniform(1.18, 1.2),
+                           random.uniform(1.155, 1.175),
+                           random.uniform(1.13, 1.15),
+                           random.uniform(1.0, 1.1)]
+            test_condition = pd.DataFrame({'Voltage': np.array(voltage) * self.v_nom,
+                                           'StartTime': [t0, t1, t2, t3, t4],
+                                           'StopTime': [t1, t2, t3, t4, t5]},
+                                          index=["A", "B", "C", "D", "E"])
         # Table 7 - Category III HVRT
-        elif CAT_3 in current_mode  and HV in current_mode :
+        elif CAT_3 in current_mode and HV in current_mode:
             t1 = t0 + 5
             t2 = t1 + 12
             t3 = t2 + 120
             if self.params["range_steps"] == "Figure":
-                voltage = [1.05,1.2,1.05]     
-            elif self.params["range_steps"] == "Random": 
-                voltage = [random.uniform(1.0,1.1),
-                random.uniform(1.18,1.2),
-                random.uniform(1.0,1.1)] 
-            test_condition = pd.DataFrame({'Voltage' :   np.array(voltage)*self.v_nom,
-                                        'StartTime' : [t0,t1,t2],
-                                        'StopTime' : [t1,t2,t3]},
-                                        index = ["A","B","C"])
-        else :
-             self.ts.log_error('No test_condition value')
-             self.ts.log_debug(self.params)
+                voltage = [1.05, 1.2, 1.05]
+            elif self.params["range_steps"] == "Random":
+                voltage = [random.uniform(1.0, 1.1),
+                           random.uniform(1.18, 1.2),
+                           random.uniform(1.0, 1.1)]
+            test_condition = pd.DataFrame({'Voltage': np.array(voltage) * self.v_nom,
+                                           'StartTime': [t0, t1, t2],
+                                           'StopTime': [t1, t2, t3]},
+                                          index=["A", "B", "C"])
+        else:
+            self.ts.log_error('No test_condition value')
+            self.ts.log_debug(self.params)
         self.params["test_condition"] = test_condition
-        
+
         self.set_vrt_model_parameters()
 
         return test_condition
 
     def set_vrt_modes(self):
-        modes= []
-        if self.params["lv_mode"] == 'Enabled' and (self.params["categories"] == CAT_2 or self.params["categories"] == 'Both'):
+        modes = []
+        if self.params["lv_mode"] == 'Enabled' and (
+                self.params["categories"] == CAT_2 or self.params["categories"] == 'Both'):
             modes.append(f"{LV}_{CAT_2}")
-        if self.params["lv_mode"] == 'Enabled' and (self.params["categories"] == CAT_3 or self.params["categories"] == 'Both'):
+        if self.params["lv_mode"] == 'Enabled' and (
+                self.params["categories"] == CAT_3 or self.params["categories"] == 'Both'):
             modes.append(f"{LV}_{CAT_3}")
-        if self.params["hv_mode"] == 'Enabled' and (self.params["categories"] == CAT_2 or self.params["categories"] == 'Both'):
+        if self.params["hv_mode"] == 'Enabled' and (
+                self.params["categories"] == CAT_2 or self.params["categories"] == 'Both'):
             modes.append(f"{HV}_{CAT_2}")
-        if self.params["hv_mode"] == 'Enabled' and (self.params["categories"] == CAT_3 or self.params["categories"] == 'Both'):
+        if self.params["hv_mode"] == 'Enabled' and (
+                self.params["categories"] == CAT_3 or self.params["categories"] == 'Both'):
             modes.append(f"{HV}_{CAT_3}")
         self.params["modes"] = modes
         self.ts.log_debug(self.params)
-    
-    def waveform_config(self, param):  
+
+    def waveform_config(self, param):
         parameters = []
         mn = self.params["model_name"]
         pre_trigger = param["pre_trigger"]
         post_trigger = param["post_trigger"]
         if self.params["dataset"] == "WAVEFORM":
-            parameters.append((mn + '/SM_Source/VRT/Waveform/VRT_Trigger_Start/Threshold',pre_trigger))
-            parameters.append((mn + '/SM_Source/VRT/Waveform/VRT_Trigger_End/Threshold',post_trigger))
+            parameters.append((mn + '/SM_Source/VRT/Waveform/VRT_Trigger_Start/Threshold', pre_trigger))
+            parameters.append((mn + '/SM_Source/VRT/Waveform/VRT_Trigger_End/Threshold', post_trigger))
         if self.params["dataset"] == "RMS":
-            parameters.append((mn + '/SM_Source/VRT/RMS/VRT_Trigger_Start/Threshold',pre_trigger))
-            parameters.append((mn + '/SM_Source/VRT/RMS/VRT_Trigger_End/Threshold',post_trigger))
+            parameters.append((mn + '/SM_Source/VRT/RMS/VRT_Trigger_Start/Threshold', pre_trigger))
+            parameters.append((mn + '/SM_Source/VRT/RMS/VRT_Trigger_End/Threshold', post_trigger))
         self.hil.set_parameters(parameters)
-        
 
     """
     Getter functions
     """
-    
 
-
-    def get_model_parameters(self,current_mode):
+    def get_model_parameters(self, current_mode):
         self.ts.log(f"Getting HIL parameters for mode '{current_mode}''")
         self.set_test_conditions(current_mode)
-        return self.params["parameters"],self.params["vrt_start_time"], self.params["vrt_stop_time"] 
+        return self.params["parameters"], self.params["vrt_start_time"], self.params["vrt_stop_time"]
 
     def get_modes(self):
         return self.params["modes"]
 
-    
 
 class FrequencyRideThrough(HilModel):
     def __init__(self):
@@ -1516,4 +1546,3 @@ class FrequencyRideThrough(HilModel):
 
 if __name__ == "__main__":
     pass
-

@@ -54,6 +54,9 @@ def params(info, group_name):
 
 GROUP_NAME = 'dnp3'
 
+false = False  # Don't remove - required for eval of read_outstation data
+true = True  # Don't remove - required for eval of read_outstation data
+null = None  # Don't remove - required for eval of read_outstation data
 
 class DER1547(der1547.DER1547):
 
@@ -94,7 +97,6 @@ class DER1547(der1547.DER1547):
                     # This currently runs in Python 2.7
                     os.system(r'start cmd /k C:\Python27\python.exe "' + self.param_value('path_to_py') + '"')
                     self.ts.sleep(1)
-
 
                 try:
                     # connect to DER Simulator app for control
@@ -225,41 +227,133 @@ class DER1547(der1547.DER1547):
     def info(self):
         return 'DNP3 der1547 instantiation.'
 
-    def get_nameplate(self):
-        '''
-        This information is indicative of the as-built characteristics of the DER.
-        This information may be read
-        '''
-        agent = dnp3_agent.AgentClient(self.ipaddr, self.ipport)
-        agent.connect(self.ipaddr, self.ipport)
-        nameplate_pts = nameplate_data.copy()
-        nameplate_sprt_pts = nameplate_support.copy()
+    def get_dnp3_point_map(self, map_dict):
+        """
+        Translates a DNP3 mapping dict into a point map dict
 
+        :param map_dict: point map in the following format
+            monitoring_data = {'mn_active_power': {'ai': {'537': None}},
+                               'mn_reactive_power': {'ai': {'541': None}},
+                               'mn_voltage': {'ai': {'547': None}},
+                               'mn_frequency': {'ai': {'536': None}},
+                               'mn_operational_state_of_charge': {'ai': {'48': None}}}
+
+        :return: points dictionary of format: {'ai': {'PT1': None, 'PT2': None}, 'bi': {'PT3': None}} for the read func.
+        """
         points = {'ai': {}, 'bi': {}}
-        false = False  # Don't remove - required for eval of read_outstation data
-        true = True  # Don't remove - required for eval of read_outstation data
-        null = None   # Don't remove - required for eval of read_outstation data
-        for key, values in list(nameplate_pts.items()):
-            key1 = list(values.keys())  # (ai and np_support...)
-            val1 = list(values.values())  # (points for ai and '{'bi': {'31': None}}' for bi)
-            for i in val1:
-                key2 = list(i.keys())  # (index for ai points and 'bi' for rest)
-                val2 = list(i.values())
-                for x in key1:
-                    for y in key2:
-                        if x == 'ai':
-                            points['ai'][y] = None
 
-        for key, values in list(nameplate_sprt_pts.items()):
-            keys1 = list(values.keys())  # (ai and np_support...)
-            val = list(values.values())  # (points for ai and '{'bi': {'31': None}}' for bi)
+        # self.ts.log_debug('map_dict.items(): %s' % map_dict.items())
+        for key, values in list(map_dict.items()):
+            keys1 = list(values.keys())
+            val = list(values.values())
             for i in val:
-                keys2 = list(i.keys())  # (index for ai points and 'bi' for rest)
-                val2 = list(i.values())
+                keys2 = list(i.keys())
                 for x in keys1:
                     for y in keys2:
-                        if x == 'bi':
+                        if x == 'ai':
+                            points['ai'][y] = None
+                        elif x == 'bi':
                             points['bi'][y] = None
+        return points
+
+    def set_dnp3_point_map(self, map_dict, exclude_list=None, include_list=None):
+        """
+        Translates a DNP3 mapping dict into a point map dict for writing to the outstation. Either exclude_list or
+        include_list should be None.
+
+        :param map_dict: point map in the following format
+            fixed_pf_write = {'pf_enable': {'bo': {'28': None}},
+                              'pf': {'ao': {'210': None}},
+                              'pf_excitation': {'bo': {'10': None}}}
+        :param exclude_list: list of parameters that should not be written in the map_dict
+        :param include_list: list of parameters that should only be written in the map_dict
+        :return: points dictionary of format: {'ai': {'PT1': None, 'PT2': None}, 'bi': {'PT3': None}} for the read func.
+        """
+        if exclude_list is None:
+            exclude_list = []
+        if include_list is None:
+            include_list = []
+
+        points = {'ao': {}, 'bo': {}}
+        point_name = []
+        pt_value = []
+
+        self.ts.log_debug('WRITE map_dict.items(): %s' % map_dict.items())
+        for key, value in list(map_dict.items()):
+            point_name.append(key)
+            pt_value.append(value)
+
+        for x in range(0, len(point_name)):
+            if exclude_list is not None:
+                if point_name[x] not in exclude_list:
+                    key = list(fixed_pf_pts[point_name[x]].keys())
+                    val = list(fixed_pf_pts[point_name[x]].values())
+                    for i in key:
+                        for j in val:
+                            key2 = list(j.keys())
+                            for y in key2:
+                                points[i][y] = pt_value[x]
+
+            if include_list is not None:
+                if point_name[x] in include_list:
+                    key = list(fixed_pf_pts[point_name[x]].keys())
+                    val = list(fixed_pf_pts[point_name[x]].values())
+                    for i in key:
+                        for j in val:
+                            key2 = list(j.keys())
+                            for y in key2:
+                                points[i][y] = pt_value[x]
+
+        return points
+
+    def get_nameplate(self):
+        """
+        Get Nameplate information - See IEEE 1547-2018 Table 28
+        ______________________________________________________________________________________________________________
+        Parameter                                               params dict key                         Units
+        ______________________________________________________________________________________________________________
+        Active power rating at unity power factor               np_p_max                                kW
+            (nameplate active power rating)
+        Active power rating at specified over-excited           np_p_max_over_pf                        kW
+            power factor
+        Specified over-excited power factor                     np_over_pf                              Decimal
+        Active power rating at specified under-excited          np_p_max_under_pf                       kW
+            power factor
+        Specified under-excited power factor                    np_under_pf                             Decimal
+        Apparent power maximum rating                           np_va_max                               kVA
+        Normal operating performance category                   np_normal_op_cat                        str
+            e.g., CAT_A-CAT_B
+        Abnormal operating performance category                 np_abnormal_op_cat                      str
+            e.g., CAT_II-CAT_III
+        Intentional Island  Category (optional)                 np_intentional_island_cat               str
+            e.g., UNCAT-INT_ISLAND_CAP-BLACK_START-ISOCH
+        Reactive power injected maximum rating                  np_q_max_inj                            kVAr
+        Reactive power absorbed maximum rating                  np_q_max_abs                            kVAr
+        Active power charge maximum rating                      np_p_max_charge                         kW
+        Apparent power charge maximum rating                    np_apparent_power_charge_max            KVA
+        AC voltage nominal rating                               np_ac_v_nom                             Vac
+        AC voltage maximum rating                               np_ac_v_max_er_max                      Vac
+        AC voltage minimum rating                               np_ac_v_min_er_min                      Vac
+        Supported control mode functions                        np_supported_modes (dict)               str list
+            e.g., ['CONST_PF', 'QV', 'QP', 'PV', 'PF']
+        Reactive susceptance that remains connected to          np_reactive_susceptance                 Siemens
+            the Area EPS in the cease to energize and trip
+            state
+        Maximum resistance (R) between RPA and POC.             np_remote_meter_resistance              Ohms
+            (unsupported in 1547)
+        Maximum reactance (X) between RPA and POC.              np_remote_meter_reactance               Ohms
+            (unsupported in 1547)
+        Manufacturer                                            np_manufacturer                         str
+        Model                                                   np_model                                str
+        Serial number                                           np_serial_num                           str
+        Version                                                 np_fw_ver                               str
+
+        :return: dict with keys shown above.
+        """
+        agent = dnp3_agent.AgentClient(self.ipaddr, self.ipport)
+        agent.connect(self.ipaddr, self.ipport)
+        nameplate_pts = {**nameplate_data.copy(), **nameplate_support.copy()}
+        points = self.get_dnp3_point_map(nameplate_pts)
 
         # self.ts.log_debug('self.status(): %s' % self.status())
         # self.ts.log_debug('self.oid=%s, self.rid=%s, points=%s' % (self.oid, self.rid, points))
@@ -269,107 +363,188 @@ class DER1547(der1547.DER1547):
         res = eval(nameplate_read[1:-1])
         if 'params' in list(res.keys()):
             resp = res['params']
-            nameplate_pts['np_active_power_rtg'] = resp['ai']['4']['value']
-            nameplate_pts['np_active_power_rtg_over_excited'] = resp['ai']['6']['value']
-            nameplate_pts['np_over_excited_pf'] = resp['ai']['8']['value']
-            nameplate_pts['np_active_power_rtg_under_excited'] = resp['ai']['9']['value']
-            nameplate_pts['np_under_excited_pf'] = resp['ai']['11']['value']
-            nameplate_pts['np_apparent_power_max_rtg'] = resp['ai']['14']['value']
-            nameplate_pts['np_normal_op_category'] = resp['ai']['22']['value']
-            nameplate_pts['np_abnormal_op_category'] = resp['ai']['23']['value']
-            nameplate_pts['np_reactive_power_inj_max_rtg'] = resp['ai']['12']['value']
-            nameplate_pts['np_reactive_power_abs_max_rtg'] = resp['ai']['13']['value']
-            nameplate_pts['np_active_power_chg_max_rtg'] = resp['ai']['5']['value']
-            nameplate_pts['np_apparent_power_chg_max_rtg'] = resp['ai']['15']['value']
-            nameplate_pts['np_ac_volt_nom_rtg'] = resp['ai']['29']['value']
-            nameplate_pts['np_ac_volt_min_rtg'] = resp['ai']['2']['value']
-            nameplate_pts['np_ac_volt_max_rtg'] = resp['ai']['3']['value']
+            nameplate_pts['np_p_max'] = resp['ai']['4']['value']  # W
+            if nameplate_pts['np_p_max'] is not None:
+                nameplate_pts['np_p_max'] /= 1000.  # kW
+            nameplate_pts['np_p_max_over_pf'] = resp['ai']['6']['value']  # W
+            if nameplate_pts['np_p_max_over_pf'] is not None:
+                nameplate_pts['np_p_max_over_pf'] /= 1000.  # kW
+            nameplate_pts['np_over_pf'] = resp['ai']['8']['value']  # Decimal
+            nameplate_pts['np_p_max_under_pf'] = resp['ai']['9']['value']  # W
+            if nameplate_pts['np_p_max_under_pf'] is not None:
+                nameplate_pts['np_p_max_under_pf'] /= 1000.  # kW
+            nameplate_pts['np_under_pf'] = resp['ai']['11']['value']  # Decimal
+            nameplate_pts['np_va_max'] = resp['ai']['14']['value']  # VA
+            if nameplate_pts['np_va_max'] is not None:
+                nameplate_pts['np_va_max'] /= 1000.  # kVA
+            nameplate_pts['np_normal_op_cat'] = resp['ai']['22']['value']  # str
+            nameplate_pts['np_abnormal_op_cat'] = resp['ai']['23']['value']  # str
+            nameplate_pts['np_intentional_island_cat'] = None  # str
+            nameplate_pts['np_q_max_inj'] = resp['ai']['12']['value']  # VAr
+            if nameplate_pts['np_q_max_inj'] is not None:
+                nameplate_pts['np_q_max_inj'] /= 1000.  # kVAr
+            nameplate_pts['np_q_max_abs'] = resp['ai']['13']['value']  # VAr
+            if nameplate_pts['np_q_max_abs'] is not None:
+                nameplate_pts['np_q_max_abs'] /= 1000.  # kVAr
+            nameplate_pts['np_p_max_charge'] = resp['ai']['5']['value']  # W
+            if nameplate_pts['np_p_max_charge'] is not None:
+                nameplate_pts['np_p_max_charge'] /= 1000.  # kW
+            nameplate_pts['np_apparent_power_charge_max'] = resp['ai']['15']['value']  # VA
+            if nameplate_pts['np_apparent_power_charge_max'] is not None:
+                nameplate_pts['np_apparent_power_charge_max'] /= 1000.  # kVA
+            nameplate_pts['np_ac_v_nom'] = resp['ai']['29']['value']  # Vac
+            nameplate_pts['np_ac_v_min_er_min'] = resp['ai']['2']['value']  # Vac
+            nameplate_pts['np_ac_v_max_er_max'] = resp['ai']['3']['value']  # Vac
+            nameplate_pts['np_supported_modes'] = []  # str list
+
+            nameplate_pts['np_supported_modes'] = {}
+            # BI31 - Supports Low/High Voltage Ride-Through Mode
+            nameplate_pts['np_supported_modes']['UV'] = resp['bi']['31']['value']
+            nameplate_pts['np_supported_modes']['OV'] = resp['bi']['31']['value']
+            # BI32 - Supports Low/High Frequency Ride-Through Mode
+            nameplate_pts['np_supported_modes']['OF'] = resp['bi']['32']['value']
+            nameplate_pts['np_supported_modes']['UF'] = resp['bi']['32']['value']
+            # BI33 - Supports Dynamic Reactive Current Support Mode
+            nameplate_pts['np_supported_modes']['np_support_dynamic_reactive_current'] = resp['bi']['33']['value']
+            # BI34 - Supports Dynamic Volt-Watt Mode
+            nameplate_pts['np_supported_modes']['np_support_dynamic_volt_watt'] = resp['bi']['34']['value']
+            # BI35 - Supports Frequency-Watt Mode
+            nameplate_pts['np_supported_modes']['np_support_freq_watt'] = resp['bi']['35']['value']
+            # BI36 - Supports Active Power Limit Mode
+            nameplate_pts['np_supported_modes']['P_LIM'] = resp['bi']['36']['value']
+            # BI37 - Supports Charge/Discharge Mode
+            nameplate_pts['np_supported_modes']['np_support_chg_dischg'] = resp['bi']['37']['value']
+            # BI38 - Supports Coordinated Charge/Discharge Mode
+            nameplate_pts['np_supported_modes']['np_support_coordinated_chg_dischg'] = resp['bi']['38']['value']
+            # BI39 - Supports Active Power Response Mode #1
+            nameplate_pts['np_supported_modes']['np_support_active_pwr_response_1'] = resp['bi']['39']['value']
+            # BI40 - Supports Active Power Response Mode #2
+            nameplate_pts['np_supported_modes']['np_support_active_pwr_response_2'] = resp['bi']['40']['value']
+            # BI41 - Supports Active Power Response Mode #3
+            nameplate_pts['np_supported_modes']['np_support_active_pwr_response_3'] = resp['bi']['41']['value']
+            # BI42 - Supports Automatic Generation Control Mode
+            nameplate_pts['np_supported_modes']['np_support_automation_generation_control'] = resp['bi']['42']['value']
+            # BI43 - Supports Active Power Smoothing Mode
+            nameplate_pts['np_supported_modes']['np_support_active_pwr_smoothing'] = resp['bi']['43']['value']
+            # BI44 - Supports Volt-Watt Mode
+            nameplate_pts['np_supported_modes']['PV'] = resp['bi']['44']['value']
+            # BI45 - Supports Frequency-Watt Curve Mode
+            nameplate_pts['np_supported_modes']['PF'] = resp['bi']['45']['value']
+            # BI46 - Supports Constant VArs Mode
+            nameplate_pts['np_supported_modes']['CONST_Q'] = resp['bi']['46']['value']
+            # BI47 - Supports Fixed Power Factor Mode
+            nameplate_pts['np_supported_modes']['CONST_PF'] = resp['bi']['47']['value']
+            # BI48 - Supports Volt-VAR Control Mode
+            nameplate_pts['np_supported_modes']['QV'] = resp['bi']['48']['value']
+            # BI49 - Supports Watt-Var Mode
+            nameplate_pts['np_supported_modes']['QP'] = resp['bi']['49']['value']
+            # BI50 - Supports Power Factor Correction Mode
+            nameplate_pts['np_supported_modes']['np_support_pf_correction'] = resp['bi']['50']['value']
+            # BI51 - Supports Pricing Mode
+            nameplate_pts['np_supported_modes']['np_support_pricing'] = resp['bi']['51']['value']
+
             nameplate_pts['np_reactive_susceptance'] = resp['ai']['21']['value']
-            nameplate_pts['np_supported_ctrl_mode_func'] = {}
-            nameplate_pts['np_supported_ctrl_mode_func']['np_support_volt_ride_through'] = resp['bi']['31']['value']
-            nameplate_pts['np_supported_ctrl_mode_func']['np_support_freq_ride_through'] = resp['bi']['32']['value']
-            nameplate_pts['np_supported_ctrl_mode_func']['np_support_dynamic_reactive_current'] = resp['bi']['33']['value']
-            nameplate_pts['np_supported_ctrl_mode_func']['np_support_dynamic_volt_watt'] = resp['bi']['34']['value']
-            nameplate_pts['np_supported_ctrl_mode_func']['np_support_freq_watt'] = resp['bi']['35']['value']
-            nameplate_pts['np_supported_ctrl_mode_func']['np_support_limit_watt'] = resp['bi']['36']['value']
-            nameplate_pts['np_supported_ctrl_mode_func']['np_support_chg_dischg'] = resp['bi']['37']['value']
-            nameplate_pts['np_supported_ctrl_mode_func']['np_support_coordinated_chg_dischg'] = resp['bi']['38']['value']
-            nameplate_pts['np_supported_ctrl_mode_func']['np_support_active_pwr_response_1'] = resp['bi']['39']['value']
-            nameplate_pts['np_supported_ctrl_mode_func']['np_support_active_pwr_response_2'] = resp['bi']['40']['value']
-            nameplate_pts['np_supported_ctrl_mode_func']['np_support_active_pwr_response_3'] = resp['bi']['41']['value']
-            nameplate_pts['np_supported_ctrl_mode_func']['np_support_automation_generation_control'] = resp['bi']['42']['value']
-            nameplate_pts['np_supported_ctrl_mode_func']['np_support_active_pwr_smoothing'] = resp['bi']['43']['value']
-            nameplate_pts['np_supported_ctrl_mode_func']['np_support_volt_watt'] = resp['bi']['44']['value']
-            nameplate_pts['np_supported_ctrl_mode_func']['np_support_freq_watt_curve'] = resp['bi']['45']['value']
-            nameplate_pts['np_supported_ctrl_mode_func']['np_support_constant_vars'] = resp['bi']['46']['value']
-            nameplate_pts['np_supported_ctrl_mode_func']['np_support_fixed_pf'] = resp['bi']['47']['value']
-            nameplate_pts['np_supported_ctrl_mode_func']['np_support_volt_var_control'] = resp['bi']['48']['value']
-            nameplate_pts['np_supported_ctrl_mode_func']['np_support_watt_var'] = resp['bi']['49']['value']
-            nameplate_pts['np_supported_ctrl_mode_func']['np_support_pf_correction'] = resp['bi']['50']['value']
-            nameplate_pts['np_supported_ctrl_mode_func']['np_support_pricing'] = resp['bi']['51']['value']
+            nameplate_pts['np_manufacturer'] = None
+            nameplate_pts['np_model'] = None
+            nameplate_pts['np_serial_num'] = None
+            nameplate_pts['np_fw_ver'] = None
+
         else:
             self.ts.log_warning('Outstation read of nameplate data failed!')
 
         return nameplate_pts
 
+    def get_configuration(self):
+        """
+        Get configuration information
+
+        :return: params dict with keys shown in nameplate.
+        """
+        return self.get_nameplate()
+
+    def set_configuration(self, params=None):
+        """
+        Set configuration information. params are those in get_nameplate().
+        """
+        agent = dnp3_agent.AgentClient(self.ipaddr, self.ipport)
+        agent.connect(self.ipaddr, self.ipport)
+        nameplate_pts = {**nameplate_data.copy(), **nameplate_support.copy()}
+
+        points = self.set_dnp3_point_map(map_dict=nameplate_pts, exclude_list=['pf_enable'])
+        fixed_pf_w1 = agent.write_outstation(self.oid, self.rid, points)
+        res1 = eval(fixed_pf_w1[1:-1])
+
+        points = self.set_dnp3_point_map(map_dict=nameplate_pts, include_list=['pf_enable'])
+        fixed_pf_w2 = agent.write_outstation(self.oid, self.rid, points)
+        res2 = eval(fixed_pf_w2[1:-1])
+
+        res = {'params': {'points': {'ao': {}, 'bo': {}}}}
+        res['params']['points']['ao'] = res1['params']['points']['ao']
+        res['params']['points']['bo']['10'] = res1['params']['points']['bo']['10']
+        res['params']['points']['bo']['28'] = res2['params']['points']['bo']['28']
+
+        if 'params' in list(res.keys()):
+            resp = res['params']['points']
+            if 'bo' in list(resp.keys()):
+                if '28' in resp['bo']:
+                    fixed_pf_pts['pf_enable'] = resp['bo']['28']
+                else:
+                    fixed_pf_pts['pf_enable'] = {'status': 'Not Written'}
+                if '10' in resp['bo']:
+                    fixed_pf_pts['pf_excitation'] = resp['bo']['10']
+                else:
+                    fixed_pf_pts['pf_excitation'] = {'status': 'Not Written'}
+            if 'ao' in list(resp.keys()):
+                if '210' in resp['ao']:
+                    fixed_pf_pts['pf'] = resp['ao']['210']
+                else:
+                    fixed_pf_pts['pf'] = {'status': 'Not Written'}
+
+            res['params']['points'] = fixed_pf_pts
+
+        return res
+
     def get_monitoring(self):
-        '''
+        """
         This information is indicative of the present operating conditions of the
         DER. This information may be read.
-        '''
+
+        ______________________________________________________________________________________________________________
+        Parameter                                                   params dict key                    units
+        ______________________________________________________________________________________________________________
+        Active Power                                                mn_w                               kW
+        Reactive Power                                              mn_var                             kVAr
+        Voltage (list)                                              mn_v                               V-N list
+            Single phase devices: [V]
+            3-phase devices: [V1, V2, V3]
+        Frequency                                                   mn_hz                              Hz
+        Operational State                                           mn_st                              dict of bools
+            True = On: generating, False = Off: capable of
+            communicating but not capable of generating.
+            Additional states may be supported.
+            {'op_state': True, 'optional_state': False, ...}
+        Connection State                                            mn_conn                            bool
+            True = Connected: DER generating
+            False = Disconnected: permit service is disabled
+        Alarm Status                                                mn_alrm                            list str
+            Reported Alarm Status matches the device
+            present alarm condition for alarm and no
+            alarm conditions. For test purposes only, the
+            DER manufacturer shall specify at least one
+            way an alarm condition that is supported in
+            the protocol being tested can be set and
+            cleared.
+        Operational State of Charge (not required in 1547)          mn_soc_pct                         pct
+
+        :return: dict with keys shown above.
+        """
+
         agent = dnp3_agent.AgentClient(self.ipaddr, self.ipport)
         agent.connect(self.ipaddr, self.ipport)
         # Getting dictionaries containing the points to be read
-        monitoring_pts = monitoring_data.copy()
-        operational_pts = operational_state.copy()
-        connection_pts = connection_state.copy()
-        alarm_pts = alarm_state.copy()
-
-        points = {'ai': {}, 'bi': {}}
-        false = False  # Don't remove - required for eval of read_outstation data
-        true = True  # Don't remove - required for eval of read_outstation data
-        null = None   # Don't remove - required for eval of read_outstation data
-        # Creating a points dictionary of format:
-        # {'ai': {'PT1': None, 'PT2': None}, 'bi': {'PT3': None}} for the read func.
-        for key, values in list(monitoring_pts.items()):
-            keys1 = list(values.keys())
-            val = list(values.values())
-            for i in val:
-                keys2 = list(i.keys())
-                for x in keys1:
-                    for y in keys2:
-                        if x == 'ai':
-                            points['ai'][y] = None
-
-        for key, values in list(operational_pts.items()):
-            keys1 = list(values.keys())
-            val = list(values.values())
-            for i in val:
-                keys2 = list(i.keys())
-                for x in keys1:
-                    for y in keys2:
-                        if x == 'bi':
-                            points['bi'][y] = None
-
-        for key, values in list(connection_pts.items()):
-            keys1 = list(values.keys())
-            val = list(values.values())
-            for i in val:
-                keys2 = list(i.keys())
-                for x in keys1:
-                    for y in keys2:
-                        if x == 'bi':
-                            points['bi'][y] = None
-
-        for key, values in list(alarm_pts.items()):
-            keys1 = list(values.keys())
-            val = list(values.values())
-            for i in val:
-                keys2 = list(i.keys())
-                for x in keys1:
-                    for y in keys2:
-                        if x == 'bi':
-                            points['bi'][y] = None
+        monitoring_pts = {**monitoring_data.copy(), **operational_state.copy(),
+                          **connection_state.copy(), **alarm_state.copy()}
+        points = self.get_dnp3_point_map(monitoring_pts)
 
         monitoring_read = agent.read_outstation(self.oid, self.rid, points)
         res = eval(monitoring_read[1:-1])
@@ -409,6 +584,14 @@ class DER1547(der1547.DER1547):
             monitoring_pts['mn_alm']['mn_alm_storage_chg_depleted'] = resp['bi']['7']['value']
             monitoring_pts['mn_alm']['mn_alm_internal_temp_high'] = resp['bi']['8']['value']
             monitoring_pts['mn_alm']['mn_alm_internal_temp_low'] = resp['bi']['9']['value']
+
+            # BI52 - Overvoltage Disconnect Protection Blocked
+            # BI53 - Overvoltage Disconnect Protection Started
+            # BI54 - Overvoltage Disconnect Protection Operated
+            # BI55 – Undervoltage Disconnect Protection Blocked
+            # BI56 – Undervoltage Disconnect Protection Started
+            # BI57 – Undervoltage Disconnect Protection Operated
+            # BI58 - Over Frequency Disconnect Protection Blocked
 
         return monitoring_pts
 
@@ -460,42 +643,16 @@ class DER1547(der1547.DER1547):
         '''
         agent = dnp3_agent.AgentClient(self.ipaddr, self.ipport)
         agent.connect(self.ipaddr, self.ipport)
-        fixed_pf_pts = fixed_pf_write.copy()
-        points = {'ao': {}, 'bo': {}}
-        point_name = []
-        pt_value = []
+        nameplate_pts = {**nameplate_data.copy(), **nameplate_support.copy()}
 
-        for key, value in list(params.items()):
-            point_name.append(key)
-            pt_value.append(value)
-
-        for x in range(0, len(point_name)):
-            if point_name[x] != 'pf_enable':
-                key = list(fixed_pf_pts[point_name[x]].keys())
-                val = list(fixed_pf_pts[point_name[x]].values())
-                for i in key:
-                    for j in val:
-                        key2 = list(j.keys())
-                        for y in key2:
-                            points[i][y] = pt_value[x]
-
+        points = self.set_dnp3_point_map(map_dict=nameplate_pts, exclude_list=['pf_enable'])
         fixed_pf_w1 = agent.write_outstation(self.oid, self.rid, points)
         res1 = eval(fixed_pf_w1[1:-1])
 
-        points_en = {'bo': {}}
-
-        for x in range(0, len(point_name)):
-            if point_name[x] == 'pf_enable':
-                key = list(fixed_pf_pts[point_name[x]].keys())
-                val = list(fixed_pf_pts[point_name[x]].values())
-                for i in key:
-                    for j in val:
-                        key2 = list(j.keys())
-                        for y in key2:
-                            points_en[i][y] = pt_value[x]
-
-        fixed_pf_w2 = agent.write_outstation(self.oid, self.rid, points_en)
+        points = self.set_dnp3_point_map(map_dict=nameplate_pts, include_list=['pf_enable'])
+        fixed_pf_w2 = agent.write_outstation(self.oid, self.rid, points)
         res2 = eval(fixed_pf_w2[1:-1])
+
         res = {'params': {'points': {'ao': {}, 'bo': {}}}}
         res['params']['points']['ao'] = res1['params']['points']['ao']
         res['params']['points']['bo']['10'] = res1['params']['points']['bo']['10']
@@ -897,45 +1054,38 @@ class DER1547(der1547.DER1547):
             if point_name[x] == 'fw_dbof':
                 dbof_val = pt_value[x]
                 dbof_pt = {'ao': {'62': dbof_val, '63': dbof_val}}
+                dbof_w = agent.write_outstation(self.oid, self.rid, dbof_pt)
+                res1 = eval(dbof_w[1:-1])
 
-        for x in range(0, len(point_name)):
             if point_name[x] == 'fw_dbuf':
                 dbuf_val = pt_value[x]
                 dbuf_pt = {'ao': {'66': dbuf_val, '67': dbuf_val}}
+                dbuf_w = agent.write_outstation(self.oid, self.rid, dbuf_pt)
+                res2 = eval(dbuf_w[1:-1])
 
-        for x in range(0, len(point_name)):
             if point_name[x] == 'fw_kof':
                 kof_val = pt_value[x]
                 kof_pt = {'ao': {'64': kof_val, '65': kof_val}}
+                kof_w = agent.write_outstation(self.oid, self.rid, kof_pt)
+                res3 = eval(kof_w[1:-1])
 
-        for x in range(0, len(point_name)):
             if point_name[x] == 'fw_kuf':
                 kuf_val = pt_value[x]
                 kuf_pt = {'ao': {'68': kuf_val, '69': kuf_val}}
+                kuf_w = agent.write_outstation(self.oid, self.rid, kuf_pt)
+                res4 = eval(kuf_w[1:-1])
 
-        for x in range(0, len(point_name)):
             if point_name[x] == 'fw_open_loop_time':
                 time_val = pt_value[x]
                 time_pt = {'ao': {'72': time_val, '73': time_val}}
+                time_w = agent.write_outstation(self.oid, self.rid, time_pt)
+                res5 = eval(time_w[1:-1])
 
-        for x in range(0, len(point_name)):
             if point_name[x] == 'fw_enable':
                 enable_val = pt_value[x]
                 enable_pt = {'bo': {'26': enable_val}}
-
-        dbof_w = agent.write_outstation(self.oid, self.rid, dbof_pt)
-        dbuf_w = agent.write_outstation(self.oid, self.rid, dbuf_pt)
-        kof_w = agent.write_outstation(self.oid, self.rid, kof_pt)
-        kuf_w = agent.write_outstation(self.oid, self.rid, kuf_pt)
-        time_w = agent.write_outstation(self.oid, self.rid, time_pt)
-        enable_w = agent.write_outstation(self.oid, self.rid, enable_pt)
-
-        res1 = eval(dbof_w[1:-1])
-        res2 = eval(dbuf_w[1:-1])
-        res3 = eval(kof_w[1:-1])
-        res4 = eval(kuf_w[1:-1])
-        res5 = eval(time_w[1:-1])
-        res6 = eval(enable_w[1:-1])
+                enable_w = agent.write_outstation(self.oid, self.rid, enable_pt)
+                res6 = eval(enable_w[1:-1])
 
         res = {'params': {'points': {'ao': {}, 'bo': {}}}}
         res['params']['points']['ao']['62'] = res1['params']['points']['ao']['62']
@@ -1014,7 +1164,7 @@ class DER1547(der1547.DER1547):
 
         return res
 
-    def set_limit_max_power(self, params=None):
+    def set_p_lim(self, params=None):
         '''
         This information is used to update functional and mode settings for the
         Limit Maximum Active Power Mode. This information may be written.
@@ -1641,7 +1791,44 @@ class DER1547(der1547.DER1547):
         return res
 
 
-""" Dictionaries for different der1547_dnp3 methods """
+""" ************** Dictionaries for different der1547_dnp3 methods **************** """
+
+'''
+DNP3 App Note Table 63 - Mapping of IEC Std 1547 to The DNP3 DER Profile
+
+Category: Nameplate Information (Energy)
+____________________________________________________________________________________________________________
+Information                                 Units               Output(s)           Input(s)
+____________________________________________________________________________________________________________
+Active Power Rating at Unity Power Factor   Watts               n/a                 AI4
+Active Power Rating at Specified            Watts               n/a                 AI6 - AI7
+Over-excited Power Factor
+Specified Over-excited Power Factor         Unitless            n/a                 AI8
+Active Power Rating at Specified            Watts               n/a                 AI9 - AI10
+Underexcited Power Factor 
+Specified Under-excited Power Factor        Unitless            n/a                 AI11
+Reactive Power Injected Maximum Rating      VArs                n/a                 AI12
+Reactive Power Absorbed Maximum Rating      VArs                n/a                 AI13
+Active Power Charge Maximum Rating          Watts               n/a                 AI5
+Apparent Power Charge Maximum Rating        VA                  n/a                 AI15
+Storage Actual Capacity                     Wh                  n/a                 AI16
+
+Category: Nameplate Information (RMS)
+AC Voltage Nominal Rating                   RMS Volts           n/a                 AI29 - AI30
+AC Voltage Maximum Rating                   RMS Volts           n/a                 AI3
+AC Voltage Minimum Rating                   RMS Volts           n/a                 AI2
+AC Current Maximum Rating                   RMS Amperes         n/a                 AI19 - AI20
+
+Category: Namplate Information (other)
+Supported Control Mode Functions            List of Yes/No      n/a                 BI31 - BI51
+Normal operating performance category       A/B                 n/a                 AI22
+Abnormal operating performance category     I/II/III            n/a                 AI23
+Reactive Susceptance that remains connected Siemens             n/a                 AI21
+Manufacturer                                Text                n/a                 Refer to 2.4.1
+Model                                       Text                n/a                 Refer to 2.4.1
+Serial Number                               Text                n/a                 Refer to 2.4.1
+Version                                     Text                n/a                 Refer to 2.4.1
+'''
 
 nameplate_data = {'np_active_power_rtg': {'ai': {'4': None}},
                   'np_active_power_rtg_over_excited': {'ai': {'6': None}},
@@ -1682,6 +1869,23 @@ nameplate_support = {'np_support_volt_ride_through': {'bi': {'31': None}},
                      'np_support_pf_correction': {'bi': {'50': None}},
                      'np_support_pricing': {'bi': {'51': None}}}
 
+'''
+DNP3 App Note Table 63 - Mapping of IEC Std 1547 to The DNP3 DER Profile
+
+Category: Monitored Information
+____________________________________________________________________________________________________________
+Information                                 Units               Output(s)           Input(s)
+____________________________________________________________________________________________________________
+Active Power                                Watts               n/a                 AI537
+Reactive Power                              VArs                n/a                 AI541
+Voltage                                     Volts               n/a                 AI547 - AI553
+Current                                     Amps                n/a                 AI554 - AI556
+Frequency                                   Hz                  n/a                 AI536
+Operational State / Connection Status       On/Off/others…      n/a                 BI10 - BI24
+Alarm Status                                Alarm / No-Alarm    n/a                 BI0 - BI9
+Operational State of Charge                 Percent             n/a                 AI48
+'''
+
 monitoring_data = {'mn_active_power': {'ai': {'537': None}},
                    'mn_reactive_power': {'ai': {'541': None}},
                    'mn_voltage': {'ai': {'547': None}},
@@ -1716,6 +1920,18 @@ alarm_state = {'mn_alm_system_comm_error': {'bi': {'0': None}},
                'mn_alm_internal_temp_high': {'bi': {'8': None}},
                'mn_alm_internal_temp_low': {'bi': {'9': None}}}
 
+'''
+DNP3 App Note Table 63 - Mapping of IEC Std 1547 to The DNP3 DER Profile
+
+Category: Constant Power Factor Mode
+____________________________________________________________________________________________________________
+Information                                 Units               Output(s)           Input(s)
+____________________________________________________________________________________________________________
+Constant Power Factor Enable                On/Off              BO28                BI80
+Constant Power Factor                       Unitless            AO210 - AO211       AI288 - AI289
+Constant Power Factor Excitation            Over/Under          BO10 - BO11         BI29 - BI30
+'''
+
 fixed_pf = {'pf_enable': {'bi': {'80': None}},
             'pf': {'ai': {'288': None}},
             'pf_excitation': {'bi': {'29': None}}}
@@ -1723,6 +1939,21 @@ fixed_pf = {'pf_enable': {'bi': {'80': None}},
 fixed_pf_write = {'pf_enable': {'bo': {'28': None}},
                   'pf': {'ao': {'210': None}},
                   'pf_excitation': {'bo': {'10': None}}}
+
+'''
+DNP3 App Note Table 63 - Mapping of IEC Std 1547 to The DNP3 DER Profile
+
+Category: Volt-VAr Mode 
+____________________________________________________________________________________________________________
+Information                                 Units               Output(s)           Input(s)
+____________________________________________________________________________________________________________
+Voltage-Reactive Power (Volt-VAr) Enable    On/Off              BO29                BI81
+VRef (Reference Voltage)                    Volts               AO0 - AO1           AI29 - AI30
+Autonomous VRef Adjustment Enable           On/Off              BO41                BI93
+VRef Adjustment Time Constant               Seconds             AO220               AI300
+V/Q Curve Points (x,y)                      Volts, VArs         AO217, AO244-AO448  AI303
+Open Loop Response Time                     Seconds             AO218 - AO219       AI298 - AI299
+'''
 
 volt_var_data = {'vv_enable': {'bi': {'81': None}},
                  'vv_vref': {'ai': {'29': None}},
@@ -1737,11 +1968,37 @@ volt_var_curve = {'vv_enable': {'bo': {'29': None}},
                   'vv_vref_time': {'ao': {'220': None}},
                   'vv_open_loop_time': {'ao': {'218': None}}}
 
+'''
+DNP3 App Note Table 63 - Mapping of IEC Std 1547 to The DNP3 DER Profile
+
+Category: Constant VAr Mode
+____________________________________________________________________________________________________________
+Information                                 Units               Output(s)           Input(s)
+____________________________________________________________________________________________________________
+Constant Reactive Power Mode Enable         On/Off              BO27                BI79
+Constant Reactive Power                     VArs                AO203               AI281
+'''
+
 reactive_power_data = {'var_enable': {'bi': {'79': None}},
                        'var': {'ai': {'281': None}}}
 
 reactive_power_write = {'var_enable': {'bo': {'27': None}},
                         'var': {'ao': {'203': None}}}
+
+'''
+DNP3 App Note Table 63 - Mapping of IEC Std 1547 to The DNP3 DER Profile
+
+Category: Frequency Droop (Frequency-Watt)
+____________________________________________________________________________________________________________
+Information                                 Units               Output(s)           Input(s)
+____________________________________________________________________________________________________________
+Over-frequency Droop Deadband DBOF          Hz                  AO62 - AO63         AI121 - AI122
+Under-frequency Droop Deadband DBUF         Hz                  AO66 - AO67         AI125 - AI126
+Over-frequency Droop Slope KOF Watts per    Hz                  AO64 - AO65         AI123 - AI124
+Under-frequency Droop Slope KUF Watts per   Hz                  AO68 - AO69         AI127 - AI128
+Open Loop Response Time                     Seconds             AO72 - AO73         AI131 - AI132
+
+'''
 
 freq_watt_data = {'fw_dbof': {'ai': {'121': None}},
                   'fw_dbuf': {'ai': {'125': None}},
@@ -1749,11 +2006,40 @@ freq_watt_data = {'fw_dbof': {'ai': {'121': None}},
                   'fw_kuf': {'ai': {'127': None}},
                   'fw_open_loop_time': {'ai': {'131': None}}}
 
+'''
+DNP3 App Note Table 63 - Mapping of IEC Std 1547 to The DNP3 DER Profile
+
+Category: Active Power 
+____________________________________________________________________________________________________________
+Information                                 Units               Output(s)           Input(s)
+____________________________________________________________________________________________________________
+Limit Active Power Enable                   On/Off              BO17                BI69
+Limit Mode Maximum Active Power             Watts               AO87 - AO88         AI148 - AI149
+'''
+
 limit_max_power_data = {'watt_enable': {'bi': {'69': None}},
                         'watt': {'ai': {'149': None}}}
 
 limit_max_power_write = {'watt_enable': {'bo': {'17': None}},
                          'watt': {'ao': {'88': None}}}
+
+
+'''
+DNP3 App Note Table 63 - Mapping of IEC Std 1547 to The DNP3 DER Profile
+
+Category: Enter Service 
+____________________________________________________________________________________________________________
+Information                                 Units               Output(s)           Input(s)
+____________________________________________________________________________________________________________
+Permit service                              Enabled/Disabled    BO3                 BI16
+ES Voltage High                             Percent Nominal     AO6                 AI50
+ES Voltage Low                              Percent Nominal     AO7                 AI51
+ES Frequency High                           Hz                  AO8                 AI52
+ES Frequency Low                            Hz                  AO9                 AI53
+ES Delay                                    Seconds             AO10                AI54
+ES Randomized Delay                         Seconds             AO11                AI55
+ES Ramp Rate                                Seconds             AO12                AI56
+'''
 
 enter_service_data = {'es_permit_service': {'bi': {'16': None}},
                       'es_volt_high': {'ai': {'50': None}},
@@ -1786,3 +2072,60 @@ curve_read = {'curve_edit_selector': {'ai': {'328': None}},
               'y3': {'ai': {'338': None}},
               'x4': {'ai': {'339': None}},
               'y4': {'ai': {'340': None}}}
+
+
+'''
+DNP3 App Note Table 63 - Mapping of IEC Std 1547 to The DNP3 DER Profile
+
+Category: Watt-VAr Mode 
+____________________________________________________________________________________________________________
+Information                                 Units               Output(s)           Input(s)
+____________________________________________________________________________________________________________
+Active Power-Reactive Power (Watt-VAr)      On/Off              BO30                BI82
+Enable
+P/Q Curve Points (x,y)                      Watts, VArs         AO226, AO244-AO448  AI308, AI328-AI532
+'''
+watt_var_data = {'watt_var_enable': {'bi': {'82': None}}}
+
+watt_var_write = {'watt_var_enable': {'bo': {'30': None}}}
+
+'''
+DNP3 App Note Table 63 - Mapping of IEC Std 1547 to The DNP3 DER Profile
+
+Category: Volt-Watt Mode 
+____________________________________________________________________________________________________________
+Information                                 Units               Output(s)           Input(s)
+____________________________________________________________________________________________________________
+Voltage-Active Power Mode Enable            On/Off              BO25                BI77
+V/P Curve Points (x,y)                      Volts, Watts        AO173, AO244-AO44   AI248, AI328 - AI532
+Open Loop Response Time                     Seconds             AO175 - AO176       AI251 - AI252
+'''
+volt_watt_data = {'vw_enable': {'bi': {'177': None}},
+                  'vw_open_loop_time': {'ai': {'251': None}}}
+
+volt_watt_write = {'vw_enable': {'bo': {'25': None}},
+                   'vw_open_loop_time': {'ao': {'175': None}}}
+
+'''
+DNP3 App Note Table 63 - Mapping of IEC Std 1547 to The DNP3 DER Profile
+
+Category: Voltage Trip
+____________________________________________________________________________________________________________
+Information                                 Units               Output(s)           Input(s)
+____________________________________________________________________________________________________________
+HV Trip Curve Points (x,y)                  Seconds, Volts      AO23, AO244-AO448   AI73, AI328 - AI532
+LV Trip Curve Points (x,y)                  Seconds, Volts      AO24, AO244-AO448   AI74, AI328 - AI532
+'''
+
+'''
+DNP3 App Note Table 63 - Mapping of IEC Std 1547 to The DNP3 DER Profile
+
+Category: Momentary Cessation
+____________________________________________________________________________________________________________
+Information                                 Units               Output(s)           Input(s)
+____________________________________________________________________________________________________________
+HV Momentary Cessation Curve Points (x,y)   Seconds, Volts      AO25, AO244-AO448   AI75, AI328 - AI532
+LV Momentary Cessation Curve Points (x,y)   Seconds, Volts      AO26, AO244-AO448   AI76, AI328 - AI532
+Frequency Trip HF Trip Curve Points (x,y)   Seconds, Hz         AO28, AO244-AO448   AI79, AI328 - AI532
+LF Trip Curve Points (x,y)                  Seconds, Hz         AO29, AO244-AO448   AI80, AI328 - AI532
+'''
