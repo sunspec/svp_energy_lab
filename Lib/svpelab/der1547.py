@@ -180,6 +180,42 @@ class DER1547(object):
 
         :return: dict with keys shown above.
         """
+
+        '''
+        Table 28 - Nameplate information
+        ________________________________________________________________________________________________________________
+        Parameter                                               Description
+        ________________________________________________________________________________________________________________
+        1. Active power rating at unity power factor            Active power rating in watts at unity power factor
+           (nameplate active power rating)
+        2. Active power rating at specified over-excited        Active power rating in watts at specified over-excited
+           power factor                                         power factor
+        3. Specified over-excited power factor                  Over-excited power factor as described in 5.2
+        4. Active power rating at specified under-excited       Active power rating in watts at specified under-excited
+           power factor                                         power factor
+        5. Specified under-excited power factor                 Under-excited power factor as described in 5.2
+        6. Apparent power maximum rating                        Maximum apparent power rating in voltamperes
+        7. Normal operating performance category                Indication of reactive power and voltage/power control
+                                                                capability. (Category A/B as described in 1.4)
+        8. Abnormal operating performance category              Indication of voltage and frequency ride-through
+                                                                capability Category I, II, or III, as described in 1.4
+        9. Reactive power injected maximum rating               Maximum injected reactive power rating in vars
+        10. Reactive power absorbed maximum rating              Maximum absorbed reactive power rating in vars
+        11. Active power charge maximum rating                  Maximum active power charge rating in watts
+        12. Apparent power charge maximum rating                Maximum apparent power charge rating in voltamperes. May
+                                                                differ from the apparent power maximum rating
+        13. AC voltage nominal rating                           Nominal AC voltage rating in RMS volts
+        14. AC voltage maximum rating                           Maximum AC voltage rating in RMS volts
+        15. AC voltage minimum rating                           Minimum AC voltage rating in RMS volts
+        16. Supported control mode functions                    Indication of support for each control mode function
+        17. Reactive susceptance that remains connected to      Reactive susceptance that remains connected to the Area
+            the Area EPS in the cease to energize and trip      EPS in the cease to energize and trip state
+            state
+        18. Manufacturer                                        Manufacturer
+        19. Model                                               Model
+        20. Serial number                                       Serial number
+        21. Version                                             Version
+        '''
         pass
 
     def get_configuration(self):
@@ -190,7 +226,7 @@ class DER1547(object):
 
         :return: params dict with keys shown in nameplate.
         """
-        return self.get_nameplate()
+        return None
 
     def set_configuration(self, params=None):
         """
@@ -198,27 +234,57 @@ class DER1547(object):
         """
         pass
 
+    def get_settings(self):
+        """
+        Get configuration information in the 1547 DER. Each rating in Table 28 may have an associated configuration
+        setting that represents the as-configured value. If a configuration setting value is different from the
+        corresponding nameplate value, the configuration setting value shall be used as the rating within the DER.
+
+        :return: params dict with keys shown in nameplate.
+        """
+        return None
+
+    def set_settings(self, params=None):
+        """
+        Set configuration information. params are those in get_nameplate().
+        """
+        return self.set_configuration(params)
+
     def get_monitoring(self):
         """
-        Get DER monitoring information. IEEE 1547-2018 Table 29.
+        This information is indicative of the present operating conditions of the
+        DER. This information may be read.
+
         ______________________________________________________________________________________________________________
         Parameter                                                   params dict key                    units
         ______________________________________________________________________________________________________________
-        Active Power                                                mn_active_power                    kW
-        Reactive Power                                              mn_reactive_power                  kVAr
-        Voltage (list)                                              mn_voltage                         V-N list
+        Active Power                                                mn_w                               kW
+        Reactive Power                                              mn_var                             kVAr
+        Voltage (list)                                              mn_v                               V-N list
             Single phase devices: [V]
             3-phase devices: [V1, V2, V3]
-        Frequency                                                   mn_frequency                       Hz
-        Operational State                                           mn_op                              dict of bools
-            True = On: generating, False = Off: capable of
-            communicating but not capable of generating.
-            Additional states may be supported.
-            {'op_state': True, 'optional_state': False, ...}
-        Connection State                                            mn_conn                            bool
-            True = Connected: DER generating
-            False = Disconnected: permit service is disabled
-        Alarm Status                                                mn_alm                             list str
+        Frequency                                                   mn_hz                              Hz
+
+        Operational State                                           mn_st                              dict of bools
+            {'mn_op_local': System in local/maintenance state
+             'mn_op_lockout': System locked out
+             'mn_op_starting': Start command has been received
+             'mn_op_stopping': Emergency Stop command has been received
+             'mn_op_started': Started
+             'mn_op_stopped': Stopped
+             'mn_op_permission_to_start': Start Permission Granted
+             'mn_op_permission_to_stop': Stop Permission Granted}
+
+        Connection State                                            mn_conn                            dict of bools
+            {'mn_conn_connected_idle': Idle-Connected
+             'mn_conn_connected_generating': On-Connected
+             'mn_conn_connected_charging': On-Charging-Connected
+             'mn_conn_off_available': Off-Available
+             'mn_conn_off_not_available': Off-Not-Available
+             'mn_conn_switch_closed_status': Switch Closed
+             'mn_conn_switch_closed_movement': Switch Moving}
+
+        Alarm Status                                                mn_alrm                            dict of bools
             Reported Alarm Status matches the device
             present alarm condition for alarm and no
             alarm conditions. For test purposes only, the
@@ -226,7 +292,18 @@ class DER1547(object):
             way an alarm condition that is supported in
             the protocol being tested can be set and
             cleared.
-        Operational State of Charge (not required in 1547)          mn_operational_state_of_charge     pct
+            {'mn_alm_system_comm_error': System Communication Error
+             'mn_alm_priority_1': System Has Priority 1 Alarms
+             'mn_alm_priority_2': System Has Priority 2 Alarms
+             'mn_alm_priority_3': System Has Priority 3 Alarms
+             'mn_alm_storage_chg_max': Storage State of Charge at Maximum. Maximum Usable State of Charge reached.
+             'mn_alm_storage_chg_high': Storage State of Charge is Too High. Maximum Reserve reached.
+             'mn_alm_storage_chg_low': Storage State of Charge is Too Low. Minimum Reserve reached.
+             'mn_alm_storage_chg_depleted': Storage State of Charge is Depleted. Minimum Usable State of Charge Reached.
+             'mn_alm_internal_temp_high': Storage Internal Temperature is Too High
+             'mn_alm_internal_temp_low': Storage External (Ambient) Temperature is Too High}
+
+        Operational State of Charge (not required in 1547)          mn_soc_pct                         pct
 
         :return: dict with keys shown above.
         """
@@ -259,7 +336,7 @@ class DER1547(object):
 
         :return: dict with keys shown above.
         """
-        pass
+        return None
 
     def set_const_pf(self, params=None):
         """
@@ -303,7 +380,7 @@ class DER1547(object):
 
         :return: dict with keys shown above.
         """
-        pass
+        return None
 
     def set_qv(self, params=None):
         """
@@ -340,7 +417,7 @@ class DER1547(object):
 
         :return: dict with keys shown above.
         """
-        pass
+        return None
 
     def set_qp(self, params=None):
         """
@@ -375,7 +452,7 @@ class DER1547(object):
 
         :return: dict with keys shown above.
         """
-        pass
+        return None
 
     def set_pv(self, params=None):
         """
@@ -425,9 +502,9 @@ class DER1547(object):
         Parameter                                                   params dict key                 units
         ______________________________________________________________________________________________________________
         Frequency-Active Power Mode Enable                          p_lim_mode_enable_as            bool (True=Enabled)
-        Maximum Active Power Min                                    p_lim_dbof_er_min               P p.u.
-        Maximum Active Power                                        p_lim_dbof_as                   P p.u.
-        Maximum Active Power Max                                    p_lim_dbof_er_max               P p.u.
+        Maximum Active Power Min                                    p_lim_w_er_min               P p.u.
+        Maximum Active Power                                        p_lim_w_as                   P p.u.
+        Maximum Active Power Max                                    p_lim_w_er_max               P p.u.
         """
         pass
 
@@ -702,6 +779,31 @@ class DER1547(object):
 
         """
         return self.set_es_permit_service(params={'es_permit_service_as': params['cease_to_energize']})
+
+    # Additional functions outside of IEEE 1547-2018
+    def get_conn(self):
+        """
+        Get Connection - DER Connect/Disconnect Switch
+        ______________________________________________________________________________________________________________
+        Parameter                                                   params dict key                 units
+        ______________________________________________________________________________________________________________
+        Connect/Disconnect Enable                                   conn_as                     bool (True=Enabled)
+        """
+        pass
+
+    def set_conn(self, params=None):
+        """
+        Set Connection
+        """
+        pass
+
+    def set_error(self, params=None):
+        """
+        Set Error, for testing Monitoring Data in DER
+
+        error_as = set error
+        """
+        pass
 
 
 def der1547_scan():
