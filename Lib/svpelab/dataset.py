@@ -156,6 +156,14 @@ class Dataset(object):
             if len(data) > 0:
                 self.append(data)
         f.close()
+    def remove_none_row(self,filename, index):
+        import pandas as pd
+        import numpy as np
+        df = pd.read_csv(filename)
+        df[index].replace('None', np.nan, inplace=True)
+        df.dropna(subset=[index],inplace=True)
+        df.reset_index(inplace=True,drop=True)
+        df.to_csv(filename,index=False)
 
 
 if __name__ == "__main__":
