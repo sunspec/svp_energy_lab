@@ -1,129 +1,58 @@
 """
-Copyright (c) 2017, Sandia National Laboratories and SunSpec Alliance
-All rights reserved.
+DER1547 methods defined for SMA devices
 
-Redistribution and use in source and binary forms, with or without modification,
-are permitted provided that the following conditions are met:
+Note that this acts as an abstraction for values returned from der_sma.py
 
-Redistributions of source code must retain the above copyright notice, this
-list of conditions and the following disclaimer.
-
-Redistributions in binary form must reproduce the above copyright notice, this
-list of conditions and the following disclaimer in the documentation and/or
-other materials provided with the distribution.
-
-Neither the names of the Sandia National Labs and SunSpec Alliance nor the names of its
-contributors may be used to endorse or promote products derived from
-this software without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
-ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
-ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-Questions can be directed to support@sunspec.org
-
-Acronyms in this document:
- - RofA: Range of Adjustability
- - OLRT: Open Loop Response Time
- - ER: Evaluated Range
- - AS: Applied Setting
-
+It maps the IEEE 1547 names from der1547.py to/from der.py names and uses the methods from
+der_sma.py to perform the read/write actions
 """
 
-import sys
-import os
-import glob
-import importlib
+try:
+    import os
+    from . import der1547
+    from . import der
+    from . import der_sma
+    import subprocess
+    import socket
+except Exception as e:
+    print(('Import problem in der1547_sma.py: %s' % e))
+    raise der1547.DER1547Error('Import problem in der1547_sma.py: %s' % e)
 
-der1547_modules = {}
-
-
-def params(info, id=None, label='DER1547', group_name=None, active=None, active_value=None):
-    """
-    Defining the parameters when der1547 is used in SVP scripts
-    """
-    if group_name is None:
-        group_name = DER1547_DEFAULT_ID
-    else:
-        group_name += '.' + DER1547_DEFAULT_ID
-    if id is not None:
-        group_name = group_name + '_' + str(id)
-    name = lambda name: group_name + '.' + name
-    info.param_group(group_name, label='%s Parameters' % label, active=active, active_value=active_value, glob=True)
-    info.param(name('mode'), label='%s Mode' % label, default='Disabled', values=['Disabled'])
-    for mode, m in list(der1547_modules.items()):
-        m.params(info, group_name=group_name)
+sma_info = der_sma.sma_info
 
 
-DER1547_DEFAULT_ID = 'der1547'
+def der1547_info():
+    return sma_info
 
 
-def der1547_init(ts, id=None, group_name=None):
-    """
-    Function to create specific der1547 implementation instances.
-    """
-    if group_name is None:
-        group_name = DER1547_DEFAULT_ID
-    else:
-        group_name += '.' + DER1547_DEFAULT_ID
-    if id is not None:
-        group_name = group_name + '_' + str(id)
-    print(('run group_name = %s' % group_name))
-    mode = ts.param_value(group_name + '.' + 'mode')
-    sim = None
-    if mode != 'Disabled':
-        sim_module = der1547_modules.get(mode)
-        if sim_module is not None:
-            sim = sim_module.DER1547(ts, group_name)
-        else:
-            raise DER1547Error('Unknown DER1547 system mode: %s' % mode)
-
-    return sim
+def params(info, group_name):
+    der_sma.params(info, group_name)
 
 
-class DER1547Error(Exception):
-    """
-    Exception to wrap all der1547 generated exceptions.
-    """
-    pass
+GROUP_NAME = der_sma.GROUP_NAME
 
 
-class DER1547(object):
-    """
-    Template for grid simulator implementations. This class can be
-    used as a base class or independent grid simulator classes can be
-    created containing the methods contained in this class.
-    """
+class DER1547(der1547.DER1547):
 
     def __init__(self, ts, group_name):
-        self.ts = ts
-        self.group_name = group_name
+        der1547.DER1547.__init__(self, ts, group_name)  # inherit der1547 functions
+        self.sma = der_sma.DER(ts, group_name)  # create DER SMA object to send commands
+        # self.ts.log_debug('self.sma in der1547_sma is %s' % self.sma)
+
+    def param_value(self, name):
+        return self.sma.param_value(name)
 
     def config(self):
-        """ Perform any configuration for the simulation
-        based on the previously provided parameters. """
-        pass
+        return self.sma.config()
 
     def open(self):
-        """ Open the communications resources associated with the DER. """
-        pass
+        return self.sma.open()
 
     def close(self):
-        """ Close any open communications resources associated with the DER. """
-        pass
+        return self.sma.close()
 
     def info(self):
-        """
-        :return: string with information on the IEEE 1547 DER type.
-        """
-        pass
+        return self.sma.info()
 
     def get_nameplate(self):
         """
@@ -149,23 +78,12 @@ class DER1547(object):
         Reactive power injected maximum rating                  np_q_max_inj                            kVAr
         Reactive power absorbed maximum rating                  np_q_max_abs                            kVAr
         Active power charge maximum rating                      np_p_max_charge                         kW
-        Apparent power charge maximum rating                    np_apparent_power_charge_max            kVA
+        Apparent power charge maximum rating                    np_apparent_power_charge_max            KVA
         AC voltage nominal rating                               np_ac_v_nom                             Vac
         AC voltage maximum rating                               np_ac_v_max_er_max                      Vac
         AC voltage minimum rating                               np_ac_v_min_er_min                      Vac
-        Supported control mode functions                        np_supported_modes                      dict
-            e.g., {'CONST_PF': True 'QV': False} with keys:
-            Supports Low Voltage Ride-Through Mode: 'UV'
-            Supports High Voltage Ride-Through Mode: 'OV'
-            Supports Low Freq Ride-Through Mode: 'UF'
-            Supports High Freq Ride-Through Mode: 'OF'
-            Supports Active Power Limit Mode: 'P_LIM'
-            Supports Volt-Watt Mode: 'PV'
-            Supports Frequency-Watt Curve Mode: 'PF'
-            Supports Constant VArs Mode: 'CONST_Q'
-            Supports Fixed Power Factor Mode: 'CONST_PF'
-            Supports Volt-VAr Control Mode: 'QV'
-            Supports Watt-VAr Mode: 'QP'
+        Supported control mode functions                        np_supported_modes (dict)               str list
+            e.g., ['CONST_PF', 'QV', 'QP', 'PV', 'PF']
         Reactive susceptance that remains connected to          np_reactive_susceptance                 Siemens
             the Area EPS in the cease to energize and trip
             state
@@ -181,74 +99,69 @@ class DER1547(object):
         :return: dict with keys shown above.
         """
 
-        '''
-        Table 28 - Nameplate information
-        ________________________________________________________________________________________________________________
-        Parameter                                               Description
-        ________________________________________________________________________________________________________________
-        1. Active power rating at unity power factor            Active power rating in watts at unity power factor
-           (nameplate active power rating)
-        2. Active power rating at specified over-excited        Active power rating in watts at specified over-excited
-           power factor                                         power factor
-        3. Specified over-excited power factor                  Over-excited power factor as described in 5.2
-        4. Active power rating at specified under-excited       Active power rating in watts at specified under-excited
-           power factor                                         power factor
-        5. Specified under-excited power factor                 Under-excited power factor as described in 5.2
-        6. Apparent power maximum rating                        Maximum apparent power rating in voltamperes
-        7. Normal operating performance category                Indication of reactive power and voltage/power control
-                                                                capability. (Category A/B as described in 1.4)
-        8. Abnormal operating performance category              Indication of voltage and frequency ride-through
-                                                                capability Category I, II, or III, as described in 1.4
-        9. Reactive power injected maximum rating               Maximum injected reactive power rating in vars
-        10. Reactive power absorbed maximum rating              Maximum absorbed reactive power rating in vars
-        11. Active power charge maximum rating                  Maximum active power charge rating in watts
-        12. Apparent power charge maximum rating                Maximum apparent power charge rating in voltamperes. May
-                                                                differ from the apparent power maximum rating
-        13. AC voltage nominal rating                           Nominal AC voltage rating in RMS volts
-        14. AC voltage maximum rating                           Maximum AC voltage rating in RMS volts
-        15. AC voltage minimum rating                           Minimum AC voltage rating in RMS volts
-        16. Supported control mode functions                    Indication of support for each control mode function
-        17. Reactive susceptance that remains connected to      Reactive susceptance that remains connected to the Area
-            the Area EPS in the cease to energize and trip      EPS in the cease to energize and trip state
-            state
-        18. Manufacturer                                        Manufacturer
-        19. Model                                               Model
-        20. Serial number                                       Serial number
-        21. Version                                             Version
-        '''
-        pass
+        nameplate = self.sma.nameplate()
 
-    def get_configuration(self):
+        ieee_dict = {}
+        if nameplate.get('WRtg') is not None:
+            ieee_dict['np_p_max'] = nameplate['WRtg']
+        if nameplate.get('VARtg') is not None:
+            ieee_dict['np_q_max_inj'] = nameplate['VARtg']
+            ieee_dict['np_q_max_abs'] = nameplate['VARtg']
+        # overwrite with quadrant-specific values, if they exist
+        if nameplate.get('VArRtgQ1') is not None:
+            ieee_dict['np_q_max_inj'] = nameplate['VArRtgQ1']
+        if nameplate.get('VArRtgQ4') is not None:
+            ieee_dict['np_q_max_abs'] = nameplate['VArRtgQ4']
+        if nameplate.get('PFRtgQ1') is not None:  # todo: check sign
+            ieee_dict['np_over_pf'] = nameplate['PFRtgQ1']
+        if nameplate.get('PFRtgQ4') is not None:
+            ieee_dict['np_under_pf'] = nameplate['PFRtgQ4']
+        if nameplate.get('MaxChaRte') is not None:
+            ieee_dict['np_p_max_charge'] = nameplate['MaxChaRte']
+
+        info = self.sma.info()
+        if info.get('Manufacturer') is not None:
+            ieee_dict['np_manufacturer'] = info['Manufacturer']
+        if info.get('Model') is not None:
+            ieee_dict['np_model'] = info['Model']
+        if info.get('SerialNumber') is not None:
+            ieee_dict['np_serial_num'] = info['SerialNumber']
+        if info.get('Version') is not None:
+            ieee_dict['np_fw_ver'] = info['Version']
+
+        return ieee_dict
+
+    def get_settings(self):
         """
-        Get configuration information in the 1547 DER. Each rating in Table 28 may have an associated configuration
-        setting that represents the as-configured value. If a configuration setting value is different from the
-        corresponding nameplate value, the configuration setting value shall be used as the rating within the DER.
+        Get settings information
 
         :return: params dict with keys shown in nameplate.
         """
-        return None
+        return self.get_nameplate()
+
+    def set_settings(self, params=None):
+        """
+        Set settings information
+
+        :return: params dict with keys shown in nameplate.
+        """
+
+        return self.set_configuration(params)
+
+    def get_configuration(self):
+        """
+        Get configuration information
+
+        :return: params dict with keys shown in nameplate.
+        """
+        return self.get_nameplate()
 
     def set_configuration(self, params=None):
         """
         Set configuration information. params are those in get_nameplate().
         """
-        pass
 
-    def get_settings(self):
-        """
-        Get configuration information in the 1547 DER. Each rating in Table 28 may have an associated configuration
-        setting that represents the as-configured value. If a configuration setting value is different from the
-        corresponding nameplate value, the configuration setting value shall be used as the rating within the DER.
-
-        :return: params dict with keys shown in nameplate.
-        """
-        return None
-
-    def set_settings(self, params=None):
-        """
-        Set configuration information. params are those in get_nameplate().
-        """
-        return self.set_configuration(params)
+        return {}
 
     def get_monitoring(self):
         """
@@ -307,7 +220,23 @@ class DER1547(object):
 
         :return: dict with keys shown above.
         """
-        pass
+        nameplate = self.sma.nameplate()
+
+        ieee_dict = {}
+        if nameplate.get('W') is not None:
+            ieee_dict['mn_w'] = nameplate['W']/1000.  # in kW
+        if nameplate.get('VAr') is not None:
+            ieee_dict['mn_var'] = nameplate['VAr']/1000.  # in kVar
+        if nameplate.get('PhVphA') is not None:
+            ieee_dict['mn_v'] = [nameplate['PhVphA']]
+        if nameplate.get('PhVphB') is not None:
+            ieee_dict['mn_v'].append(nameplate['PhVphB'])
+        if nameplate.get('PhVphC') is not None:
+            ieee_dict['mn_v'].append(nameplate['PhVphC'])
+        if nameplate.get('Hz') is not None:
+            ieee_dict['mn_hz'] = nameplate['Hz']
+
+        return ieee_dict
 
     def get_const_pf(self):
         """
@@ -317,148 +246,111 @@ class DER1547(object):
         ________________________________________________________________________________________________________________
         Constant Power Factor Mode Select                       const_pf_mode_enable_as             bool (True=Enabled)
         Constant Power Factor Excitation                        const_pf_excitation_as              str ('inj', 'abs')
-        Constant Power Factor Setting (RofA not specified in    const_pf_abs_er_min                 VAr p.u
-            1547)
         Constant Power Factor Absorbing Setting                 const_pf_abs_as                     VAr p.u
-        Constant Power Factor Setting (RofA not specified in    const_pf_abs_er_max                 VAr p.u
-            1547)
-        Constant Power Factor Setting (RofA not specified in    const_pf_inj_er_min                 VAr p.u
-            1547)
         Constant Power Factor Injecting Setting                 const_pf_inj_as                     VAr p.u
-        Constant Power Factor Setting (RofA not specified in    const_pf_inj_er_max                 VAr p.u
-            1547)
-        Maximum response time to maintain constant power        const_pf_olrt_er_min                s
-            factor. (Not in 1547)
         Maximum response time to maintain constant power        const_pf_olrt_as                    s
-            factor. (Not in 1547)
-        Maximum Response time to maintain constant power        const_pf_olrt_er_max                s
             factor. (Not in 1547)
 
         :return: dict with keys shown above.
         """
-        return None
+
+        pf = self.sma.fixed_pf()
+        ieee_dict = {}
+        if pf.get('Ena') is not None:
+            ieee_dict['const_pf_mode_enable_as'] = pf['Ena']
+        if pf.get('PF') is not None:
+            if pf['PF'] >= 0.:
+                ieee_dict['const_pf_abs_as'] = pf['PF']
+                ieee_dict['const_pf_excitation_as'] = 'abs'
+            else:
+                ieee_dict['const_pf_inj_as'] = pf['PF']
+                ieee_dict['const_pf_excitation_as'] = 'inj'
+
+        return ieee_dict
 
     def set_const_pf(self, params=None):
         """
         Set Constant Power Factor Mode control settings.
+        ________________________________________________________________________________________________________________
+        Parameter                                               params dict key                     units
+        ________________________________________________________________________________________________________________
+        Constant Power Factor Mode Select                       const_pf_mode_enable_as             bool (True=Enabled)
+        Constant Power Factor Excitation                        const_pf_excitation_as              str ('inj', 'abs')
+        Constant Power Factor Absorbing Setting                 const_pf_abs_as                     VAr p.u
+        Constant Power Factor Injecting Setting                 const_pf_inj_as                     VAr p.u
+        Maximum response time to maintain constant power        const_pf_olrt_as                    s
+            factor. (Not in 1547)
+
+        :return: dict with keys shown above.
         """
-        pass
+        new_params = {}
+
+        if 'const_pf_mode_enable_as' in params:
+            new_params['Ena'] = params['const_pf_mode_enable_as']
+
+        # todo improve this logic
+        if 'const_pf_excitation_as' in params and 'const_pf_inj_as' in params:
+            if params['const_pf_excitation_as'] == 'inj':
+                new_params['PF'] = -1*abs(parms['const_pf_inj_as'])
+        if 'const_pf_excitation_as' in params and 'const_pf_abs_as' in params:
+            if params['const_pf_excitation_as'] == 'abs':
+                new_params['PF'] = abs(parms['const_pf_abs_as'])
+
+        return self.sma.fixed_pf(params=new_params)
 
     def get_qv(self):
         """
-        Get Q(V) parameters. [Volt-Var]
+        Get Q(V), Volt-Var, Voltage-Reactive Power Mode
         ______________________________________________________________________________________________________________
         Parameter                                                   params dict key                 units
         ______________________________________________________________________________________________________________
         Voltage-Reactive Power Mode Enable                          qv_mode_enable_as               bool (True=Enabled)
-        Vref Min (RofA not specified in 1547)                       qv_vref_er_min                  V p.u.
         Vref (0.95-1.05)                                            qv_vref_as                      V p.u.
-        Vref Max (RofA not specified in 1547)                       qv_vref_er_max                  V p.u.
-
         Autonomous Vref Adjustment Enable                           qv_vref_auto_mode_as            str
-        Vref adjustment time Constant (RofA not specified           qv_vref_olrt_er_min             s
-            in 1547)
         Vref adjustment time Constant (300-5000)                    qv_vref_olrt_as                 s
-        Vref adjustment time Constant (RofA not specified           qv_vref_olrt_er_max             s
-            in 1547)
-
-        Q(V) Curve Point V1-4 Range of Adjustability (Min)          qv_curve_v_er_min               V p.u.
-            (RofA not specified in 1547) (list)
-        Q(V) Curve Point V1-4 (list, e.g., [95, 99, 101, 105])      qv_curve_v_pts                  V p.u.
-        Q(V) Curve Point V1-4 Range of Adjustability (Max)          qv_curve_v_er_max               V p.u.
-            (RofA not specified in 1547) (list)
-
-        Q(V) Curve Point Q1-4 Range of Adjustability (Min)          qv_curve_q_er_min               VAr p.u.
-            (RofA not specified in 1547) (list)
-        Q(V) Curve Point Q1-4 (list)                                qv_curve_q_pts                  VAr p.u.
-        Q(V) Curve Point Q1-4 Range of Adjustability (Max)          qv_curve_q_er_max               VAr p.u.
-            (RofA not specified in 1547) (list)
-
-        Q(V) Open Loop Response Time (RofA not specified in 1547)   qv_olrt_er_min                  s
+        Q(V) Curve Point V1-4 (list), [0.95, 0.99, 1.01, 1.05]      qv_curve_v_pts                  V p.u.
+        Q(V) Curve Point Q1-4 (list), [1., 0., 0., -1.]             qv_curve_q_pts                  VAr p.u.
         Q(V) Open Loop Response Time Setting  (1-90)                qv_olrt_as                      s
-        Q(V) Open Loop Response Time (RofA not specified in 1547)   qv_olrt_er_max                  s
-
-        :return: dict with keys shown above.
         """
-        return None
+
+        vv = self.sma.volt_var()
+
+        ieee_dict = {}
+        if vv.get('Ena') is not None:
+            ieee_dict['qv_mode_enable_as'] = vv['Ena']
+        if vv.get('curve') is not None:
+            if vv['curve'].get('v') is not None:
+                ieee_dict['qv_curve_v_pts'] = vv['curve'].get('v')
+            if vv['curve'].get('var') is not None:
+                ieee_dict['qv_curve_q_pts'] = vv['curve'].get('var')
+
+        return ieee_dict
 
     def set_qv(self, params=None):
         """
-        Set Q(V) parameters. [Volt-Var]
-        """
-        pass
-
-    def get_qp(self):
-        """
-        Get Q(P) parameters. [Watt-Var] - IEEE 1547 Table 32
-        _______________________________________________________________________________________________________________
-        Parameter                                                   params dict key                     units
-        _______________________________________________________________________________________________________________
-        Active Power-Reactive Power (Watt-VAr) Enable               qp_mode_enable_as                   bool
-        P-Q curve P1-3 Generation (RofA not Specified in 1547)      qp_curve_p_gen_pts_er_min           P p.u.
-        P-Q curve P1-3 Generation Setting (list)                    qp_curve_p_gen_pts_as               P p.u.
-        P-Q curve P1-3 Generation (RofA not Specified in 1547)      qp_curve_p_gen_pts_er_max           P p.u.
-
-        P-Q curve Q1-3 Generation (RofA not Specified in 1547)      qp_curve_q_gen_pts_er_min           VAr p.u.
-        P-Q curve Q1-3 Generation Setting (list)                    qp_curve_q_gen_pts_as               VAr p.u.
-        P-Q curve Q1-3 Generation (RofA not Specified in 1547)      qp_curve_q_gen_pts_er_max           VAr p.u.
-
-        P-Q curve P1-3 Load (RofA not Specified in 1547)            qp_curve_p_load_pts_er_min          P p.u.
-        P-Q curve P1-3 Load Setting (list)                          qp_curve_p_load_pts_as              P p.u.
-        P-Q curve P1-3 Load (RofA not Specified in 1547)            qp_curve_p_load_pts_er_max          P p.u.
-
-        P-Q curve Q1-3 Load (RofA not Specified in 1547)            qp_curve_q_load_pts_er_min          VAr p.u.
-        P-Q curve Q1-3 Load Setting (list)                          qp_curve_q_load_pts_as              VAr p.u.
-        P-Q curve Q1-3 Load (RofA not Specified in 1547)            qp_curve_q_load_pts_er_max          VAr p.u.
-
-        QP Open Loop Response Time (RofA not specified in 1547)     qp_olrt_er_min                      s
-        QP Open Loop Response Time Setting                          qp_olrt_as                          s
-        QP Open Loop Response Time (RofA not specified in 1547)     qp_olrt_er_max                      s
-
-        :return: dict with keys shown above.
-        """
-        return None
-
-    def set_qp(self, params=None):
-        """
-        Set Q(P) parameters. [Watt-Var]
-        """
-        pass
-
-    def get_pv(self):
-        """
-        Get P(V), Voltage-Active Power (Volt-Watt), Parameters
+        Set Q(V), Volt-Var
         ______________________________________________________________________________________________________________
-        Parameter                                                   params dict key                         units
+        Parameter                                                   params dict key                 units
         ______________________________________________________________________________________________________________
-        Voltage-Active Power Mode Enable                            pv_mode_enable_as                       bool
-        P(V) Curve Point V1-2 Min (RofA not specified in 1547)      pv_curve_v_pts_er_min                   V p.u.
-        P(V) Curve Point V1-2 Setting (list)                        pv_curve_v_pts_as                       V p.u.
-        P(V) Curve Point V1-2 Max (RofA not specified in 1547)      pv_curve_v_pts_er_max                   V p.u.
-
-        P(V) Curve Point P1-2 Min (RofA not specified in 1547)      pv_curve_p_pts_er_min                   P p.u.
-        P(V) Curve Point P1-2 Setting (list)                        pv_curve_p_pts_as                       P p.u.
-        P(V) Curve Point P1-2 Max (RofA not specified in 1547)      pv_curve_p_pts_er_max                   P p.u.
-
-        P(V) Curve Point P1-P'2 Min (RofA not specified in 1547)    pv_curve_p_bidrct_pts_er_min            P p.u.
-        P(V) Curve Point P1-P'2 Setting (list)                      pv_curve_p_bidrct_pts_as                P p.u.
-        P(V) Curve Point P1-P'2 Max (RofA not specified in 1547)    pv_curve_p_bidrct_pts_er_max            P p.u.
-
-        P(V) Open Loop Response time min (RofA not specified        pv_olrt_er_min                          s
-            in 1547)
-        P(V) Open Loop Response time Setting (0.5-60)               pv_olrt_as                              s
-        P(V) Open Loop Response time max (RofA not specified        pv_olrt_er_max                          s
-            in 1547)
-
-        :return: dict with keys shown above.
+        Voltage-Reactive Power Mode Enable                          qv_mode_enable_as               bool (True=Enabled)
+        Vref (0.95-1.05)                                            qv_vref_as                      V p.u.
+        Autonomous Vref Adjustment Enable                           qv_vref_auto_mode_as            str
+        Vref adjustment time Constant (300-5000)                    qv_vref_olrt_as                 s
+        Q(V) Curve Point V1-4 (list), [0.95, 0.99, 1.01, 1.05]      qv_curve_v_pts                  V p.u.
+        Q(V) Curve Point Q1-4 (list), [1., 0., 0., -1.]             qv_curve_q_pts                  VAr p.u.
+        Q(V) Open Loop Response Time Setting  (1-90)                qv_olrt_as                      s
+        ______________________________________________________________________________________________________________
         """
-        return None
 
-    def set_pv(self, params=None):
-        """
-        Set P(V), Voltage-Active Power (Volt-Watt), Parameters
-        """
-        pass
+        new_params = {'curve': {}}
+        if params.get('qv_mode_enable_as') is not None:
+            new_params['Ena'] = params['qv_mode_enable_as']
+        if params.get('qv_curve_v_pts') is not None:
+            new_params['curve']['v'] = params['qv_curve_v_pts']
+        if params.get('qv_curve_q_pts') is not None:
+            new_params['curve']['var'] = params['qv_curve_q_pts']
+
+        return self.sma.volt_var(params=new_params)
 
     def get_const_q(self):
         """
@@ -487,32 +379,35 @@ class DER1547(object):
 
         :return: dict with keys shown above.
         """
-        pass
+
+        return {}
 
     def set_const_q(self, params=None):
         """
-        Set Constant Reactive Power Mode
+        This information is used to update functional and mode settings for the
+        Constant Reactive Power Mode. This information may be written.
         """
-        pass
 
-    def get_p_lim(self):
-        """
-        Get Limit maximum active power - IEEE 1547 Table 40
-        ______________________________________________________________________________________________________________
-        Parameter                                                   params dict key                 units
-        ______________________________________________________________________________________________________________
-        Frequency-Active Power Mode Enable                          p_lim_mode_enable_as            bool (True=Enabled)
-        Maximum Active Power Min                                    p_lim_w_er_min               P p.u.
-        Maximum Active Power                                        p_lim_w_as                   P p.u.
-        Maximum Active Power Max                                    p_lim_w_er_max               P p.u.
-        """
-        pass
+        return {}
 
-    def set_p_lim(self, params=None):
+    def get_conn(self):
         """
-        Get Limit maximum active power.
+        Get Connection
+
+        conn_as = bool for connection
         """
-        pass
+
+        return {}
+
+    def set_conn(self, params=None):
+        """
+        This information is used to update functional and mode settings for the
+        Constant Reactive Power Mode. This information may be written.
+
+        conn_as = bool for connection
+        """
+
+        return {}
 
     def get_pf(self):
         """
@@ -521,35 +416,178 @@ class DER1547(object):
         Parameter                                                   params dict key                 units
         ______________________________________________________________________________________________________________
         Frequency-Active Power Mode Enable                          pf_mode_enable_as               bool (True=Enabled)
-        P(f) Overfrequency Droop dbOF RofA min                      pf_dbof_er_min                  Hz
         P(f) Overfrequency Droop dbOF Setting                       pf_dbof_as                      Hz
-        P(f) Overfrequency Droop dbOF RofA max                      pf_dbof_er_max                  Hz
-
-        P(f) Underfrequency Droop dbUF RofA min                     pf_dbuf_er_min                  Hz
         P(f) Underfrequency Droop dbUF Setting                      pf_dbuf_as                      Hz
-        P(f) Underfrequency Droop dbUF RofA max                     pf_dbuf_er_max                  Hz
-
-        P(f) Overfrequency Droop kOF RofA min                       pf_kof_er_min                   unitless
         P(f) Overfrequency Droop kOF  Setting                       pf_kof_as                       unitless
-        P(f) Overfrequency Droop kOF RofA max                       pf_kof_er_max                   unitless
-
-        P(f) Underfrequency Droop kUF RofA min                      pf_kuf_er_min                   unitless
         P(f) Underfrequency Droop kUF Setting                       pf_kuf_as                       unitless
-        P(f) Underfrequency Droop kUF RofA Max                      pf_kuf_er_max                   unitless
-
-        P(f) Open Loop Response Time RofA min                       pf_olrt_er_min                  s
         P(f) Open Loop Response Time Setting                        pf_olrt_as                      s
-        P(f) Open Loop Response Time RofA max                       pf_olrt_er_max                  s
 
         :return: dict with keys shown above.
         """
-        pass
 
-    def set_freq_watt(self, params=None):
+        ieee_dict = {}
+        fw = self.sma.freq_droop()
+        if fw.get('Ena') is not None:
+            ieee_dict['pf_mode_enable_as'] = fw.get('Ena')
+        if fw.get('dbOF') is not None:
+            ieee_dict['pf_dbof_as'] = fw.get('dbOF')
+        if fw.get('dbUF') is not None:
+            ieee_dict['pf_dbuf_as'] = fw.get('dbUF')
+        if fw.get('kOF') is not None:
+            ieee_dict['pf_kof_as'] = fw.get('kOF')
+        if fw.get('kUF') is not None:
+            ieee_dict['pf_kuf_as'] = fw.get('kUF')
+
+        return ieee_dict
+
+    def set_pf(self, params=None):
         """
-        Set P(f), Frequency-Active Power Mode Parameters
+        Set Frequency-Active Power Mode.
         """
-        pass
+
+        new_params = {}
+        if params.get('pf_mode_enable_as') is not None:
+            new_params['Ena'] = params['pf_mode_enable_as']
+        if params.get('pf_dbof_as') is not None:
+            new_params['dbOF'] = params['pf_dbof_as']
+        if params.get('pf_dbuf_as') is not None:
+            new_params['dbUF'] = params['pf_dbuf_as']
+        if params.get('pf_kof_as') is not None:
+            new_params['kOF'] = params['pf_kof_as']
+        if params.get('pf_kuf_as') is not None:
+            new_params['kUF'] = params['pf_kuf_as']
+
+        return self.sma.freq_droop(params=new_params)
+
+    def get_p_lim(self):
+        """
+        Get Limit maximum active power - IEEE 1547 Table 40
+        ______________________________________________________________________________________________________________
+        Parameter                                                   params dict key                 units
+        ______________________________________________________________________________________________________________
+        Frequency-Active Power Mode Enable                          p_lim_mode_enable_as         bool (True=Enabled)
+        Maximum Active Power Min                                    p_lim_w_er_min               P p.u.
+        Maximum Active Power                                        p_lim_w_as                   P p.u.
+        Maximum Active Power Max                                    p_lim_w_er_max               P p.u.
+        """
+
+        ieee_dict = {}
+        p_lim = self.sma.limit_max_power()
+        if p_lim.get('Ena') is not None:
+            ieee_dict['p_lim_mode_enable_as'] = p_lim.get('Ena')
+        if p_lim.get('WMaxPct') is not None:
+            ieee_dict['p_lim_w_as'] = p_lim.get('WMaxPct')
+
+        return ieee_dict
+
+    def set_p_lim(self, params=None):
+        """
+        Set Limit maximum active power - IEEE 1547 Table 40
+        ______________________________________________________________________________________________________________
+        Parameter                                                   params dict key                 units
+        ______________________________________________________________________________________________________________
+        Frequency-Active Power Mode Enable                          p_lim_mode_enable_as         bool (True=Enabled)
+        Maximum Active Power Min                                    p_lim_w_er_min               P p.u.
+        Maximum Active Power                                        p_lim_w_as                   P p.u.
+        Maximum Active Power Max                                    p_lim_w_er_max               P p.u.
+        """
+        new_params = {}
+        if params.get('p_lim_mode_enable_as') is not None:
+            new_params['Ena'] = params['p_lim_mode_enable_as']
+        if params.get('p_lim_w_as') is not None:
+            new_params['WMaxPct'] = params['p_lim_w_as']
+
+        return self.sma.limit_max_power(new_params)
+
+    def get_qp(self):
+        """
+        Get Q(P) parameters. [Watt-Var]
+        _______________________________________________________________________________________________________________
+        Parameter                                                   params dict key                     units
+        _______________________________________________________________________________________________________________
+        Active Power-Reactive Power (Watt-VAr) Enable               qp_mode_enable_as                   bool
+        P-Q curve P1-3 Generation Setting (list)                    qp_curve_p_gen_pts_as               P p.u.
+        P-Q curve Q1-3 Generation Setting (list)                    qp_curve_q_gen_pts_as               VAr p.u.
+        P-Q curve P1-3 Load Setting (list)                          qp_curve_p_load_pts_as              P p.u.
+        P-Q curve Q1-3 Load Setting (list)                          qp_curve_q_load_pts_as              VAr p.u.
+        QP Open Loop Response Time Setting                          qp_olrt_as                          s
+        """
+
+        ieee_dict = {}
+        wv = self.sma.watt_var()
+        if wv.get('Ena') is not None:
+            ieee_dict['qp_mode_enable_as'] = wv.get('Ena')
+        if wv.get('curve') is not None:
+            if wv['curve'].get('w') is not None:
+                ieee_dict['qp_curve_p_gen_pts_as'] = wv['curve'].get('w')
+            if wv['curve'].get('var') is not None:
+                ieee_dict['qp_curve_q_gen_pts_as'] = wv['curve'].get('var')
+
+        return ieee_dict
+
+    def set_qp(self, params=None):
+        """
+        Set Q(P) parameters. [Watt-Var]
+        """
+
+        new_params = {'curve': {}}
+        if params('qp_mode_enable_as') is not None:
+            new_params['Ena'] = params('qp_mode_enable_as')
+        if params('qp_curve_p_gen_pts_as') is not None:
+            new_params['curve']['w'] = params('qp_curve_p_gen_pts_as')
+        if params('qp_curve_p_gen_pts_as') is not None:
+            new_params['curve']['var'] = params('qp_curve_q_gen_pts_as')
+
+        return self.sma.watt_var(new_params)
+
+    def get_pv(self, params=None):
+        """
+        Get P(V), Voltage-Active Power (Volt-Watt), Parameters
+        ______________________________________________________________________________________________________________
+        Parameter                                                   params dict key                         units
+        ______________________________________________________________________________________________________________
+        Voltage-Active Power Mode Enable                            pv_mode_enable_as                       bool
+        P(V) Curve Point V1-2 Setting (list)                        pv_curve_v_pts_as                       V p.u.
+        P(V) Curve Point P1-2 Setting (list)                        pv_curve_p_pts_as                       P p.u.
+        P(V) Curve Point P1-P'2 Setting (list)                      pv_curve_p_bidrct_pts_as                P p.u.
+        P(V) Open Loop Response time Setting (0.5-60)               pv_olrt_as                              s
+        """
+
+        ieee_dict = {}
+        vw = self.sma.volt_watt()
+        if vw.get('Ena') is not None:
+            ieee_dict['pv_mode_enable_as'] = vw.get('Ena')
+        if vw.get('curve') is not None:
+            if vw['curve'].get('v') is not None:
+                ieee_dict['pv_curve_v_pts_as'] = vw['curve'].get('v')
+            if vw['curve'].get('w') is not None:
+                ieee_dict['pv_curve_p_pts_as'] = vw['curve'].get('w')
+
+        return ieee_dict
+
+    def set_pv(self, params=None):
+        """
+        Set P(V), Voltage-Active Power (Volt-Watt), Parameters
+        ______________________________________________________________________________________________________________
+        Parameter                                                   params dict key                         units
+        ______________________________________________________________________________________________________________
+        Voltage-Active Power Mode Enable                            pv_mode_enable_as                       bool
+        P(V) Curve Point V1-2 Setting (list)                        pv_curve_v_pts_as                       V p.u.
+        P(V) Curve Point P1-2 Setting (list)                        pv_curve_p_pts_as                       P p.u.
+        P(V) Curve Point P1-P'2 Setting (list)                      pv_curve_p_bidrct_pts_as                P p.u.
+        P(V) Open Loop Response time Setting (0.5-60)               pv_olrt_as                              s
+
+        :return: dict with keys shown above.
+        """
+        new_params = {'curve': {}}
+        if params('pv_mode_enable_as') is not None:
+            new_params['Ena'] = params('pv_mode_enable_as')
+        if params('pv_curve_v_pts_as') is not None:
+            new_params['curve']['v'] = params('pv_curve_v_pts_as')
+        if params('pv_curve_p_pts_as') is not None:
+            new_params['curve']['w'] = params('pv_curve_p_pts_as')
+
+        return self.sma.volt_watt(new_params)
 
     def get_es_permit_service(self):
         """
@@ -610,12 +648,13 @@ class DER1547(object):
 
         :return: dict with keys shown above.
         """
-        pass
+        return self.sma.ui()
 
-    def set_ui(self):
+    def set_ui(self, params=None):
         """
-        Get Unintentional Islanding Parameters
+        Set Unintentional Islanding Parameters
         """
+        return self.ts.prompt('Set UI with params = %s' % params)
 
     def get_ov(self, params=None):
         """
@@ -634,13 +673,27 @@ class DER1547(object):
 
         :return: dict with keys shown above.
         """
-        pass
+        ieee_dict = {}
+        vw = self.sma.vrt_trip_high()
+        if vw.get('curve') is not None:
+            if vw['curve'].get('v') is not None:
+                ieee_dict['ov_trip_v_pts_as'] = vw['curve'].get('V')
+            if vw['curve'].get('t') is not None:
+                ieee_dict['ov_trip_t_pts_as'] = vw['curve'].get('t')
+
+        return ieee_dict
 
     def set_ov(self, params=None):
         """
         Set Overvoltage Trip Parameters - IEEE 1547 Table 35
         """
-        pass
+        new_params = {'curve': {}}
+        if params('ov_trip_v_pts_as') is not None:
+            new_params['curve']['V'] = params('ov_trip_v_pts_as')
+        if params('ov_trip_t_pts_as') is not None:
+            new_params['curve']['t'] = params('ov_trip_t_pts_as')
+
+        return self.sma.vrt_trip_high(new_params)
 
     def get_uv(self, params=None):
         """
@@ -659,13 +712,27 @@ class DER1547(object):
 
         :return: dict with keys shown above.
         """
-        pass
+        ieee_dict = {}
+        vw = self.sma.vrt_trip_low()
+        if vw.get('curve') is not None:
+            if vw['curve'].get('v') is not None:
+                ieee_dict['uv_trip_v_pts_as'] = vw['curve'].get('V')
+            if vw['curve'].get('t') is not None:
+                ieee_dict['uv_trip_t_pts_as'] = vw['curve'].get('t')
+
+        return ieee_dict
 
     def set_uv(self, params=None):
         """
         Set Undervoltage Trip Parameters - IEEE 1547 Table 35
         """
-        pass
+        new_params = {'curve': {}}
+        if params('uv_trip_v_pts_as') is not None:
+            new_params['curve']['V'] = params('uv_trip_v_pts_as')
+        if params('uv_trip_t_pts_as') is not None:
+            new_params['curve']['t'] = params('uv_trip_t_pts_as')
+
+        return self.sma.vrt_trip_low(new_params)
 
     def get_of(self, params=None):
         """
@@ -684,13 +751,27 @@ class DER1547(object):
 
         :return: dict with keys shown above.
         """
-        pass
+        ieee_dict = {}
+        vw = self.sma.frt_trip_high()
+        if vw.get('curve') is not None:
+            if vw['curve'].get('Hz') is not None:
+                ieee_dict['of_trip_f_pts_as'] = vw['curve'].get('Hz')
+            if vw['curve'].get('t') is not None:
+                ieee_dict['ov_trip_t_pts_as'] = vw['curve'].get('t')
+
+        return ieee_dict
 
     def set_of(self, params=None):
         """
         Set Overfrequency Trip Parameters - IEEE 1547 Table 37
         """
-        pass
+        new_params = {'curve': {}}
+        if params('of_trip_f_pts_as') is not None:
+            new_params['curve']['Hz'] = params('of_trip_f_pts_as')
+        if params('of_trip_t_pts_as') is not None:
+            new_params['curve']['t'] = params('of_trip_t_pts_as')
+
+        return self.sma.frt_trip_high(new_params)
 
     def get_uf(self, params=None):
         """
@@ -709,13 +790,27 @@ class DER1547(object):
 
         :return: dict with keys shown above.
         """
-        pass
+        ieee_dict = {}
+        vw = self.sma.frt_trip_low()
+        if vw.get('curve') is not None:
+            if vw['curve'].get('Hz') is not None:
+                ieee_dict['uf_trip_f_pts_as'] = vw['curve'].get('Hz')
+            if vw['curve'].get('t') is not None:
+                ieee_dict['uf_trip_t_pts_as'] = vw['curve'].get('t')
+
+        return ieee_dict
 
     def set_uf(self, params=None):
         """
         Set Underfrequency Trip Parameters - IEEE 1547 Table 37
         """
-        pass
+        new_params = {'curve': {}}
+        if params('uf_trip_f_pts_as') is not None:
+            new_params['curve']['Hz'] = params('uf_trip_f_pts_as')
+        if params('uf_trip_t_pts_as') is not None:
+            new_params['curve']['t'] = params('uf_trip_t_pts_as')
+
+        return self.sma.frt_trip_low(new_params)
 
     def get_ov_mc(self, params=None):
         """
@@ -779,62 +874,3 @@ class DER1547(object):
 
         """
         return self.set_es_permit_service(params={'es_permit_service_as': params['cease_to_energize']})
-
-    # Additional functions outside of IEEE 1547-2018
-    def get_conn(self):
-        """
-        Get Connection - DER Connect/Disconnect Switch
-        ______________________________________________________________________________________________________________
-        Parameter                                                   params dict key                 units
-        ______________________________________________________________________________________________________________
-        Connect/Disconnect Enable                                   conn_as                     bool (True=Enabled)
-        """
-        pass
-
-    def set_conn(self, params=None):
-        """
-        Set Connection
-        """
-        pass
-
-    def set_error(self, params=None):
-        """
-        Set Error, for testing Monitoring Data in DER
-
-        error_as = set error
-        """
-        pass
-
-
-def der1547_scan():
-    global der1547_modules
-    # scan all files in current directory that match der1547_*.py
-    package_name = '.'.join(__name__.split('.')[:-1])
-    files = glob.glob(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'der1547_*.py'))
-    for f in files:
-        module_name = None
-        try:
-            module_name = os.path.splitext(os.path.basename(f))[0]
-            if package_name:
-                module_name = package_name + '.' + module_name
-            m = importlib.import_module(module_name)
-            if hasattr(m, 'der1547_info'):
-                info = m.der1547_info()
-                print('DER 1547 Info %s' % info)
-                mode = info.get('mode')
-                # place module in module dict
-                if mode is not None:
-                    der1547_modules[mode] = m
-            else:
-                if module_name is not None and module_name in sys.modules:
-                    del sys.modules[module_name]
-        except Exception as e:
-            if module_name is not None and module_name in sys.modules:
-                del sys.modules[module_name]
-            raise DER1547Error('Error scanning module %s: %s' % (module_name, str(e)))
-
-# scan for der1547 modules on import
-der1547_scan()
-
-if __name__ == "__main__":
-    pass

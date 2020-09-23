@@ -7,7 +7,6 @@ from . import der1547
 import svpdnp3.device_der_dnp3 as dnp3_agent
 import subprocess
 import socket
-import subprocess
 
 dnp3_info = {
     'name': os.path.splitext(os.path.basename(__file__))[0],

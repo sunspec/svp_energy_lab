@@ -44,8 +44,10 @@ sma_info = {
     'mode': 'SMA'
 }
 
+
 def der_info():
     return sma_info
+
 
 def params(info, group_name):
     gname = lambda name: group_name + '.' + name
@@ -63,6 +65,7 @@ def params(info, group_name):
     info.param(pname('confgridguard'), label='Configure Grid Guard', default='False', values=['True', 'False'])
     info.param(pname('gridguard'), label='Grid Guard Number', default=12345678,
                active=pname('confgridguard'),  active_value='True')
+
 
 GROUP_NAME = 'sma'
 
@@ -182,7 +185,7 @@ class DER(der.DER):
             params['SerialNumber'] = util.data_to_u32(self.inv.read(serial_reg[self.firmware], 2))
 
         except Exception as e:
-            raise der.DERError('Unimplemented function: info')
+            raise der.DERError('Info Error: %s' % e)
 
         return params
 
@@ -203,12 +206,13 @@ class DER(der.DER):
         :return: Dictionary of nameplate ratings.
         """
 
-        der.DERError('Unimplemented function: nameplate')
+        # raise der.DERError('Unimplemented function: nameplate')
+        return {}
 
     def measurements(self):
         """ Get measurement data.
 
-        Params:
+        Params: None
 
         :return: Dictionary of measurement data.
         """
@@ -652,7 +656,7 @@ class DER(der.DER):
         """volt/watt control
 
         :param params: Dictionary of parameters to be updated.
-            'ModEna': True/False
+            'Ena': True/False
             'ActCrv': 0
             'NCrv': 1
             'NPt': 4
@@ -761,7 +765,7 @@ class DER(der.DER):
         """watt/var control
 
         :param params: Dictionary of parameters to be updated.
-            'ModEna': True/False
+            'Ena': True/False
             'ActCrv': 0
             'NCrv': 1
             'NPt': 4
@@ -887,7 +891,13 @@ class DER(der.DER):
             WinTms - Randomized start time delay in seconds
             RmpTms - Ramp time in seconds to updated output level
             RvrtTms - Reversion time in seconds
-
+            'curve': {
+                 'v': [50, 75, 100]
+                 'var': [0, 0, -100]
+                 'DeptRef': 1
+                 'RmpDecTmm': 0
+                 'RmpIncTmm': 0
+                 }
         :param params: Dictionary of parameters to be updated.
         :return: Dictionary of active settings for volt/var control.
         """
@@ -1258,45 +1268,253 @@ class DER(der.DER):
 
         return params
 
-    def frt_stay_connected_high(self, params=None):
-        """ Get/set high frequency ride through (must stay connected curve)
+    def frt_trip_high(self, params=None):
+        """ Get/set high frequency ride through (trip curve)
 
-        Params:
-            Ena - Enabled (True/False)
-            ActCrv - Active curve number (0 - no active curve)
-            NCrv - Number of curves supported
-            NPt - Number of points supported per curve
-            WinTms - Randomized start time delay in seconds
-            RmpTms - Ramp time in seconds to updated output level
-            RvrtTms - Reversion time in seconds
-            Tms# - Time point in the curve
-            Hz# - Frequency point in the curve
+        Params:  params = {'curve': 't': [299., 10.], 'Hz': [61.0, 61.8]}
+            curve:
+                t - Time point in the curve
+                Hz - Frequency point in the curve
 
         :param params: Dictionary of parameters to be updated.
-        :return: Dictionary of active settings for HFRT control.
+        :return: Dictionary of active settings for HFT control.
+
+            ^
+            |           T0   Median Max
+        F   |-----------+ F0
+            |           |              T1  Lower Max
+            |           +--------------+ F1
+            |                          |
+        Fnom-------------------------------> Time
+            |                          |
+            |                          |
+            |           +--------------+ F1 Upper Min
+            |           |              T1
+            |-----------+ F0
+            |           T0 Median Min
+
         """
 
-        der.DERError('Unimplemented function: frt_stay_connected_high')
+        # Frequency monitoring median maximum threshold                                 Hz   U32       FIX2      RW
+        f0 = {'02.02.30.R': 40428, '02.84.01.R': 40428, '02.83.03.R': 40428, '02.63.33.S': 40428}
+        # Frq. monitoring median max. threshold trip. time                              ms   U32       FIX0      RW
+        t0 = {'02.02.30.R': 40430, '02.84.01.R': 40430, '02.83.03.R': 40430, '02.63.33.S': 40430}
+        # Frequency monitoring lower maximum threshold                                  Hz   U32       FIX2      RW
+        f1 = {'02.02.30.R': 40432, '02.84.01.R': 40432, '02.83.03.R': 40432, '02.63.33.S': 40432}
+        # Frq. monitoring lower max. threshold trip. time                               ms   U32       FIX0      RW
+        t1 = {'02.02.30.R': 40434, '02.84.01.R': 40434, '02.83.03.R': 40434, '02.63.33.S': 40434}
 
-    def frt_stay_connected_low(self, params=None):
-        """ Get/set high frequency ride through (must stay connected curve)
+        if params is not None:
+            if params.get('curve') is not None:
+                if params.get('curve').get('Hz') is not None:
+                    hz = params.get('curve').get('Hz')
+                    t = params.get('curve').get('t')
+                    if len(hz) != 2:
+                        f0_set = int(round(hz[0], 2) * 100)
+                        self.inv.write(f0[self.firmware], util.u32_to_data(f0_set))  # Hz
+                        f1_set = int(round(hz[0], 2) * 100)
+                        self.inv.write(f1[self.firmware], util.u32_to_data(f1_set))  # Hz
+                        t0_set = int(t[0]*1000.)
+                        self.inv.write(t0[self.firmware], util.u32_to_data(t0_set))  # ms
+                        t1_set = int(t[1]*1000.)
+                        self.inv.write(t1[self.firmware], util.u32_to_data(t1_set))  # ms
+                    else:
+                        self.ts.log_warning('Use 2 points for FRT curves')
 
-        Params:
-            Ena - Enabled (True/False)
-            ActCrv - Active curve number (0 - no active curve)
-            NCrv - Number of curves supported
-            NPt - Number of points supported per curve
-            WinTms - Randomized start time delay in seconds
-            RmpTms - Ramp time in seconds to updated output level
-            RvrtTms - Reversion time in seconds
-            Tms# - Time point in the curve
-            Hz# - Frequency point in the curve
+        else:
+            f0 = float(util.data_to_u32(self.inv.read(f0[self.firmware], 2))) / 100.0
+            t0 = util.data_to_u32(self.inv.read(t0[self.firmware], 2)) / 1000.
+            f1 = float(util.data_to_u32(self.inv.read(f1[self.firmware], 2))) / 100.0
+            t1 = util.data_to_u32(self.inv.read(t1[self.firmware], 2)) / 1000.
+
+            params = {'curve': {'Hz': [f0, f1], 't': [t0, t1]}}
+
+        return params
+
+    def frt_trip_low(self, params=None):
+        """ Get/set lower frequency ride through (trip curve)
+
+        Params: params = {'curve': 't': [299., 10.], 'Hz': [59.0, 58.2]}
+            curve:
+                t - Time point in the curve
+                Hz - Frequency point in the curve
 
         :param params: Dictionary of parameters to be updated.
-        :return: Dictionary of active settings for HFRT control.
+        :return: Dictionary of active settings for LFT control.
         """
 
-        der.DERError('Unimplemented function: frt_stay_connected_low')
+        # Frequency monitoring median minimum threshold                                 Hz   U32       FIX2      RW
+        f0 = {'02.02.30.R': 40440, '02.84.01.R': 40440, '02.83.03.R': 40440, '02.63.33.S': 40440}
+        # Frq. monitoring median min. threshold trip. time                              ms   U32       FIX0      RW
+        t0 = {'02.02.30.R': 40442, '02.84.01.R': 40442, '02.83.03.R': 40442, '02.63.33.S': 40442}
+        # Frequency monitoring upper minimum threshold                                  Hz   U32       FIX2      RW
+        f1 = {'02.02.30.R': 40436, '02.84.01.R': 40436, '02.83.03.R': 40436, '02.63.33.S': 40436}
+        # Frq. monitoring upper min. threshold trip. time                               ms   U32       FIX0      RW
+        t1 = {'02.02.30.R': 40438, '02.84.01.R': 40438, '02.83.03.R': 40438, '02.63.33.S': 40438}
+
+        if params is not None:
+            if params.get('curve') is not None:
+                if params.get('curve').get('Hz') is not None:
+                    hz = params.get('curve').get('Hz')
+                    t = params.get('curve').get('t')
+                    if len(hz) != 2:
+                        f0_set = int(round(hz[0], 2) * 100)
+                        self.inv.write(f0[self.firmware], util.u32_to_data(f0_set))  # Hz
+                        f1_set = int(round(hz[0], 2) * 100)
+                        self.inv.write(f1[self.firmware], util.u32_to_data(f1_set))  # Hz
+                        t0_set = int(t[0] * 1000.)
+                        self.inv.write(t0[self.firmware], util.u32_to_data(t0_set))  # ms
+                        t1_set = int(t[1] * 1000.)
+                        self.inv.write(t1[self.firmware], util.u32_to_data(t1_set))  # ms
+                    else:
+                        self.ts.log_warning('Use 2 points for FRT curves')
+
+        else:
+            f0 = float(util.data_to_u32(self.inv.read(f0[self.firmware], 2))) / 100.0
+            t0 = util.data_to_u32(self.inv.read(t0[self.firmware], 2)) / 1000.
+            f1 = float(util.data_to_u32(self.inv.read(f1[self.firmware], 2))) / 100.0
+            t1 = util.data_to_u32(self.inv.read(t1[self.firmware], 2)) / 1000.
+
+            params = {'curve': {'Hz': [f0, f1], 't': [t0, t1]}}
+
+        return params
+
+    def vrt_trip_high(self, params=None):
+        """ Get/set high voltage ride through (trip curve)
+
+        Params:  params = {'curve': 't': [60., 10.], 'V': [110.0, 120.0]}
+            curve:
+                t - Time point in the curve
+                V - Voltage point in the curve % of Vnom
+
+        :param params: Dictionary of parameters to be updated.
+        :return: Dictionary of active settings for HVT control.
+
+            ^       T0  Upper Max
+            |-------+ V0
+            |       |          T1   Median Max
+        V   |       +----------+ V1
+            |                  |              T2  Lower Max
+            |                  +--------------+ V2
+            |                                 |
+        Vnom-------------------------------> Time
+            |                                 |
+            |                                 |
+            |                  +--------------+ V2 Upper Min
+            |                  |              T2
+            |      +-----------+ V1
+            |      |           T1 Median Min
+            |------+ V0
+            |      T0 Lower Min
+        """
+
+        # Voltage monitoring of upper maximum threshold as RMS value                     V   U32       FIX2      RW
+        v0 = {'02.02.30.R': 41115, '02.84.01.R': 41115, '02.83.03.R': 41115, '02.63.33.S': 41115}
+        # Voltage monitoring of upper max. thresh. as RMS value for tripping time       ms   U32       FIX0      RW
+        t0 = {'02.02.30.R': 41117, '02.84.01.R': 41117, '02.83.03.R': 41117, '02.63.33.S': 41117}
+        # Voltage monitoring upper max. threshold trip. time                            ms   U32       FIX3      RW
+        # t0 = {'02.02.30.R': 40446, '02.84.01.R': 40446, '02.83.03.R': 40446, '02.63.33.S': 40446}
+
+        # Voltage monitoring median maximum threshold                                    V   U32       FIX2      RW
+        v1 = {'02.02.30.R': 40448, '02.84.01.R': 40448, '02.83.03.R': 40448, '02.63.33.S': 40448}
+        # Voltage monitoring median max. threshold trip.time                            ms   U32       FIX0      RW
+        t1 = {'02.02.30.R': 40450, '02.84.01.R': 40450, '02.83.03.R': 40450, '02.63.33.S': 40450}
+
+        # Voltage monitoring lower maximum threshold                                     V   U32       FIX2      RW
+        v2 = {'02.02.30.R': 40452, '02.84.01.R': 40452, '02.83.03.R': 40452, '02.63.33.S': 40452}
+        # Voltage monitoring lower max. threshold trip. time                            ms   U32       FIX0      RW
+        t2 = {'02.02.30.R': 40456, '02.84.01.R': 40456, '02.83.03.R': 40456, '02.63.33.S': 40456}
+
+        if params is not None:
+            if params.get('curve') is not None:
+                if params.get('curve').get('V') is not None:
+                    v = params.get('curve').get('V')
+                    t = params.get('curve').get('t')
+                    if len(v) != 3:
+                        v0_set = int(round(v[0], 2) * 100)
+                        self.inv.write(v0[self.firmware], util.u32_to_data(v0_set))  # V
+                        v1_set = int(round(v[1], 2) * 100)
+                        self.inv.write(v1[self.firmware], util.u32_to_data(v1_set))  # V
+                        v2_set = int(round(v[2], 2) * 100)
+                        self.inv.write(v1[self.firmware], util.u32_to_data(v2_set))  # V
+                        t0_set = int(t[0] * 1000.)
+                        self.inv.write(t0[self.firmware], util.u32_to_data(t0_set))  # ms
+                        t1_set = int(t[1] * 1000.)
+                        self.inv.write(t1[self.firmware], util.u32_to_data(t1_set))  # ms
+                        t2_set = int(t[2] * 1000.)
+                        self.inv.write(t2[self.firmware], util.u32_to_data(t2_set))  # ms
+                    else:
+                        self.ts.log_warning('Use 3 points for FRT curves')
+
+        else:
+            v0 = float(util.data_to_u32(self.inv.read(v0[self.firmware], 2))) / 100.0
+            t0 = util.data_to_u32(self.inv.read(t0[self.firmware], 2)) / 1000.
+            v1 = float(util.data_to_u32(self.inv.read(v1[self.firmware], 2))) / 100.0
+            t1 = util.data_to_u32(self.inv.read(t1[self.firmware], 2)) / 1000.
+            v2 = float(util.data_to_u32(self.inv.read(v2[self.firmware], 2))) / 100.0
+            t2 = util.data_to_u32(self.inv.read(t2[self.firmware], 2)) / 1000.
+            params = {'curve': {'V': [v0, v1, v2], 't': [t0, t1, t2]}}
+
+        return params
+
+    def vrt_trip_low(self, params=None):
+        """ Get/set lower voltage ride through (trip curve)
+
+        Params:  params = {'curve': 't': [60., 10.], 'V': [110.0, 120.0]}
+            curve:
+                t - Time point in the curve
+                V - Voltage point in the curve % of Vnom
+
+        :param params: Dictionary of parameters to be updated.
+        :return: Dictionary of active settings for LVT control.
+        """
+
+        # Voltage monitoring of lower minimum threshold as RMS value                     V   U32       FIX2      RW
+        v0 = {'02.02.30.R': 41111, '02.84.01.R': 41111, '02.83.03.R': 41111, '02.63.33.S': 41111}
+        # Voltage monitoring of lower min.threshold as RMS value for tripping time      ms   U32       FIX0      RW
+        t0 = {'02.02.30.R': 41113, '02.84.01.R': 41113, '02.83.03.R': 41113, '02.63.33.S': 41113}
+
+        # Voltage monitoring of median minimum threshold                                 V   U32       FIX2      RW
+        v1 = {'02.02.30.R': 40464, '02.84.01.R': 40464, '02.83.03.R': 40464, '02.63.33.S': 40464}
+        # Voltage monitoring median min. threshold trip.time                            ms   U32       FIX0      RW
+        t1 = {'02.02.30.R': 40466, '02.84.01.R': 40466, '02.83.03.R': 40466, '02.63.33.S': 40466}
+
+        # Voltage monitoring upper minimum threshold                                     V   U32       FIX2      RW
+        v2 = {'02.02.30.R': 40458, '02.84.01.R': 40458, '02.83.03.R': 40458, '02.63.33.S': 40458}
+        # Voltage monitoring upper min. threshold trip. time                            ms   U32       FIX0      RW
+        t2 = {'02.02.30.R': 40462, '02.84.01.R': 40462, '02.83.03.R': 40462, '02.63.33.S': 40462}
+
+        if params is not None:
+            if params.get('curve') is not None:
+                if params.get('curve').get('V') is not None:
+                    v = params.get('curve').get('V')
+                    t = params.get('curve').get('t')
+                    if len(v) != 3:
+                        v0_set = int(round(v[0], 2) * 100)
+                        self.inv.write(v0[self.firmware], util.u32_to_data(v0_set))  # V
+                        v1_set = int(round(v[1], 2) * 100)
+                        self.inv.write(v1[self.firmware], util.u32_to_data(v1_set))  # V
+                        v2_set = int(round(v[2], 2) * 100)
+                        self.inv.write(v1[self.firmware], util.u32_to_data(v2_set))  # V
+                        t0_set = int(t[0] * 1000.)
+                        self.inv.write(t0[self.firmware], util.u32_to_data(t0_set))  # ms
+                        t1_set = int(t[1] * 1000.)
+                        self.inv.write(t1[self.firmware], util.u32_to_data(t1_set))  # ms
+                        t2_set = int(t[2] * 1000.)
+                        self.inv.write(t2[self.firmware], util.u32_to_data(t2_set))  # ms
+                    else:
+                        self.ts.log_warning('Use 3 points for FRT curves')
+
+        else:
+            v0 = float(util.data_to_u32(self.inv.read(v0[self.firmware], 2))) / 100.0
+            t0 = util.data_to_u32(self.inv.read(t0[self.firmware], 2)) / 1000.
+            v1 = float(util.data_to_u32(self.inv.read(v1[self.firmware], 2))) / 100.0
+            t1 = util.data_to_u32(self.inv.read(t1[self.firmware], 2)) / 1000.
+            v2 = float(util.data_to_u32(self.inv.read(v2[self.firmware], 2))) / 100.0
+            t2 = util.data_to_u32(self.inv.read(t2[self.firmware], 2)) / 1000.
+            params = {'curve': {'V': [v0, v1, v2], 't': [t0, t1, t2]}}
+
+        return params
 
     def reactive_power(self, params=None):
         """ Set the reactive power
@@ -1492,6 +1710,96 @@ class DER(der.DER):
         self.ts.log('X value 4, conf. of grid integr. char. 2: %s' % util.data_to_s32(self.inv.read(41089, 2)))
         self.ts.log('Y value 4, conf. of grid integr. char. 2: %s' % util.data_to_s32(self.inv.read(41091, 2)))
         self.ts.log('----------------')
+
+    def ui(self, params=None):
+        """
+        Unintentional islanding configuration
+
+        :param params:
+        :return:
+        """
+        return None
+
+    def country_code(self, params=None):
+        """
+
+        :param params:
+            ui_set - bool to turn on/off anti-islanding
+
+        :return: params dictionary
+        """
+        set_country_code = {'02.02.30.R': 41121, '02.84.01.R': 41121, '02.83.03.R': 41121, '02.63.33.S': 41121}
+        # Set country standard:  U32	FUNKTION_SEC	RW
+        # 306 = Island mode 60 Hz
+        # 1013 = Other standard
+        # 7519 = UL1741/2010/277
+
+        country_code = {'02.02.30.R': 40109, '02.84.01.R': 40109, '02.83.03.R': 40109, '02.63.33.S': 40109}
+        # Country standard set:  U32	ENUM	RO
+        # 27 = Special setting
+        # 306 = Island mode 60 Hz
+        # 1013 = Other standard
+        # 7519 = UL1741/2010/277
+        # 16777213 = Information not available
+
+        plant_conn = {'02.02.30.R': 30881, '02.84.01.R': 30881, '02.83.03.R': 30881, '02.63.33.S': 30881}
+        # "Plant mains connection:  U32	ENUM	RO
+        # 1779 = Separated
+        # 1780 = Public electricity mains
+        # 1781 = Island mains"
+
+        if params is not None:
+            ena = params.get('Ena')
+            if ena is not None:
+                if ena is True:
+                    self.inv.write(set_country_code[self.firmware], util.u32_to_data(27))
+                else:
+                    self.inv.write(set_country_code[self.firmware], util.u32_to_data(306))
+
+        else:
+            params = {}
+
+            set_cc = util.data_to_u32(self.inv.read(set_country_code[self.firmware], 2))
+            if set_cc == 306:
+                params['Country Code'] = 'Island mode 60 Hz'
+            elif set_cc == 1013:
+                params['Country Code'] = 'Other standard'
+            elif set_cc == 7519:
+                params['Country Code'] = 'UL1741/2010/277'
+            else:
+                params['Country Code'] = str(set_cc)
+
+            cc = util.data_to_u32(self.inv.read(country_code[self.firmware], 2))
+            if cc == 27:
+                params['Country Code Read'] = 'Special setting'
+            elif cc == 306:
+                params['Country Code Read'] = 'Island mode 60 Hz'
+            elif cc == 1013:
+                params['Country Code Read'] = 'Other standard'
+            elif cc == 7519:
+                params['Country Code Read'] = 'UL1741/2010/277'
+            elif cc == 16777213:
+                params['Country Code Read'] = 'Information not available'
+            else:
+                params['Country Code Read'] = str(cc)
+
+            plant_conn = util.data_to_u32(self.inv.read(plant_conn[self.firmware], 2))
+            if plant_conn == 1779:
+                params['Plant Conn'] = 'Separated'
+            elif plant_conn == 1780:
+                params['Plant Conn'] = 'Public electricity mains'
+            elif plant_conn == 1781:
+                params['Plant Conn'] = 'Island mains'
+            else:
+                params['Plant Conn'] = str(plant_conn)
+
+            if params['Country Code'] == 'Island mode 60 Hz':  # Island mode
+                params['ui_mode_enable_as'] = False
+            else:
+                params['ui_mode_enable_as'] = True
+
+        return params
+
 
 if __name__ == "__main__":
     pass
@@ -1874,10 +2182,10 @@ Starting with software package: 02.84.01.R
 41113 Voltage monitoring of lower min.threshold as RMS value for tripping time      ms   U32       FIX0      RW
 41115 Voltage monitoring of upper maximum threshold as RMS value                     V   U32       FIX2      RW
 41117 Voltage monitoring of upper max. thresh. as RMS value for tripping time       ms   U32       FIX0      RW
-41121 Set country standard:
+41121 Set country standard:                                                     
     306 = Island mode 60 Hz
     1013 = Other standard
-    7519 = UL1741/                                                                       U32   FUNKTION_SEC  RW
+    7519 = UL1741/2010/277                                                               U32   FUNKTION_SEC  RW
 41123 Min. voltage for reconnection                                                  V   U32       FIX2      RW
 41125 Max. voltage for reconnection                                                  V   U32       FIX2      RW
 41127 Lower frequency for reconnection                                              Hz   U32       FIX2      RW
