@@ -78,6 +78,7 @@ def params(info, group_name=None):
                default="Yes", values=["Yes", "No"])
     info.param(pname('hil_config_load'), label='Load the model to target?', default="Yes", values=["Yes", "No"])
     info.param(pname('hil_config_execute'), label='Execute the model on target?', default="Yes", values=["Yes", "No"])
+    info.param(pname('hil_stop_time'), label='Stop Time', default=3600.)
 
 
 GROUP_NAME = 'opal'
@@ -120,6 +121,7 @@ class HIL(hil.HIL):
         self.hil_config_stop_sim = self._param_value('hil_config_stop_sim')
         self.hil_config_load = self._param_value('hil_config_load')
         self.hil_config_execute = self._param_value('hil_config_execute')
+        self.hil_stop_time = self._param_value('hil_stop_time')
 
         if self._param_value('hil_config') == 'True':
             self.config()
@@ -138,14 +140,16 @@ class HIL(hil.HIL):
         self.ts.log("{}".format(self.info()))
         if self._param_value('hil_config_open') == 'Yes':
             self.open()
-        self.ts.log('Setting the simulation stop time for 2 hours to run experiment.')
-        self.set_stop_time(3600 * 2)
         if self.hil_config_compile == 'Yes':
             self.ts.sleep(1)
             self.ts.log("    Model ID: {}".format(self.compile_model().get("modelId")))
         if self.hil_config_stop_sim == 'Yes':
             self.ts.sleep(1)
             self.ts.log("    {}".format(self.stop_simulation()))
+
+        self.ts.log('Setting the simulation stop time for %0.1f to run experiment.' % self.hil_stop_time)
+        self.set_stop_time(self.hil_stop_time)
+
         if self.hil_config_load == 'Yes':
             self.ts.sleep(1)
             self.ts.log("    {}".format(self.load_model_on_hil()))

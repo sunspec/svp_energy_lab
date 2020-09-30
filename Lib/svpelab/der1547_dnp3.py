@@ -177,10 +177,12 @@ def params(info, group_name):
     info.param(pname('path_to_py'), label='Path to SimController.py',
                default=r'C:\Users\DETLDAQ\Desktop\EPRISimulator\Setup\SimController.py',
                active=pname('sim_type'), active_value='EPRI DER Simulator')
-    info.param(pname('path_to_exe'), label='Path to DBUS_CMD.exe',
+    info.param(pname('path_to_exe'), label='Path to DERSimulator.exe',
                default=r'C:\Users\DETLDAQ\Desktop\EPRISimulator\Setup\epri-der-sim-0.1.0.6\
                epri-der-sim-0.1.0.6\DERSimulator.exe',
                active=pname('sim_type'), active_value='EPRI DER Simulator')
+    info.param(pname('irr_csv'), label='Irradiance csv filename. (Use "None" for no load.)',
+               default=r'None', active=pname('sim_type'), active_value='EPRI DER Simulator')
     info.param(pname('ipaddr'), label='Agent IP Address', default='127.0.0.1')
     info.param(pname('ipport'), label='Agent IP Port', default=10000)
     info.param(pname('out_ipaddr'), label='Outstation IP Address', default='127.0.0.1')
@@ -202,6 +204,8 @@ class DER1547(der1547.DER1547):
         if self.simulated_outstation == 'Yes':
             self.sim_type = self.param_value('sim_type')
             self.auto_config = self.param_value('auto_config')
+            self.irr_csv = self.param_value('irr_csv')
+
         self.ipaddr = self.param_value('ipaddr')
         self.ipport = self.param_value('ipport')
         self.out_ipaddr = self.param_value('out_ipaddr')
@@ -230,8 +234,8 @@ class DER1547(der1547.DER1547):
                     if self.param_value('dbus_ena') == 'Yes':
                         os.system(r'start cmd /k "' + self.param_value('path_to_dbus') + '"')
                         self.ts.sleep(1)
-                        # This currently runs in Python 2.7
-                        os.system(r'start cmd /k C:\Python27\python.exe "' + self.param_value('path_to_py') + '"')
+                        # This currently runs in Python 3.7
+                        os.system(r'start cmd /k C:\Python37\python.exe "' + self.param_value('path_to_py') + '"')
                         self.ts.sleep(1)
 
                     try:
@@ -251,40 +255,58 @@ class DER1547(der1547.DER1547):
                     self.ts.log('Clicking DERMS')
                     app['DER Simulator'].DERMS.click()  # click the DERMS button
 
-                    ''' To create irradiance profile
-                    self.ts.log('Clicking ENV')
-                    app['DER Simulator'].ENV.click()  # click into ENV button
-                    self.ts.log('Browsing to File')
-                    app['Environment Settings'].Browse.click()  # click Browse button
-                    # add csv file to File name: edit box; assumes this file will be local to Browse button default location
-                    self.ts.log('Entering File Name')
-                    app['Environment Settings'].Open.child_window(title="File name:", control_type="Edit").set_edit_text(
-                        r'EKHIV3_1PVSim1MIN.csv')
-                    self.ts.log('Confirming File Name')
-                    app['Environment Settings'].Open.OpenButton3.click()
-                    # check if Frequency and Voltage buttons are checked; if so, uncheck
-                    self.ts.log('Unchecking Freq Toggle')
-                    if app['Environment Settings'].Frequency.get_toggle_state():
-                        app['Environment Settings'].Frequency.toggle()
-                        self.ts.log('Unchecking Voltage Toggle')
-                    if app['Environment Settings'].Voltage.get_toggle_state():
-                        app['Environment Settings'].Voltage.toggle()
-                    self.ts.log('Clicking csv file import and closing')
-                    app['Environment Settings'].Import.click()  # import the CSV and close the dialog
-                    app['Environment Settings'].Close.click()  # import the CSV and close the dialog
-                    '''
+                    # create irradiance profile
+                    if self.irr_csv is not r'None':
+                        self.ts.log('Clicking ENV')
+                        app['DER Simulator'].ENV.click()  # click into ENV button
+                        self.ts.sleep(0.5)  # sleep to permit the stop to operate
 
-                    '''DBus connection for HIL environments
-                    self.ts.log('Clicking Co-Sim button')
-                    app['DER Simulator']['Co-Sim'].click()
-                    # set number of components to 3 and start DBus Client
-                    self.ts.log('Setting DBus Components to 3')
-                    app['DBus Settings']['Number of ComponentsEdit'].set_edit_text(r'3')
-                    self.ts.log('Starting DBus')
-                    app['DBus Settings']['Start DBus\r\nClientButton'].click()
-                    self.ts.log('Closing DBus')
-                    app['DBus Settings'].Close.click()
-                    '''
+                        self.ts.log('Browsing to File')
+                        app['Environment Settings'].Browse.click()  # click Browse button
+                        self.ts.sleep(0.5)  # sleep to permit the stop to operate
+
+                        # add csv file to File name: edit box; assumes this file will be local to Browse button
+                        # default location
+                        self.ts.log('Entering File Name')
+                        app['Environment Settings'].Open.child_window(title="File name:", control_type="Edit").\
+                            set_edit_text(self.irr_csv)
+                        self.ts.sleep(0.5)  # sleep to permit the stop to operate
+                        self.ts.log('Confirming File Name')
+                        app['Environment Settings'].Open.OpenButton3.click()
+                        self.ts.sleep(0.5)  # sleep to permit the stop to operate
+
+                        # check if Frequency and Voltage buttons are checked; if so, uncheck
+                        self.ts.log('Unchecking Freq Toggle')
+                        if app['Environment Settings'].Frequency.get_toggle_state():
+                            app['Environment Settings'].Frequency.toggle()
+                            self.ts.log('Unchecking Voltage Toggle')
+                        if app['Environment Settings'].Voltage.get_toggle_state():
+                            app['Environment Settings'].Voltage.toggle()
+                        self.ts.sleep(0.5)  # sleep to permit the stop to operate
+
+                        self.ts.log('Clicking csv file import and closing')
+                        app['Environment Settings'].Import.click()  # import the CSV and close the dialog
+                        app['Environment Settings'].Close.click()  # import the CSV and close the dialog
+                        self.ts.sleep(0.5)  # sleep to permit the stop to operate
+
+                    # DBus connection for HIL environments
+                    if self.param_value('dbus_ena') == 'Yes':
+                        self.ts.log('Clicking Co-Sim button')
+                        app['DER Simulator']['Co-Sim'].click()
+                        self.ts.sleep(0.5)  # sleep to permit the stop to operate
+
+                        # set number of components to 3 and start DBus Client
+                        self.ts.log('Setting DBus Components to 3')
+                        app['DBus Settings']['Number of ComponentsEdit'].set_edit_text(r'3')
+                        self.ts.sleep(0.5)  # sleep to permit the stop to operate
+
+                        self.ts.log('Starting DBus')
+                        app['DBus Settings']['Start DBus\r\nClientButton'].click()
+                        self.ts.sleep(0.5)  # sleep to permit the stop to operate
+
+                        self.ts.log('Closing DBus')
+                        app['DBus Settings'].Close.click()
+
 
     def add_out(self):
         agent = dnp3_agent.AgentClient(self.ipaddr, self.ipport)
