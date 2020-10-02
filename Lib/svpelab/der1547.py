@@ -317,15 +317,15 @@ class DER1547(object):
         ________________________________________________________________________________________________________________
         Constant Power Factor Mode Select                       const_pf_mode_enable_as             bool (True=Enabled)
         Constant Power Factor Excitation                        const_pf_excitation_as              str ('inj', 'abs')
-        Constant Power Factor Setting (RofA not specified in    const_pf_abs_er_min                 VAr p.u
+        Constant Power Factor Setting (RofA not specified in    const_pf_abs_er_min                 decimal
             1547)
-        Constant Power Factor Absorbing Setting                 const_pf_abs_as                     VAr p.u
-        Constant Power Factor Setting (RofA not specified in    const_pf_abs_er_max                 VAr p.u
+        Constant Power Factor Absorbing Setting                 const_pf_abs_as                     decimal
+        Constant Power Factor Setting (RofA not specified in    const_pf_abs_er_max                 decimal
             1547)
-        Constant Power Factor Setting (RofA not specified in    const_pf_inj_er_min                 VAr p.u
+        Constant Power Factor Setting (RofA not specified in    const_pf_inj_er_min                 decimal
             1547)
-        Constant Power Factor Injecting Setting                 const_pf_inj_as                     VAr p.u
-        Constant Power Factor Setting (RofA not specified in    const_pf_inj_er_max                 VAr p.u
+        Constant Power Factor Injecting Setting                 const_pf_inj_as                     decimal
+        Constant Power Factor Setting (RofA not specified in    const_pf_inj_er_max                 decimal
             1547)
         Maximum response time to maintain constant power        const_pf_olrt_er_min                s
             factor. (Not in 1547)

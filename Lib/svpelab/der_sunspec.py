@@ -59,7 +59,7 @@ def params(info, group_name):
     info.param(pname('parity'), label='Parity', default='N', values=['N', 'E'], active=pname('ifc_type'),
                active_value=[client.RTU])
     # TCP parameters
-    info.param(pname('ipaddr'), label='IP Address', default='192.168.0.170', active=pname('ifc_type'),
+    info.param(pname('ipaddr'), label='IP Address', default='127.0.0.1', active=pname('ifc_type'),
                active_value=[client.TCP])
     info.param(pname('ipport'), label='IP Port', default=502, active=pname('ifc_type'), active_value=[client.TCP])
     info.param(pname('tls'), label='TLS Client', default=False, active=pname('ifc_type'), active_value=[client.TCP],
@@ -150,6 +150,7 @@ class DER(der.DER):
     def __init__(self, ts, group_name):
         der.DER.__init__(self, ts, group_name)
         self.inv = None
+        self.ts = ts
 
     def param_value(self, name):
         return self.ts.param_value(self.group_name + '.' + GROUP_NAME + '.' + name)
@@ -173,9 +174,18 @@ class DER(der.DER):
         skip_verify = self.param_value('insecure_skip_tls_verify')
         slave_id = self.param_value('slave_id')
 
-        self.inv = client.SunSpecClientDevice(ifc_type, slave_id=slave_id, name=ifc_name, baudrate=baudrate,
-                                              parity=parity, ipaddr=ipaddr, ipport=ipport,
-                                              tls=tls, cafile=cafile, certfile=certfile, keyfile=keyfile, insecure_skip_tls_verify=skip_verify)
+        try:  # attempt to use pysunspec that supports TLS encryption
+            self.inv = client.SunSpecClientDevice(ifc_type, slave_id=slave_id, name=ifc_name, baudrate=baudrate,
+                                                  parity=parity, ipaddr=ipaddr, ipport=ipport,
+                                                  tls=tls, cafile=cafile, certfile=certfile, keyfile=keyfile,
+                                                  insecure_skip_tls_verify=skip_verify)
+        except Exception as e:  # fallback to old version
+            if self.ts is not None:
+                self.ts.log('Could not create Modbus client with encryption: %s.  Attempted unencrypted option.')
+            else:
+                print('Could not create Modbus client with encryption: %s.  Attempted unencrypted option.')
+            self.inv = client.SunSpecClientDevice(ifc_type, slave_id=slave_id, name=ifc_name, baudrate=baudrate,
+                                                  parity=parity, ipaddr=ipaddr, ipport=ipport)
 
     def close(self):
         if self.inv is not None:
