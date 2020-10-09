@@ -355,7 +355,7 @@ class DER1547(object):
         Vref (0.95-1.05)                                            qv_vref_as                      V p.u.
         Vref Max (RofA not specified in 1547)                       qv_vref_er_max                  V p.u.
 
-        Autonomous Vref Adjustment Enable                           qv_vref_auto_mode_as            str
+        Autonomous Vref Adjustment Enable                           qv_vref_auto_mode_as            bool (True=Enabled)
         Vref adjustment time Constant (RofA not specified           qv_vref_olrt_er_min             s
             in 1547)
         Vref adjustment time Constant (300-5000)                    qv_vref_olrt_as                 s
@@ -410,10 +410,6 @@ class DER1547(object):
         P-Q curve Q1-3 Load (RofA not Specified in 1547)            qp_curve_q_load_pts_er_min          VAr p.u.
         P-Q curve Q1-3 Load Setting (list)                          qp_curve_q_load_pts_as              VAr p.u.
         P-Q curve Q1-3 Load (RofA not Specified in 1547)            qp_curve_q_load_pts_er_max          VAr p.u.
-
-        QP Open Loop Response Time (RofA not specified in 1547)     qp_olrt_er_min                      s
-        QP Open Loop Response Time Setting                          qp_olrt_as                          s
-        QP Open Loop Response Time (RofA not specified in 1547)     qp_olrt_er_max                      s
 
         :return: dict with keys shown above.
         """

@@ -244,7 +244,97 @@ class DER1547(der1547.DER1547):
                     if pt != 'Pad':
                         label = eval('self.inv.%s[0].points[pt].pdef["label"]' % m)
                         val = eval('self.inv.%s[0].points[pt].cvalue' % m)
-                        self.ts.log('%s [%s]: %s' % (label, pt, val))
+
+                        if val is not None and eval('self.inv.%s[0].points[pt].pdef.get("symbols")' % m) is not None:
+                            symbol = eval('self.inv.%s[0].points[pt].pdef.get("symbols")' % m)
+                            # self.ts.log('Symbols: %s' % symbol)
+                            symb = None
+                            if symbol is not None:
+                                if isinstance(symbol, list):
+                                    for s in symbol:
+                                        # self.ts.log('s: %s' % s)
+                                        if val == s.get('value'):
+                                            symb = s.get("label")
+                                else:
+                                    if symbol.get(val) is not None:
+                                        symb = eval('self.inv.%s[0].points[pt].pdef["symbols"][val]["label"]' % m)
+                            self.ts.log('%s [%s]: %s [%s]' % (label, pt, val, symb))
+                        else:
+                            self.ts.log('%s [%s]: %s' % (label, pt, val))
+
+                # Cycle through groups
+                self.print_group(group_obj=eval('self.inv.%s[0]' % m))
+
+    def print_group(self, group_obj, tab_level=2):
+        """
+        Print out groups. Method calls itself for groups of groups
+
+        :param group_obj: group object, must be a dict
+        :param tab_level: print indention
+
+        :return: None
+        """
+        if isinstance(group_obj.groups, dict):
+            for group in group_obj.groups.keys():
+                if isinstance(group_obj.groups[group], list):  # list of groups within the group
+                    for i in range(len(group_obj.groups[group])):
+                        self.ts.log('\t' * (tab_level - 1) + '-' * 50)
+                        self.ts.log('\t' * (tab_level-1) + 'Group: %s (#%d)' % (group, i+1))
+
+                        for pt in group_obj.groups[group][i].points.keys():
+                            # self.ts.log_debug('pt: %s' % pt)
+                            if pt != 'Pad':
+                                try:
+                                    label = group_obj.groups[group][i].points[pt].pdef["label"]
+                                except Exception as e:
+                                    label = group_obj.groups[group][i].points[pt].pdef["name"]
+                                val = group_obj.groups[group][i].points[pt].cvalue
+
+                                # symbol prints
+                                if val is not None and \
+                                        group_obj.groups[group][i].points[pt].pdef.get("symbols") is not None:
+                                    symbol = group_obj.groups[group][i].points[pt].pdef.get("symbols")
+                                    symb = None
+                                    if isinstance(symbol, list):
+                                        for s in symbol:
+                                            # self.ts.log('s: %s' % s)
+                                            if val == s.get('value'):
+                                                symb = s.get("label")
+                                    else:
+                                        if group_obj.symbol.get(val) is not None:
+                                            symb = symbol[val]['label']
+                                    self.ts.log('\t' * tab_level + '%s [%s]: %s [%s]' % (label, pt, val, symb))
+                                else:
+                                    self.ts.log('\t' * tab_level + '%s [%s]: %s' % (label, pt, val))
+
+                        # For cases of groups of groups, call this function again
+                        new_obj = group_obj.groups[group][i]
+                        # self.ts.log_debug('New Obj = %s' % new_obj)
+                        self.print_group(group_obj=new_obj, tab_level=tab_level+1)
+                else:
+                    self.ts.log('\t' * (tab_level - 1) + '-' * 50)
+                    self.ts.log('\t' * (tab_level - 1) + 'Group: %s' % group)
+                    for pt in group_obj.groups[group].points.keys():
+                        # self.ts.log_debug('pt: %s' % pt)
+                        if pt != 'Pad':
+                            label = group_obj.groups[group].points[pt].pdef["label"]
+                            val = group_obj.groups[group].points[pt].cvalue
+
+                            # symbol prints
+                            if val is not None and group_obj.groups[group].points[pt].pdef.get("symbols") is not None:
+                                symbol = group_obj.groups[group].points[pt].pdef.get("symbols")
+                                symb = None
+                                if isinstance(symbol, list):
+                                    for s in symbol:
+                                        # self.ts.log('s: %s' % s)
+                                        if val == s.get('value'):
+                                            symb = s.get("label")
+                                else:
+                                    if group_obj.symbol.get(val) is not None:
+                                        symb = symbol[val]['label']
+                                self.ts.log('\t' * tab_level + '%s [%s]: %s [%s]' % (label, pt, val, symb))
+                            else:
+                                self.ts.log('\t' * tab_level + '%s [%s]: %s' % (label, pt, val))
 
     def get_nameplate(self):
         """
@@ -638,10 +728,28 @@ class DER1547(der1547.DER1547):
             PF Reversion Time (W Inj) [PFWInjRvrtTms]: None
             PF Reversion Time Rem (W Inj) [PFWInjRvrtRem]: None
 
+            (Only for DER with storage and absorbing power)
             Power Factor Enable (W Abs) Enable [PFWAbsEna]: 0
             Power Factor Reversion Enable (W Abs) [PFWAbsRvrtEna]: None
             PF Reversion Time (W Abs) [PFWAbsRvrtTms]: None
             PF Reversion Time Rem (W Abs) [PFWAbsRvrtRem]: None
+
+                --------------------------------------------------
+                Group: PFWInj
+                Power Factor (W Inj)  [PF]: 0.9500000000000001
+                Power Factor Excitation (W Inj) [Ext]: 1
+                --------------------------------------------------
+                Group: PFWInjRvrt
+                Reversion Power Factor (W Inj)  [PF]: None
+                Reversion PF Excitation (W Inj) [Ext]: None
+                --------------------------------------------------
+                Group: PFWAbs
+                Power Factor (W Abs)  [PF]: None
+                Power Factor Excitation (W Abs) [Ext]: None
+                --------------------------------------------------
+                Group: PFWAbsRvrt
+                Reversion Power Factor (W Abs)  [PF]: None
+                Reversion PF Excitation (W Abs) [Ext]: None
 
         :return: dict with keys shown above.
         """
@@ -656,16 +764,21 @@ class DER1547(der1547.DER1547):
             else:
                 params['const_pf_mode_enable_as'] = False
 
-        if der_pts.WMaxLim.cvalue is not None:
-            params['const_pf_abs_as'] = der_pts.WMaxLim.cvalue / 100.
-        if der_pts.WMaxLim.cvalue is not None:
-            params['const_pf_inj_as'] = der_pts.WMaxLim.cvalue / 100.
+        if der_pts.PFWInj.PF.cvalue is not None:
+            params['const_pf_inj_as'] = der_pts.PFWInj.PF.cvalue
+        if der_pts.PFWInj.Ext.cvalue is not None:
+            if der_pts.PFWInj.Ext.cvalue == 0:  # todo check sign convension
+                params['const_pf_excitation_as'] = 'inj'  # Over-excited
+            else:
+                params['const_pf_excitation_as'] = 'abs'
 
-        if der_pts.WMaxLim.cvalue is not None:
-            params['p_lim_w_as'] = der_pts.WMaxLim.cvalue / 100.
-        if der_pts.WMaxLim.cvalue is not None:
-            params['p_lim_w_as'] = der_pts.WMaxLim.cvalue / 100.
-
+        if der_pts.PFWAbs.PF.cvalue is not None:
+            params['const_pf_abs_as'] = der_pts.PFWAbs.PF.cvalue
+        if der_pts.PFWAbs.Ext.cvalue is not None:
+            if der_pts.PFWAbs.Ext.cvalue == 0:  # todo check sign convension
+                params['const_pf_excitation_as'] = 'inj'  # Over-excited
+            else:
+                params['const_pf_excitation_as'] = 'abs'
 
         return params
 
@@ -673,88 +786,354 @@ class DER1547(der1547.DER1547):
         """
         Set Constant Power Factor Mode control settings.
         """
-        pass
+        der_pts = self.inv.DERCtlAC[0]
+        der_pts.read()
 
-    def get_qv(self):
+        if params.get('const_pf_mode_enable_as') is not None:
+            if params.get('const_pf_mode_enable_as') is True:
+                der_pts.PFWInjEna.cvalue = 1
+            else:
+                der_pts.PFWInjEna.cvalue = 0
+
+        if params.get('const_pf_inj_as') is not None:
+            der_pts.PFWInj.PF.cvalue = params.get('const_pf_inj_as')
+        if params.get('const_pf_excitation_as') is not None:
+            if params.get('const_pf_excitation_as') == 'inj':  # todo check sign convension
+                der_pts.PFWInj.Ext.cvalue = 0  # Over-excited
+            else:
+                der_pts.PFWInj.Ext.cvalue = 1  # Under-excited
+
+        if params.get('const_pf_abs_as') is not None:
+            der_pts.PFWAbs.PF.cvalue = params.get('const_pf_abs_as')
+        if params.get('const_pf_excitation_as') is not None:
+            if params.get('const_pf_excitation_as') == 'inj':  # todo check sign convension
+                der_pts.PFWAbs.Ext.cvalue = 0  # Over-excited
+            else:
+                der_pts.PFWAbs.Ext.cvalue = 1  # Under-excited
+        der_pts.write()
+
+    def get_qv(self, group=1):
         """
+        :param group: the numerical value of the volt-var curve. The python index is one less.
+
         Get Q(V) parameters. [Volt-Var]
         ______________________________________________________________________________________________________________
         Parameter                                                   params dict key                 units
         ______________________________________________________________________________________________________________
         Voltage-Reactive Power Mode Enable                          qv_mode_enable_as               bool (True=Enabled)
-        Vref Min (RofA not specified in 1547)                       qv_vref_er_min                  V p.u.
         Vref (0.95-1.05)                                            qv_vref_as                      V p.u.
-        Vref Max (RofA not specified in 1547)                       qv_vref_er_max                  V p.u.
-
-        Autonomous Vref Adjustment Enable                           qv_vref_auto_mode_as            str
-        Vref adjustment time Constant (RofA not specified           qv_vref_olrt_er_min             s
-            in 1547)
+        Autonomous Vref Adjustment Enable                           qv_vref_auto_mode_as            bool (True=Enabled)
         Vref adjustment time Constant (300-5000)                    qv_vref_olrt_as                 s
-        Vref adjustment time Constant (RofA not specified           qv_vref_olrt_er_max             s
-            in 1547)
-
-        Q(V) Curve Point V1-4 Range of Adjustability (Min)          qv_curve_v_er_min               V p.u.
-            (RofA not specified in 1547) (list)
         Q(V) Curve Point V1-4 (list, e.g., [95, 99, 101, 105])      qv_curve_v_pts                  V p.u.
-        Q(V) Curve Point V1-4 Range of Adjustability (Max)          qv_curve_v_er_max               V p.u.
-            (RofA not specified in 1547) (list)
-
-        Q(V) Curve Point Q1-4 Range of Adjustability (Min)          qv_curve_q_er_min               VAr p.u.
-            (RofA not specified in 1547) (list)
         Q(V) Curve Point Q1-4 (list)                                qv_curve_q_pts                  VAr p.u.
-        Q(V) Curve Point Q1-4 Range of Adjustability (Max)          qv_curve_q_er_max               VAr p.u.
-            (RofA not specified in 1547) (list)
-
-        Q(V) Open Loop Response Time (RofA not specified in 1547)   qv_olrt_er_min                  s
         Q(V) Open Loop Response Time Setting  (1-90)                qv_olrt_as                      s
-        Q(V) Open Loop Response Time (RofA not specified in 1547)   qv_olrt_er_max                  s
 
         :return: dict with keys shown above.
-        """
-        return None
 
-    def set_qv(self, params=None):
+        SunSpec Points
+            Model ID [ID]: 705
+            Model Length [L]: 64
+            Module Enable [Ena]: 1 [Enabled]
+            Active Curve State [CrvSt]: 1 [Active Curve Enabled]
+            Adopt Curve Request [AdptCrvReq]: 0
+            Adopt Curve Result [AdptCrvRslt]: 0 [Update In Progress]
+            Number Of Points [NPt]: 4
+            Stored Curve Count [NCrv]: 3
+            Reversion Timeout [RvrtTms]: 0
+            Reversion Time Remaining [RvrtRem]: 0
+            Reversion Curve [RvrtCrv]: 0
+            Voltage Scale Factor [V_SF]: -2
+            Var Scale Factor [DeptRef_SF]: -2
+                --------------------------------------------------
+                Group: Crv (#1)
+                    Active Points [ActPt]: 4
+                    Dependent Reference [DeptRef]: 1 [Percent Max Watts]
+                    Pri [Pri]: 1 [Active Power Priority]
+                    Vref Adjustment [VRef]: 1
+                    Current Autonomous Vref [VRefAuto]: 0
+                    Autonomous Vref Enable [VRefAutoEna]: None
+                    Auto Vref Time Constant [VRefTms]: 5
+                    Open Loop Response Time [RspTms]: 6
+                    Curve Access [ReadOnly]: 1 [Read-Only Access]
+                    --------------------------------------------------
+                    Group: Pt (#1)
+                        Voltage Point [V]: 92.0
+                        Reactive Power Point [Var]: 30.0
+                    --------------------------------------------------
+                    Group: Pt (#2)
+                        Voltage Point [V]: 96.7
+                        Reactive Power Point [Var]: 0.0
+                    --------------------------------------------------
+                    Group: Pt (#3)
+                        Voltage Point [V]: 103.0
+                        Reactive Power Point [Var]: 0.0
+                    --------------------------------------------------
+                    Group: Pt (#4)
+                        Voltage Point [V]: 107.0
+                        Reactive Power Point [Var]: -30.0
+        """
+        params = {}
+        der_pts = self.inv.DERVoltVar[0]
+        der_pts.read()
+        group -= 1  # convert to the python index
+
+        if der_pts.Ena.cvalue is not None:
+            if der_pts.Ena.cvalue == 1:
+                params['qv_mode_enable_as'] = True
+            else:
+                params['qv_mode_enable_as'] = False
+
+        if der_pts.CrvSt.cvalue is not None:
+            params['qv_active_curve'] = der_pts.CrvSt.cvalue
+        if der_pts.NPt.cvalue is not None:
+            params['qv_n_points'] = der_pts.NPt.cvalue
+        if der_pts.NCrv.cvalue is not None:
+            params['qv_n_curves'] = der_pts.NCrv.cvalue
+
+        # curve points
+        if der_pts.Crv[group].VRefAutoEna.cvalue is not None:
+            if der_pts.Crv[group].VRefAutoEna.cvalue == 1:
+                params['qv_vref_auto_mode_as'] = True
+            else:
+                params['qv_vref_auto_mode_as'] = False
+        if der_pts.Crv[group].VRefTms.cvalue is not None:
+            params['qv_vref_olrt_as'] = der_pts.Crv[group].VRefTms.cvalue
+        if der_pts.Crv[group].ActPt.cvalue is not None:
+            params['qv_curve_n_active_pts'] = der_pts.Crv[group].ActPt.cvalue
+        else:
+            params['qv_curve_n_active_pts'] = 4
+        params['qv_curve_v_pts'] = []
+        params['qv_curve_q_pts'] = []
+        for i in range(params['qv_curve_n_active_pts']):
+            params['qv_curve_v_pts'].append(der_pts.Crv[group].Pt[i].V.cvalue / 100.)  # pu
+            params['qv_curve_q_pts'].append(der_pts.Crv[group].Pt[i].Var.cvalue / 100.)
+
+        if der_pts.Crv[group].RspTms.cvalue is not None:
+            params['qv_olrt_as'] = der_pts.Crv[group].RspTms.cvalue
+
+        return params
+
+    def set_qv(self, params=None, group=1):
         """
         Set Q(V) parameters. [Volt-Var]
         """
-        pass
+        der_pts = self.inv.DERVoltVar[0]
+        der_pts.read()
+        group -= 1  # convert to python index
 
-    def get_qp(self):
+        if params.get('qv_mode_enable_as') is not None:
+            if params.get('qv_mode_enable_as') is True:
+                der_pts.Ena.cvalue = 1
+            else:
+                der_pts.Ena.cvalue = 0
+
+        der_pts.CrvSt.cvalue = group
+
+        if params.get('qv_vref_auto_mode_as') is not None:
+            if params['qv_vref_auto_mode_as']:
+                der_pts.Crv[group].VRefAutoEna.cvalue = 1
+            else:
+                der_pts.Crv[group].VRefAutoEna.cvalue = 0
+
+        # curve points
+        if params.get('qv_vref_olrt_as') is not None:
+            der_pts.Crv[group].VRefTms.cvalue = params['qv_vref_olrt_as']
+
+        if params.get('qv_curve_v_pts') is not None:
+            if params.get('qv_curve_q_pts') is None:
+                raise der1547.DER1547Error('Volt-Var curves must be writen in pairs. No Q points provided.')
+        if params.get('qv_curve_q_pts') is not None:
+            if params.get('qv_curve_v_pts') is None:
+                raise der1547.DER1547Error('Volt-Var curves must be writen in pairs. No V points provided')
+
+        if params.get('qv_curve_v_pts') is not None:
+            if len(params['qv_curve_v_pts']) != len(params['qv_curve_q_pts']):
+                raise der1547.DER1547Error('V and Q lists are not the same lengths')
+            if len(params['qv_curve_v_pts']) > der_pts.NPt.cvalue:
+                raise der1547.DER1547Error('Volt-Var curves require more points than are supported.')
+
+            if len(params['qv_curve_v_pts']) != der_pts.Crv[group].ActPt.cvalue:
+                der_pts.Crv[group].ActPt.cvalue = len(params['qv_curve_v_pts'])
+
+            for i in range(len(params['qv_curve_v_pts'])):
+                der_pts.Crv[group].Pt[i].V.cvalue = params['qv_curve_v_pts'][i]*100.  # convert pu to %
+                der_pts.Crv[group].Pt[i].Var.cvalue = params['qv_curve_q_pts'][i]*100.
+
+        if params.get('qv_olrt_as') is not None:
+            der_pts.Crv[group].RspTms.cvalue = params['qv_olrt_as']
+
+        der_pts.write()
+
+        return params
+
+    def get_qp(self, group=1):
         """
         Get Q(P) parameters. [Watt-Var] - IEEE 1547 Table 32
         _______________________________________________________________________________________________________________
         Parameter                                                   params dict key                     units
         _______________________________________________________________________________________________________________
         Active Power-Reactive Power (Watt-VAr) Enable               qp_mode_enable_as                   bool
-        P-Q curve P1-3 Generation (RofA not Specified in 1547)      qp_curve_p_gen_pts_er_min           P p.u.
         P-Q curve P1-3 Generation Setting (list)                    qp_curve_p_gen_pts_as               P p.u.
-        P-Q curve P1-3 Generation (RofA not Specified in 1547)      qp_curve_p_gen_pts_er_max           P p.u.
-
-        P-Q curve Q1-3 Generation (RofA not Specified in 1547)      qp_curve_q_gen_pts_er_min           VAr p.u.
         P-Q curve Q1-3 Generation Setting (list)                    qp_curve_q_gen_pts_as               VAr p.u.
-        P-Q curve Q1-3 Generation (RofA not Specified in 1547)      qp_curve_q_gen_pts_er_max           VAr p.u.
-
-        P-Q curve P1-3 Load (RofA not Specified in 1547)            qp_curve_p_load_pts_er_min          P p.u.
-        P-Q curve P1-3 Load Setting (list)                          qp_curve_p_load_pts_as              P p.u.
-        P-Q curve P1-3 Load (RofA not Specified in 1547)            qp_curve_p_load_pts_er_max          P p.u.
-
-        P-Q curve Q1-3 Load (RofA not Specified in 1547)            qp_curve_q_load_pts_er_min          VAr p.u.
+        P-Q curve P1-3 Load Setting (list), negative values         qp_curve_p_load_pts_as              P p.u.
         P-Q curve Q1-3 Load Setting (list)                          qp_curve_q_load_pts_as              VAr p.u.
-        P-Q curve Q1-3 Load (RofA not Specified in 1547)            qp_curve_q_load_pts_er_max          VAr p.u.
-
-        QP Open Loop Response Time (RofA not specified in 1547)     qp_olrt_er_min                      s
         QP Open Loop Response Time Setting                          qp_olrt_as                          s
-        QP Open Loop Response Time (RofA not specified in 1547)     qp_olrt_er_max                      s
 
         :return: dict with keys shown above.
-        """
-        return None
 
-    def set_qp(self, params=None):
+        SunSpec Points
+            Model ID [ID]: 712
+            Model Length [L]: 19
+            Module Enable [Ena]: None
+            Active Curve State [CrvSt]: None
+            Set Active Curve Request [AdptCrvReq]: None
+            Set Active Curve Result [AdptCrvRslt]: None
+            Number Of Points [NPt]: 1
+            Stored Curve Count [NCrv]: 1
+            Reversion Timeout [RvrtTms]: 0
+            Reversion Time Left [RvrtRem]: 0
+            Reversion Curve [RvrtCrv]: 0
+            Active Power Scale Factor [W_SF]: None
+            Var Scale Factor [DeptRef_SF]: -2
+            --------------------------------------------------
+            Group: Crv (#1)
+                Active Points [ActPt]: 1
+                Dependent Reference [DeptRef]: None
+                Pri [Pri]: None
+                Curve Access [ReadOnly]: None
+                --------------------------------------------------
+                Group: Pt (#1)
+                    Active Power Point [W]: None
+                    Reactive Power Point [Var]: None
+
+        """
+        params = {}
+        der_pts = self.inv.DERWattVar[0]
+        der_pts.read()
+        group -= 1  # convert to the python index
+
+        if der_pts.Ena.cvalue is not None:
+            if der_pts.Ena.cvalue == 1:
+                params['qp_mode_enable_as'] = True
+            else:
+                params['qp_mode_enable_as'] = False
+
+        if der_pts.CrvSt.cvalue is not None:
+            params['qp_active_curve'] = der_pts.CrvSt.cvalue
+        if der_pts.NPt.cvalue is not None:
+            params['qp_n_points'] = der_pts.NPt.cvalue
+        if der_pts.NCrv.cvalue is not None:
+            params['qp_n_curves'] = der_pts.NCrv.cvalue
+
+        # curve points
+        if der_pts.Crv[group].ActPt.cvalue is not None:
+            params['qp_curve_n_active_pts'] = der_pts.Crv[group].ActPt.cvalue
+        else:
+            params['qp_curve_n_active_pts'] = 6
+        params['qp_curve_p_gen_pts_as'] = []
+        params['qp_curve_q_gen_pts_as'] = []
+        params['qp_curve_p_load_pts_as'] = []
+        params['qp_curve_q_load_pts_as'] = []
+        for i in range(params['qp_curve_n_active_pts']):
+            # self.ts.log_debug('%s, Pt: %s' % (i, der_pts.Crv[group].Pt[i]))
+            if der_pts.Crv[group].Pt[i].W.cvalue is not None:
+                p_pu = der_pts.Crv[group].Pt[i].W.cvalue / 100.
+                q_pu = der_pts.Crv[group].Pt[i].Var.cvalue / 100.
+                # self.ts.log_debug('P = %s, Q: %s' % (p_pu, q_pu))
+                if p_pu < 0:
+                    params['qp_curve_p_load_pts_as'].append(p_pu)  # pu
+                    params['qp_curve_q_load_pts_as'].append(q_pu)
+                else:
+                    params['qp_curve_p_gen_pts_as'].append(p_pu)  # pu
+                    params['qp_curve_q_gen_pts_as'].append(q_pu)
+
+        params['qp_curve_p_load_pts_as'].reverse()  # place P'1 next to axis and P'3 toward -100% P pu
+        params['qp_curve_q_load_pts_as'].reverse()
+
+        # if der_pts.Crv[group].RspTms.cvalue is not None:
+        #     params['qp_olrt_as'] = der_pts.Crv[group].RspTms.cvalue
+
+        return params
+
+    def set_qp(self, params=None, group=1):
         """
         Set Q(P) parameters. [Watt-Var]
         """
-        pass
+        der_pts = self.inv.DERWattVar[0]
+        der_pts.read()
+        group -= 1  # convert to python index
+
+        if params.get('qp_mode_enable_as') is not None:
+            if params.get('qp_mode_enable_as') is True:
+                der_pts.Ena.cvalue = 1
+            else:
+                der_pts.Ena.cvalue = 0
+
+        der_pts.CrvSt.cvalue = group
+
+        if params.get('qp_curve_p_gen_pts_as') is not None:
+            p_gen_points = params.get('qp_curve_p_gen_pts_as')
+            if params.get('qp_curve_q_gen_pts_as') is None:
+                raise der1547.DER1547Error('Watt-Var curves must be writen in pairs. No Qgen points provided.')
+            if len(params['qp_curve_p_gen_pts_as']) != len(params['qp_curve_q_gen_pts_as']):
+                raise der1547.DER1547Error('P and Q lists are not the same lengths')
+        else:
+            p_gen_points = self.get_qp().get('qp_curve_p_gen_pts_as')
+
+        if params.get('qp_curve_q_gen_pts_as') is not None:
+            q_gen_points = params.get('qp_curve_q_gen_pts_as')
+            if params.get('qp_curve_p_gen_pts_as') is None:
+                raise der1547.DER1547Error('Watt-Var curves must be writen in pairs. No Pgen points provided')
+        else:
+            q_gen_points = self.get_qp().get('qp_curve_q_gen_pts_as')
+
+        if params.get('qp_curve_p_load_pts_as') is not None:
+            p_load_points = params.get('qp_curve_p_load_pts_as')
+            if params.get('qp_curve_q_load_pts_as') is None:
+                raise der1547.DER1547Error('Watt-Var curves must be writen in pairs. No Qload points provided.')
+            if len(params['qp_curve_p_load_pts_as']) != len(params['qp_curve_q_load_pts_as']):
+                raise der1547.DER1547Error('P and Q lists are not the same lengths')
+        else:
+            p_load_points = self.get_qp().get('qp_curve_p_load_pts_as')
+            # self.ts.log_debug('From read')
+
+        if params.get('qp_curve_q_load_pts_as') is not None:
+            q_load_points = params.get('qp_curve_q_load_pts_as')
+            if params.get('qp_curve_p_load_pts_as') is None:
+                raise der1547.DER1547Error('Watt-Var curves must be writen in pairs. No Pload points provided')
+        else:
+            q_load_points = self.get_qp().get('qp_curve_q_load_pts_as')
+
+        points = len(p_gen_points) + len(p_load_points)
+        if points > der_pts.NPt.cvalue:
+            raise der1547.DER1547Error('Watt-Var curves require more points than are supported.')
+
+        if params.get('qp_curve_p_gen_pts_as') is None and params.get('qp_curve_q_gen_pts_as') is None and \
+            params.get('qp_curve_p_load_pts_as') is None and params.get('qp_curve_q_load_pts_as'):
+            # do not write points, because none included in params
+            return params
+        else:
+            if points != der_pts.Crv[group].ActPt.cvalue:
+                der_pts.Crv[group].ActPt.cvalue = points
+            der_pts.write()
+
+            # reverse the load points so they align to the axis
+            p_load_points.reverse()
+            q_load_points.reverse()
+
+            p_points = p_load_points + p_gen_points
+            q_points = q_load_points + q_gen_points
+            # self.ts.log_debug('p_points = %s, q_points: %s' % (p_points, q_points))
+            for i in range(points):
+                der_pts.Crv[group].Pt[i].W.cvalue = p_points[i]*100.  # convert pu to %
+                der_pts.Crv[group].Pt[i].Var.cvalue = q_points[i]*100.
+
+            # if params.get('qp_olrt_as') is not None:
+            #     der_pts.Crv[group].RspTms.cvalue = params['qp_olrt_as']
+
+            der_pts.write()
+
+            return params
 
     def get_pv(self):
         """

@@ -883,7 +883,7 @@ class DER1547(der1547.DER1547):
         ______________________________________________________________________________________________________________
         Voltage-Reactive Power Mode Enable                          qv_mode_enable_as               bool (True=Enabled)
         Vref (0.95-1.05)                                            qv_vref_as                      V p.u.
-        Autonomous Vref Adjustment Enable                           qv_vref_auto_mode_as            str
+        Autonomous Vref Adjustment Enable                           qv_vref_auto_mode_as            bool (True=Enabled)
         Vref adjustment time Constant (300-5000)                    qv_vref_olrt_as                 s
         Q(V) Curve Point V1-4 (list), [0.95, 0.99, 1.01, 1.05]      qv_curve_v_pts                  V p.u.
         Q(V) Curve Point Q1-4 (list), [1., 0., 0., -1.]             qv_curve_q_pts                  VAr p.u.
@@ -1092,7 +1092,7 @@ class DER1547(der1547.DER1547):
         P-Q curve Q1-3 Generation Setting (list)                    qp_curve_q_gen_pts_as               VAr p.u.
         P-Q curve P1-3 Load Setting (list)                          qp_curve_p_load_pts_as              P p.u.
         P-Q curve Q1-3 Load Setting (list)                          qp_curve_q_load_pts_as              VAr p.u.
-        QP Open Loop Response Time Setting                          qp_olrt_as                          s
+
         """
         watt_var_pts = watt_var_data.copy()
         watt_var_pts.update(curve_read.copy())
