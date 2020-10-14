@@ -358,7 +358,7 @@
       "CrvSt": null,
       "AdptCrvReq": null,
       "AdptCrvRslt": null,
-      "NPt": 1,
+      "NPt": 3,
       "NCrvSet": 1,
       "V_SF": -2,
       "Tms_SF": 0,
@@ -370,6 +370,14 @@
               {
                 "V": 5000,
                 "Tms": 5
+              },
+			  {
+                "V": 5000,
+                "Tms": 5
+              },
+			  {
+                "V": 5000,
+                "Tms": 5
               }
             ]
           },
@@ -379,6 +387,14 @@
               {
                 "V": 7000,
                 "Tms": 5
+              },
+			  {
+                "V": 5000,
+                "Tms": 5
+              },
+			  {
+                "V": 5000,
+                "Tms": 5
               }
             ]
           },
@@ -387,6 +403,14 @@
             "Pt": [
               {
                 "V": 6000,
+                "Tms": 5
+              },
+			  {
+                "V": 5000,
+                "Tms": 5
+              },
+			  {
+                "V": 5000,
                 "Tms": 5
               }
             ]
@@ -401,7 +425,7 @@
       "CrvSt": null,
       "AdptCrvReq": null,
       "AdptCrvRslt": null,
-      "NPt": 1,
+      "NPt": 3,
       "NCrvSet": 1,
       "V_SF": -2,
       "Tms_SF": 0,
@@ -413,6 +437,14 @@
               {
                 "V": 12000,
                 "Tms": 5
+              },
+			  {
+                "V": 5000,
+                "Tms": 5
+              },
+			  {
+                "V": 5000,
+                "Tms": 5
               }
             ]
           },
@@ -422,6 +454,14 @@
               {
                 "V": 10000,
                 "Tms": 5
+              },
+			  {
+                "V": 5000,
+                "Tms": 5
+              },
+			  {
+                "V": 5000,
+                "Tms": 5
               }
             ]
           },
@@ -430,6 +470,14 @@
             "Pt": [
               {
                 "V": 10000,
+                "Tms": 5
+              },
+			  {
+                "V": 5000,
+                "Tms": 5
+              },
+			  {
+                "V": 5000,
                 "Tms": 5
               }
             ]
@@ -444,9 +492,9 @@
       "CrvSt": null,
       "AdptCrvReq": null,
       "AdptCrvRslt": null,
-      "NPt": 1,
+      "NPt": 2,
       "NCrvSet": 1,
-      "Freq_SF": null,
+      "Freq_SF": -2,
       "Tms_SF": -2,
       "Crv": [
         {
@@ -454,6 +502,10 @@
             "ActPt": 1,
             "Pt": [
               {
+                "Freq": 5300,
+                "Tms": 5
+              },              
+			  {
                 "Freq": 5300,
                 "Tms": 5
               }
@@ -465,6 +517,10 @@
               {
                 "Freq": 5850,
                 "Tms": 5
+              },              
+			  {
+                "Freq": 5300,
+                "Tms": 5
               }
             ]
           },
@@ -473,6 +529,10 @@
             "Pt": [
               {
                 "Freq": 5850,
+                "Tms": 5
+              },              
+			  {
+                "Freq": 5300,
                 "Tms": 5
               }
             ]
@@ -487,9 +547,9 @@
       "CrvSt": null,
       "AdptCrvReq": null,
       "AdptCrvRslt": null,
-      "NPt": 1,
+      "NPt": 2,
       "NCrvSet": 1,
-      "Freq_SF": null,
+      "Freq_SF": -2,
       "Tms_SF": -2,
       "Crv": [
         {
@@ -498,6 +558,10 @@
             "Pt": [
               {
                 "Freq": 6500,
+                "Tms": 5
+              },              
+			  {
+                "Freq": 5300,
                 "Tms": 5
               }
             ]
@@ -508,6 +572,10 @@
               {
                 "Freq": 6050,
                 "Tms": 5
+              },              
+			  {
+                "Freq": 5300,
+                "Tms": 5
               }
             ]
           },
@@ -516,6 +584,10 @@
             "Pt": [
               {
                 "Freq": 6050,
+                "Tms": 5
+              },              
+			  {
+                "Freq": 5300,
                 "Tms": 5
               }
             ]
@@ -534,7 +606,7 @@
       "RvrtTms": 0,
       "RvrtRem": 0,
       "RvrtCrv": 0,
-      "Db_SF": -2,
+      "Db_SF": -3,
       "K_SF": -2,
       "RspTms_SF": 0,
       "Ctl": [

@@ -541,7 +541,7 @@ class DER1547(object):
         """
         pass
 
-    def set_freq_watt(self, params=None):
+    def set_pf(self, params=None):
         """
         Set P(f), Frequency-Active Power Mode Parameters
         """
@@ -621,11 +621,11 @@ class DER1547(object):
         _______________________________________________________________________________________________________________
         HV Trip Curve Point OV_V1-3 (see Tables 11-13)              ov_trip_v_pts_er_min                V p.u.
             (RofA not specified in 1547)
-        HV Trip Curve Point OV_V1-3 Setting                         ov_trip_v_pts_as                    V p.u.
+        HV Trip Curve Point OV_V1-3 Setting (list)                  ov_trip_v_pts_as                    V p.u.
         HV Trip Curve Point OV_V1-3 (RofA not specified in 1547)    ov_trip_v_pts_er_max                V p.u.
         HV Trip Curve Point OV_T1-3 (see Tables 11-13)              ov_trip_t_pts_er_min                s
             (RofA not specified in 1547)
-        HV Trip Curve Point OV_T1-3 Setting                         ov_trip_t_pts_as                    s
+        HV Trip Curve Point OV_T1-3 Setting (list)                  ov_trip_t_pts_as                    s
         HV Trip Curve Point OV_T1-3 (RofA not specified in 1547)    ov_trip_t_pts_er_max                s
 
         :return: dict with keys shown above.
@@ -646,11 +646,11 @@ class DER1547(object):
         _______________________________________________________________________________________________________________
         LV Trip Curve Point UV_V1-3 (see Tables 11-13)              uv_trip_v_pts_er_min                V p.u.
             (RofA not specified in 1547)
-        LV Trip Curve Point UV_V1-3 Setting                         uv_trip_v_pts_as                    V p.u.
+        LV Trip Curve Point UV_V1-3 Setting (list)                  uv_trip_v_pts_as                    V p.u.
         LV Trip Curve Point UV_V1-3 (RofA not specified in 1547)    uv_trip_v_pts_er_max                V p.u.
         LV Trip Curve Point UV_T1-3 (see Tables 11-13)              uv_trip_t_pts_er_min                s
             (RofA not specified in 1547)
-        LV Trip Curve Point UV_T1-3 Setting                         uv_trip_t_pts_as                    s
+        LV Trip Curve Point UV_T1-3 Setting (list)                  uv_trip_t_pts_as                    s
         LV Trip Curve Point UV_T1-3 (RofA not specified in 1547)    uv_trip_t_pts_er_max                s
 
         :return: dict with keys shown above.
