@@ -12,6 +12,7 @@ from . import waveform
 from . import dataset
 import sys
 import glob, os
+from collections import OrderedDict
 
 try:
     sys.path.insert(0, "C://OPAL-RT//RT-LAB//2020.1//common//python")
@@ -81,6 +82,7 @@ class Device(object):
 
         self.ts = self.params['ts']
         self.map = self.params['map']
+        self.sc_capture = self.params['sc_capture']
         self.sample_interval = self.params['sample_interval']
         self.wfm_dir = self.params['wfm_dir']
         self.data_name = self.params['data_name']
@@ -98,175 +100,262 @@ class Device(object):
 
         self.ts.log_debug('DAS connected to with HIL: %s, DC meas: %s, and gridsim: %s' %
                           (self.hil, self.dc_measurement_device, self.gridsim))
-        # TODO : All this could be replace with Alias manipulations.
+        # TODO: All this could be replaced with Alias manipulations.
+        if self.sc_capture == 'No':
+            # Mapping from the  channels to be captured and the names that are used in the Opal environment
+            self.opal_map_phase_jump = OrderedDict({  # data point : analog channel name
+                'TIME': self.model_name + '/SM_Source/Clock1/port1',
+                'AC_VRMS_1': self.model_name + '/SM_Source/AC_VRMS_1/Switch/port1',
+                'AC_VRMS_2': self.model_name + '/SM_Source/AC_VRMS_2/Switch/port1',
+                'AC_VRMS_3': self.model_name + '/SM_Source/AC_VRMS_3/Switch/port1',
+                'AC_IRMS_1': self.model_name + '/SM_Source/AC_IRMS_1/Switch/port1',
+                'AC_IRMS_2': self.model_name + '/SM_Source/AC_IRMS_2/Switch/port1',
+                'AC_IRMS_3': self.model_name + '/SM_Source/AC_IRMS_3/Switch/port1',
+                'AC_P_1': self.model_name + '/SM_Source/AC_P_1/port1(2)',
+                'AC_P_2': self.model_name + '/SM_Source/AC_P_2/port1(2)',
+                'AC_P_3': self.model_name + '/SM_Source/AC_P_3/port1(2)',
+                'AC_Q_1': self.model_name + '/SM_Source/AC_Q_1/port1(2)',
+                'AC_Q_2': self.model_name + '/SM_Source/AC_Q_2/port1(2)',
+                'AC_Q_3': self.model_name + '/SM_Source/AC_Q_3/port1(2)',
+                'AC_S_1': self.model_name + '/SM_Source/AC_S_1/port1(2)',
+                'AC_S_2': self.model_name + '/SM_Source/AC_S_2/port1(2)',
+                'AC_S_3': self.model_name + '/SM_Source/AC_S_3/port1(2)',
+                'AC_PF_1': self.model_name + '/SM_Source/AC_PF_3/port1(2)',
+                'AC_PF_2': self.model_name + '/SM_Source/AC_PF_2/port1(2)',
+                'AC_PF_3': self.model_name + '/SM_Source/AC_PF_3/port1(2)',
+                'AC_FREQ_1': self.model_name + '/SM_Source/AC_FREQ_1/port1',
+                'AC_FREQ_2': self.model_name + '/SM_Source/AC_FREQ_2/port1',
+                'AC_FREQ_3': self.model_name + '/SM_Source/AC_FREQ_3/port1',
+                'DC_V': None,
+                'DC_I': None,
+                'DC_P': None,
+                'TRIG': self.model_name + '/SM_Source/Switch5/port1',
+                'TRIG_GRID': self.model_name + '/SM_Source/Switch5/port1'})
 
-        # Mapping from the  channels to be captured and the names that are used in the Opal environment
-        self.opal_map_phase_jump = {  # data point : analog channel name
-            'TIME': self.model_name + '/SM_Source/Clock1/port1',
-            'AC_VRMS_1': self.model_name + '/SM_Source/AC_VRMS_1/Switch/port1',
-            'AC_VRMS_2': self.model_name + '/SM_Source/AC_VRMS_2/Switch/port1',
-            'AC_VRMS_3': self.model_name + '/SM_Source/AC_VRMS_3/Switch/port1',
-            'AC_IRMS_1': self.model_name + '/SM_Source/AC_IRMS_1/Switch/port1',
-            'AC_IRMS_2': self.model_name + '/SM_Source/AC_IRMS_2/Switch/port1',
-            'AC_IRMS_3': self.model_name + '/SM_Source/AC_IRMS_3/Switch/port1',
-            'AC_P_1': self.model_name + '/SM_Source/AC_P_1/port1(2)',
-            'AC_P_2': self.model_name + '/SM_Source/AC_P_2/port1(2)',
-            'AC_P_3': self.model_name + '/SM_Source/AC_P_3/port1(2)',
-            'AC_Q_1': self.model_name + '/SM_Source/AC_Q_1/port1(2)',
-            'AC_Q_2': self.model_name + '/SM_Source/AC_Q_2/port1(2)',
-            'AC_Q_3': self.model_name + '/SM_Source/AC_Q_3/port1(2)',
-            'AC_S_1': self.model_name + '/SM_Source/AC_S_1/port1(2)',
-            'AC_S_2': self.model_name + '/SM_Source/AC_S_2/port1(2)',
-            'AC_S_3': self.model_name + '/SM_Source/AC_S_3/port1(2)',
-            'AC_PF_1': self.model_name + '/SM_Source/AC_PF_3/port1(2)',
-            'AC_PF_2': self.model_name + '/SM_Source/AC_PF_2/port1(2)',
-            'AC_PF_3': self.model_name + '/SM_Source/AC_PF_3/port1(2)',
-            'AC_FREQ_1': self.model_name + '/SM_Source/AC_FREQ_1/port1',
-            'AC_FREQ_2': self.model_name + '/SM_Source/AC_FREQ_2/port1',
-            'AC_FREQ_3': self.model_name + '/SM_Source/AC_FREQ_3/port1',
-            'DC_V': None,
-            'DC_I': None,
-            'DC_P': None,
-            'TRIG': self.model_name + '/SM_Source/Switch5/port1',
-            'TRIG_GRID': self.model_name + '/SM_Source/Switch5/port1'}
+            self.opal_map_phase_jump_w_phase_realign = OrderedDict({  # data point : analog channel name
+                'TIME': self.model_name + '/SM_Source/Clock1/port1',
+                'AC_VRMS_1': self.model_name + '/SM_Source/AC_VRMS_1/Switch/port1',
+                'AC_VRMS_2': self.model_name + '/SM_Source/AC_VRMS_2/Switch/port1',
+                'AC_VRMS_3': self.model_name + '/SM_Source/AC_VRMS_3/Switch/port1',
+                'AC_IRMS_1': self.model_name + '/SM_Source/AC_IRMS_1/Switch/port1',
+                'AC_IRMS_2': self.model_name + '/SM_Source/AC_IRMS_2/Switch/port1',
+                'AC_IRMS_3': self.model_name + '/SM_Source/AC_IRMS_3/Switch/port1',
+                'AC_P_1': self.model_name + '/SM_Source/AC_P_1/port1(2)',
+                'AC_P_2': self.model_name + '/SM_Source/AC_P_2/port1(2)',
+                'AC_P_3': self.model_name + '/SM_Source/AC_P_3/port1(2)',
+                'AC_Q_1': self.model_name + '/SM_Source/AC_Q_1/port1(2)',
+                'AC_Q_2': self.model_name + '/SM_Source/AC_Q_2/port1(2)',
+                'AC_Q_3': self.model_name + '/SM_Source/AC_Q_3/port1(2)',
+                'AC_S_1': self.model_name + '/SM_Source/AC_S_1/port1(2)',
+                'AC_S_2': self.model_name + '/SM_Source/AC_S_2/port1(2)',
+                'AC_S_3': self.model_name + '/SM_Source/AC_S_3/port1(2)',
+                'AC_PF_1': self.model_name + '/SM_Source/AC_PF_3/port1(2)',
+                'AC_PF_2': self.model_name + '/SM_Source/AC_PF_2/port1(2)',
+                'AC_PF_3': self.model_name + '/SM_Source/AC_PF_3/port1(2)',
+                'AC_FREQ_1': self.model_name + '/SM_Source/AC_FREQ_1/port1',
+                'AC_FREQ_2': self.model_name + '/SM_Source/AC_FREQ_2/port1',
+                'AC_FREQ_3': self.model_name + '/SM_Source/AC_FREQ_3/port1',
+                'DC_V': None,
+                'DC_I': None,
+                'DC_P': None,
+                'TRIG': self.model_name + '/SM_Source/Switch5/port1',
+                'TRIG_GRID': self.model_name + '/SM_Source/Switch5/port1',
+                'T_Phase_Realign': self.model_name + '/SM_Source/T_Phase_Realign/port1',
+                'T_Curr_80': self.model_name + '/SM_Source/T_Curr_80/port1'})
 
-        self.opal_map_phase_jump_w_phase_realign = {  # data point : analog channel name
-            'TIME': self.model_name + '/SM_Source/Clock1/port1',
-            'AC_VRMS_1': self.model_name + '/SM_Source/AC_VRMS_1/Switch/port1',
-            'AC_VRMS_2': self.model_name + '/SM_Source/AC_VRMS_2/Switch/port1',
-            'AC_VRMS_3': self.model_name + '/SM_Source/AC_VRMS_3/Switch/port1',
-            'AC_IRMS_1': self.model_name + '/SM_Source/AC_IRMS_1/Switch/port1',
-            'AC_IRMS_2': self.model_name + '/SM_Source/AC_IRMS_2/Switch/port1',
-            'AC_IRMS_3': self.model_name + '/SM_Source/AC_IRMS_3/Switch/port1',
-            'AC_P_1': self.model_name + '/SM_Source/AC_P_1/port1(2)',
-            'AC_P_2': self.model_name + '/SM_Source/AC_P_2/port1(2)',
-            'AC_P_3': self.model_name + '/SM_Source/AC_P_3/port1(2)',
-            'AC_Q_1': self.model_name + '/SM_Source/AC_Q_1/port1(2)',
-            'AC_Q_2': self.model_name + '/SM_Source/AC_Q_2/port1(2)',
-            'AC_Q_3': self.model_name + '/SM_Source/AC_Q_3/port1(2)',
-            'AC_S_1': self.model_name + '/SM_Source/AC_S_1/port1(2)',
-            'AC_S_2': self.model_name + '/SM_Source/AC_S_2/port1(2)',
-            'AC_S_3': self.model_name + '/SM_Source/AC_S_3/port1(2)',
-            'AC_PF_1': self.model_name + '/SM_Source/AC_PF_3/port1(2)',
-            'AC_PF_2': self.model_name + '/SM_Source/AC_PF_2/port1(2)',
-            'AC_PF_3': self.model_name + '/SM_Source/AC_PF_3/port1(2)',
-            'AC_FREQ_1': self.model_name + '/SM_Source/AC_FREQ_1/port1',
-            'AC_FREQ_2': self.model_name + '/SM_Source/AC_FREQ_2/port1',
-            'AC_FREQ_3': self.model_name + '/SM_Source/AC_FREQ_3/port1',
-            'DC_V': None,
-            'DC_I': None,
-            'DC_P': None,
-            'TRIG': self.model_name + '/SM_Source/Switch5/port1',
-            'TRIG_GRID': self.model_name + '/SM_Source/Switch5/port1',
-            'T_Phase_Realign': self.model_name + '/SM_Source/T_Phase_Realign/port1',
-            'T_Curr_80': self.model_name + '/SM_Source/T_Curr_80/port1'}
+            self.opal_map_ekhi = OrderedDict({  # data point : analog channel name
+                'TIME': self.model_name + '/SM_LOHO13/Dynamic Load Landfill/Clock1/port1',
+                'IED2_V_1': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(1)',
+                'IED2_V_2': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(3)',
+                'IED2_V_3': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(5)',
+                'IED2_I_1': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(7)',
+                'IED2_I_2': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(9)',
+                'IED2_I_3': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(11)',
+                'IED2_Frequency': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(13)',
+                'IED5_V_1': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(15)',
+                'IED5_V_2': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(17)',
+                'IED5_V_3': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(19)',
+                'IED5_I_1': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(21)',
+                'IED5_I_2': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(23)',
+                'IED5_I_3': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(25)',
+                'IED5_Frequency': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(27)',
+                'IED9_V_1': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(29)',
+                'IED9_V_2': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(31)',
+                'IED9_V_3': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(33)',
+                'IED9_I_1': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(35)',
+                'IED9_I_2': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(37)',
+                'IED9_I_3': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(39)',
+                'IED9_Frequency': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(41)',
+                'IED13_V_1': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(43)',
+                'IED13_V_2': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(45)',
+                'IED13_V_3': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(47)',
+                'IED13_I_1': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(49)',
+                'IED13_I_2': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(51)',
+                'IED13_I_3': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(53)',
+                'IED13_Frequency': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(55)',
+                'IED17_V_1': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(57)',
+                'IED17_V_2': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(59)',
+                'IED17_V_3': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(61)',
+                'IED17_I_1': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(63)',
+                'IED17_I_2': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(65)',
+                'IED17_I_3': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(67)',
+                'IED17_Frequency': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(69)',
+                'GPS_YEAR': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(71)',
+                'GPS_DAY': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(72)',
+                'GPS_HOUR': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(73)',
+                'GPS_MIN': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(74)',
+                'GPS_SEC': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(75)',
+                # 'GPS_NANOSEC': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(76)',
+                'DC_V': None,
+                'DC_I': None,
+                'DC_P': None})
 
-        self.opal_map_ekhi = {  # data point : analog channel name
-            'TIME': self.model_name + '/SM_LOHO13/Dynamic Load Landfill/Clock1/port1',
-            'IED2_V_1': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(1)',
-            'IED2_V_2': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(3)',
-            'IED2_V_3': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(5)',
-            'IED2_I_1': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(7)',
-            'IED2_I_2': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(9)',
-            'IED2_I_3': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(11)',
-            'IED2_Frequency': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(13)',
-            'IED5_V_1': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(15)',
-            'IED5_V_2': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(17)',
-            'IED5_V_3': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(19)',
-            'IED5_I_1': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(21)',
-            'IED5_I_2': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(23)',
-            'IED5_I_3': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(25)',
-            'IED5_Frequency': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(27)',
-            'IED9_V_1': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(29)',
-            'IED9_V_2': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(31)',
-            'IED9_V_3': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(33)',
-            'IED9_I_1': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(35)',
-            'IED9_I_2': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(37)',
-            'IED9_I_3': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(39)',
-            'IED9_Frequency': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(41)',
-            'IED13_V_1': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(43)',
-            'IED13_V_2': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(45)',
-            'IED13_V_3': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(47)',
-            'IED13_I_1': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(49)',
-            'IED13_I_2': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(51)',
-            'IED13_I_3': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(53)',
-            'IED13_Frequency': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(55)',
-            'IED17_V_1': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(57)',
-            'IED17_V_2': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(59)',
-            'IED17_V_3': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(61)',
-            'IED17_I_1': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(63)',
-            'IED17_I_2': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(65)',
-            'IED17_I_3': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(67)',
-            'IED17_Frequency': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(69)',
-            'GPS_YEAR': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(71)',
-            'GPS_DAY': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(72)',
-            'GPS_HOUR': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(73)',
-            'GPS_MIN': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(74)',
-            'GPS_SEC': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(75)',
-            # 'GPS_NANOSEC': self.model_name + '/SM_LOHO13/SS_PMU/SVPOUT/port1(76)',
-            'DC_V': None,
-            'DC_I': None,
-            'DC_P': None}
-        
-        self.opal_fast_1547 = {  # data point : analog channel name
-            'TIME': self.model_name + '/SM_Source/Clock/port1',
-            # Voltage
-            'AC_VRMS_1': self.model_name + '/SM_Source/Signal_conditionning/AC_VRMS_1/Switch/port1',
-            'AC_VRMS_2': self.model_name + '/SM_Source/Signal_conditionning/AC_VRMS_2/Switch/port1',
-            'AC_VRMS_3': self.model_name + '/SM_Source/Signal_conditionning/AC_VRMS_3/Switch/port1',
-            # Current
-            'AC_IRMS_1': self.model_name + '/SM_Source/Signal_conditionning/AC_IRMS_1/Switch/port1',
-            'AC_IRMS_2': self.model_name + '/SM_Source/Signal_conditionning/AC_IRMS_2/Switch/port1',
-            'AC_IRMS_3': self.model_name + '/SM_Source/Signal_conditionning/AC_IRMS_3/Switch/port1',
-            # Frequency
-            'AC_FREQ_1': self.model_name + '/SM_Source/Signal_conditionning/AC_FREQ_1/port1',
-            'AC_FREQ_2': self.model_name + '/SM_Source/Signal_conditionning/AC_FREQ_2/port1',
-            'AC_FREQ_3': self.model_name + '/SM_Source/Signal_conditionning/AC_FREQ_3/port1',
-            # Active Power
-            'AC_P_1': self.model_name + '/SM_Source/Signal_conditionning/AC_P_1/port1(2)',
-            'AC_P_2': self.model_name + '/SM_Source/Signal_conditionning/AC_P_2/port1(2)',
-            'AC_P_3': self.model_name + '/SM_Source/Signal_conditionning/AC_P_3/port1(2)',
-            # Reactive Power
-            'AC_Q_1': self.model_name + '/SM_Source/Signal_conditionning/AC_Q_1/port1(2)',
-            'AC_Q_2': self.model_name + '/SM_Source/Signal_conditionning/AC_Q_2/port1(2)',
-            'AC_Q_3': self.model_name + '/SM_Source/Signal_conditionning/AC_Q_3/port1(2)',
-            # Apparent Power
-            'AC_S_1': self.model_name + '/SM_Source/Signal_conditionning/AC_S_1/port1(2)',
-            'AC_S_2': self.model_name + '/SM_Source/Signal_conditionning/AC_S_2/port1(2)',
-            'AC_S_3': self.model_name + '/SM_Source/Signal_conditionning/AC_S_3/port1(2)',
-            # Power Factor
-            'AC_PF_1': self.model_name + '/SM_Source/Signal_conditionning/AC_PF_1/port1(2)',
-            'AC_PF_2': self.model_name + '/SM_Source/Signal_conditionning/AC_PF_2/port1(2)',
-            'AC_PF_3': self.model_name + '/SM_Source/Signal_conditionning/AC_PF_3/port1(2)', 
-         
-            # TODO : At some point this will be read from HIL
-            'DC_V': None,
-            'DC_I': None,
-            'DC_P': None}
+            self.opal_fast_1547 = OrderedDict({  # data point : analog channel name
+                'TIME': self.model_name + '/SM_Source/Clock/port1',
+                # Voltage
+                'AC_VRMS_1': self.model_name + '/SM_Source/Signal_conditionning/AC_VRMS_1/Switch/port1',
+                'AC_VRMS_2': self.model_name + '/SM_Source/Signal_conditionning/AC_VRMS_2/Switch/port1',
+                'AC_VRMS_3': self.model_name + '/SM_Source/Signal_conditionning/AC_VRMS_3/Switch/port1',
+                # Current
+                'AC_IRMS_1': self.model_name + '/SM_Source/Signal_conditionning/AC_IRMS_1/Switch/port1',
+                'AC_IRMS_2': self.model_name + '/SM_Source/Signal_conditionning/AC_IRMS_2/Switch/port1',
+                'AC_IRMS_3': self.model_name + '/SM_Source/Signal_conditionning/AC_IRMS_3/Switch/port1',
+                # Frequency
+                'AC_FREQ_1': self.model_name + '/SM_Source/Signal_conditionning/AC_FREQ_1/port1',
+                'AC_FREQ_2': self.model_name + '/SM_Source/Signal_conditionning/AC_FREQ_2/port1',
+                'AC_FREQ_3': self.model_name + '/SM_Source/Signal_conditionning/AC_FREQ_3/port1',
+                # Active Power
+                'AC_P_1': self.model_name + '/SM_Source/Signal_conditionning/AC_P_1/port1(2)',
+                'AC_P_2': self.model_name + '/SM_Source/Signal_conditionning/AC_P_2/port1(2)',
+                'AC_P_3': self.model_name + '/SM_Source/Signal_conditionning/AC_P_3/port1(2)',
+                # Reactive Power
+                'AC_Q_1': self.model_name + '/SM_Source/Signal_conditionning/AC_Q_1/port1(2)',
+                'AC_Q_2': self.model_name + '/SM_Source/Signal_conditionning/AC_Q_2/port1(2)',
+                'AC_Q_3': self.model_name + '/SM_Source/Signal_conditionning/AC_Q_3/port1(2)',
+                # Apparent Power
+                'AC_S_1': self.model_name + '/SM_Source/Signal_conditionning/AC_S_1/port1(2)',
+                'AC_S_2': self.model_name + '/SM_Source/Signal_conditionning/AC_S_2/port1(2)',
+                'AC_S_3': self.model_name + '/SM_Source/Signal_conditionning/AC_S_3/port1(2)',
+                # Power Factor
+                'AC_PF_1': self.model_name + '/SM_Source/Signal_conditionning/AC_PF_1/port1(2)',
+                'AC_PF_2': self.model_name + '/SM_Source/Signal_conditionning/AC_PF_2/port1(2)',
+                'AC_PF_3': self.model_name + '/SM_Source/Signal_conditionning/AC_PF_3/port1(2)',
 
-        # Mapping from the  channels to be captured and the names that are used in the Opal environment
-        opal_points_map = {
-            'Opal_Phase_Jump': self.opal_map_phase_jump,  # For use with the IEEE 1547.1 Phase Jump Tests
-            'Opal_Phase_Jump_Realign': self.opal_map_phase_jump_w_phase_realign,  # Phase Jump Tests with Realignment
-            'Ekhi': self.opal_map_ekhi,  # For use with Ekhi
-            'Opal_Fast_1547' : self.opal_fast_1547 # PCRT, VRT and FRT
-        }
-        self.data_points = sorted(list(opal_points_map[self.map].keys()))
-        # self.data_points will be appended with the soft channels, so keep a local version for getting device data
-        self.data_points_device = sorted(list(opal_points_map[self.map].keys()))
+                # TODO : At some point this will be read from HIL
+                'DC_V': None,
+                'DC_I': None,
+                'DC_P': None})
 
-        # place time back at the beginning of the list - this order matters for the results file
-        # Note the order of self.data_points and self.data_points_device must be the same or there will be misalignments
-        if 'TIME' in self.data_points:
-            self.data_points.remove('TIME')
-            self.data_points.insert(0, 'TIME')
-            self.data_points_device.remove('TIME')
-            self.data_points_device.insert(0, 'TIME')
-        self.data_point_map = opal_points_map[self.map]  # dict with the {data_point: opal signal} map
+            # Mapping from the  channels to be captured and the names that are used in the Opal environment
+            opal_points_map = {
+                'Opal_Phase_Jump': self.opal_map_phase_jump,  # For use with the IEEE 1547.1 Phase Jump Tests
+                'Opal_Phase_Jump_Realign': self.opal_map_phase_jump_w_phase_realign,  # Phase Jump Tests with Realignment
+                'Ekhi': self.opal_map_ekhi,  # For use with Ekhi
+                'Opal_Fast_1547': self.opal_fast_1547,   # PCRT, VRT and FRT
+                }
+            self.data_point_map = opal_points_map[self.map]  # dict with the {data_point: opal signal} map
+
+            # self.data_points will be appended with the soft channels, so keep a local version for getting device data
+            self.data_points = list(opal_points_map[self.map].keys())
+            self.data_points_device = list(opal_points_map[self.map].keys())
+
+        else:  # self.sc_capture == 'Yes'
+            """
+            For data capture from data acquisition signals in the SC_ console
+            """
+            self.opal_map_ui = OrderedDict()
+            if self.hil is not None:  # Populate dictionary with Opal-RT names and labels
+                acq_sigs = self.hil.get_acq_signals(verbose=False)  # get tuple of acq channels (signalId, label, value)
+                # self.ts.log_debug('acq_sigs: %s' % str(acq_sigs))
+                for i in range(len(list(acq_sigs))):
+                    label = acq_sigs[i][1].rsplit('.', 1)[-1]
+                    self.opal_map_ui[label] = acq_sigs[i][1]
+
+            # Replace Opal-RT keys in the dataset with SVP keys
+            self.data_points = list(self.opal_map_ui.keys())
+            self.data_points[self.data_points.index('Utility Vph(1)')] = 'AC_VRMS_SOURCE_1'  # Utility measurements
+            self.data_points[self.data_points.index('Utility Vph(2)')] = 'AC_VRMS_SOURCE_2'
+            self.data_points[self.data_points.index('Utility Vph(3)')] = 'AC_VRMS_SOURCE_3'
+            self.data_points[self.data_points.index('Utility I(1)')] = 'AC_IRMS_SOURCE_1'
+            self.data_points[self.data_points.index('Utility I(2)')] = 'AC_IRMS_SOURCE_2'
+            self.data_points[self.data_points.index('Utility I(3)')] = 'AC_IRMS_SOURCE_3'
+            self.data_points[self.data_points.index('Puti_Watts')] = 'AC_SOURCE_P'
+            self.data_points[self.data_points.index('Quti_Vars')] = 'AC_SOURCE_Q'
+            self.data_points[self.data_points.index('Inv Vph(1)')] = 'AC_VRMS_1'  # Inverter measurements
+            self.data_points[self.data_points.index('Inv Vph(2)')] = 'AC_VRMS_2'
+            self.data_points[self.data_points.index('Inv Vph(3)')] = 'AC_VRMS_3'
+            self.data_points[self.data_points.index('Inv I(1)')] = 'AC_IRMS_1'
+            self.data_points[self.data_points.index('Inv I(2)')] = 'AC_IRMS_2'
+            self.data_points[self.data_points.index('Inv I(3)')] = 'AC_IRMS_3'
+            self.data_points[self.data_points.index('Inv Ptot')] = 'AC_P'
+            self.data_points[self.data_points.index('Inv Qtot')] = 'AC_Q'
+            self.data_points[self.data_points.index('Inv Freq')] = 'AC_FREQ_1'
+            self.data_points[self.data_points.index('Load Vph(1)')] = 'AC_VRMS_LOAD_1'  # Load measurements
+            self.data_points[self.data_points.index('Load Vph(2)')] = 'AC_VRMS_LOAD_2'
+            self.data_points[self.data_points.index('Load Vph(3)')] = 'AC_VRMS_LOAD_3'
+            self.data_points[self.data_points.index('Load I(1)')] = 'AC_IRMS_LOAD_1'
+            self.data_points[self.data_points.index('Load I(2)')] = 'AC_IRMS_LOAD_2'
+            self.data_points[self.data_points.index('Load I(3)')] = 'AC_IRMS_LOAD_3'
+
+            # R
+            self.data_points[self.data_points.index('IR(1)')] = 'AC_IRMS_LOAD_R_1'
+            self.data_points[self.data_points.index('IR(2)')] = 'AC_IRMS_LOAD_R_2'
+            self.data_points[self.data_points.index('IR(3)')] = 'AC_IRMS_LOAD_R_3'
+            self.data_points[self.data_points.index('R1_P')] = 'AC_P_LOAD_R_1'  # pu
+            self.data_points[self.data_points.index('R2_P')] = 'AC_P_LOAD_R_2'
+            self.data_points[self.data_points.index('R3_P')] = 'AC_P_LOAD_R_3'
+            self.data_points[self.data_points.index('R1_Q')] = 'AC_Q_LOAD_R_1'
+            self.data_points[self.data_points.index('R2_Q')] = 'AC_Q_LOAD_R_2'
+            self.data_points[self.data_points.index('R3_Q')] = 'AC_Q_LOAD_R_3'
+
+            # L
+            self.data_points[self.data_points.index('IL(1)')] = 'AC_IRMS_LOAD_L_1'
+            self.data_points[self.data_points.index('IL(2)')] = 'AC_IRMS_LOAD_L_2'
+            self.data_points[self.data_points.index('IL(3)')] = 'AC_IRMS_LOAD_L_3'
+            self.data_points[self.data_points.index('L1_P')] = 'AC_P_LOAD_L_1'  # pu
+            self.data_points[self.data_points.index('L2_P')] = 'AC_P_LOAD_L_2'
+            self.data_points[self.data_points.index('L3_P')] = 'AC_P_LOAD_L_3'
+            self.data_points[self.data_points.index('L1_Q')] = 'AC_Q_LOAD_L_1'
+            self.data_points[self.data_points.index('L2_Q')] = 'AC_Q_LOAD_L_2'
+            self.data_points[self.data_points.index('L3_Q')] = 'AC_Q_LOAD_L_3'
+
+            # C
+            self.data_points[self.data_points.index('IC(1)')] = 'AC_IRMS_LOAD_C_1'
+            self.data_points[self.data_points.index('IC(2)')] = 'AC_IRMS_LOAD_C_2'
+            self.data_points[self.data_points.index('IC(3)')] = 'AC_IRMS_LOAD_C_3'
+            self.data_points[self.data_points.index('C1_P')] = 'AC_P_LOAD_C_1'  # pu
+            self.data_points[self.data_points.index('C2_P')] = 'AC_P_LOAD_C_2'
+            self.data_points[self.data_points.index('C3_P')] = 'AC_P_LOAD_C_3'
+            self.data_points[self.data_points.index('C1_Q')] = 'AC_Q_LOAD_C_1'
+            self.data_points[self.data_points.index('C2_Q')] = 'AC_Q_LOAD_C_2'
+            self.data_points[self.data_points.index('C3_Q')] = 'AC_Q_LOAD_C_3'
+
+            # Switch P/Q in pu
+            self.data_points[self.data_points.index('S1_P_Pu')] = 'AC_P_S1_1'
+            self.data_points[self.data_points.index('S2_P_Pu')] = 'AC_P_S1_2'
+            self.data_points[self.data_points.index('S3_P_Pu')] = 'AC_P_S1_3'
+            self.data_points[self.data_points.index('S1_Q_Pu')] = 'AC_Q_S1_1'
+            self.data_points[self.data_points.index('S2_Q_Pu')] = 'AC_Q_S1_1'
+            self.data_points[self.data_points.index('S3_Q_Pu')] = 'AC_Q_S1_1'
+
+            # Switch P/Q in watts/vars
+            self.data_points[self.data_points.index('S1_P_Watts')] = 'AC_P_S1_1'
+            self.data_points[self.data_points.index('S2_P_Watts')] = 'AC_P_S1_2'
+            self.data_points[self.data_points.index('S3_P_Watts')] = 'AC_P_S1_3'
+            self.data_points[self.data_points.index('S1_Q_Vars')] = 'AC_Q_S1_1'
+            self.data_points[self.data_points.index('S2_Q_Vars')] = 'AC_Q_S1_1'
+            self.data_points[self.data_points.index('S3_Q_Vars')] = 'AC_Q_S1_1'
+
+            self.data_points[self.data_points.index('Resistor (ohms)')] = 'R'  # RLC measurements
+            self.data_points[self.data_points.index('Rint (ohms)')] = 'R_INT'
+            self.data_points[self.data_points.index('Inductor (mH)')] = 'L'
+            self.data_points[self.data_points.index('Capacitor (uF)')] = 'C'
+            self.data_points[self.data_points.index('Freq PCC')] = 'AC_FREQ_PCC'
+            self.data_points[self.data_points.index('pf_inv')] = 'AC_PF_1'
+            # self.ts.log_debug('data_points %s' % self.data_points)
 
         # After the simulation the data is stored in a .mat file. Matlab is used to convert this to a .csv file.
         # Get the svpelab directory and then add the \OpalRT\...
-        import os
         self.driver_path = os.path.dirname(os.path.realpath(__file__))
         # location where opal saves the waveform data (.mat)
         self.mat_location = self.wfm_dir + self.data_name
@@ -324,46 +413,53 @@ class Device(object):
             except Exception as e:
                 self.ts.log_debug('Could not get data from DC Measurement Object. %s' % e)
 
+        data = []
         try:
-            data = []
-            for chan in self.data_points_device:
-                # self.ts.log_debug('self.data_points = %s' % self.data_points)
-                signal = self.data_point_map[chan]  # get signal name associated with data name
-                # self.ts.log_debug('Chan = %s, signal = %s' % (chan, signal))
-                if signal is None:  # skip the signals that have no mapping to the simulink model
+            if self.sc_capture == 'Yes':
+                # self.ts.log_debug('Collecting data from the console\'s aqcuisition signals.')
+                try:
+                    data = self.hil.get_acq_signals_raw(verbose=False)
+                except Exception as e:
+                    self.ts.log_debug('Could not get data using get_acq_signals_raw. Error: %s' % e)
+            else:
+                for chan in self.data_points_device:
+                    # self.ts.log_debug('self.data_points = %s' % self.data_points)
+                    signal = self.data_point_map[chan]  # get signal name associated with data name
+                    # self.ts.log_debug('Chan = %s, signal = %s' % (chan, signal))
+                    if signal is None:  # skip the signals that have no mapping to the simulink model
 
-                    # search the dc measurement object for the data that isn't in the opal_points_map
-                    if self.dc_measurement_device is not None:
-                        dc_value = dc_meas.get(chan)  # signal = 'DC_V', 'DC_I', or 'DC_P'
-                        # if self.ts is not None:
-                        #     self.ts.log_debug('Setting Chan = %s to dc_value = %s' % (chan, dc_value))
-                        # else:
-                        #     print('Setting Chan = %s to dc_value = %s' % (chan, dc_value))
-                        if dc_value is not None:
-                            data.append(dc_value)
-                        else:  # Channel data missing
+                        # search the dc measurement object for the data that isn't in the opal_points_map
+                        if self.dc_measurement_device is not None:
+                            dc_value = dc_meas.get(chan)  # signal = 'DC_V', 'DC_I', or 'DC_P'
+                            # if self.ts is not None:
+                            #     self.ts.log_debug('Setting Chan = %s to dc_value = %s' % (chan, dc_value))
+                            # else:
+                            #     print('Setting Chan = %s to dc_value = %s' % (chan, dc_value))
+                            if dc_value is not None:
+                                data.append(dc_value)
+                            else:  # Channel data missing
+                                # self.ts.log_debug('Appending None for data point: %s' % chan)
+                                data.append(None)
+                        else:  # DC Measurement Object missing
                             # self.ts.log_debug('Appending None for data point: %s' % chan)
                             data.append(None)
-                    else:  # DC Measurement Object missing
-                        # self.ts.log_debug('Appending None for data point: %s' % chan)
+                        continue
+
+                    # verify the model is running before getting the signal data.
+                    status, _ = RtlabApi.GetModelState()
+                    if status == RtlabApi.MODEL_RUNNING:
+                        signal_value = RtlabApi.GetSignalsByName(signal)
+                        # self.ts.log_warning('signal_value is %s from Opal' % signal_value)
+                    else:
+                        signal_value = None
+                        # self.ts.log_warning('Signal_value set to None because Opal isn\'t running')
+
+                    # self.ts.log_debug('Signal %s = %s' % (signal, signal_value))
+                    # self.ts.log_warning('type(sig) %s' % type(signal_value))
+                    if signal_value is not None and signal_value is not 'None':
+                        data.append(signal_value)
+                    else:
                         data.append(None)
-                    continue
-
-                # verify the model is runing before getting the signal data.
-                status, _ = RtlabApi.GetModelState()
-                if status == RtlabApi.MODEL_RUNNING:
-                    signal_value = RtlabApi.GetSignalsByName(signal)
-                    # self.ts.log_warning('signal_value is %s from Opal' % signal_value)
-                else:
-                    signal_value = None
-                    # self.ts.log_warning('Signal_value set to None because Opal isn\'t running')
-
-                # self.ts.log_debug('Signal %s = %s' % (signal, signal_value))
-                # self.ts.log_warning('type(sig) %s' % type(signal_value))
-                if signal_value is not None and signal_value is not 'None':
-                    data.append(signal_value)
-                else:
-                    data.append(None)
 
         except Exception as e:
             self.ts.log_debug('Could not get data. Simulation likely completed. Error: %s' % e)
@@ -371,7 +467,32 @@ class Device(object):
             # self.ts.log_warning('self.data_points = %s.  Writing all Nones.' % self.data_points_device)
             data = [None]*len(self.data_points_device)  # Return list of Nones when simulations stops.
             # todo: this should be fixed in das.py sometime where a None can be returned and not added to the database
+
         return data
+
+    def get_acq_signals(self):
+        """
+        Get the data acquisition signals from the model
+
+        :return: dict with "label" keys and "value" values
+
+        """
+        signals = RtlabApi.GetSignalsDescription()
+        # array of tuples: (signalType, signalId, path, label, reserved, readonly, value)
+        # 0 signalType: Signal type. See OP_SIGNAL_TYPE.
+        # 1 signalId: Id of the signal.
+        # 2 path: Path of the signal.
+        # 3 label: Label or name of the signal.
+        # 4 reserved: unused?
+        # 5 readonly: True when the signal is read-only.
+        # 6 value: Current value of the signal.
+
+        acq_signals = {}
+        for sig in range(len(signals)):
+            if str(signals[sig][0]) == 'OP_ACQUISITION_SIGNAL(0)':
+                acq_signals[signals[sig][1]] = signals[sig][6]
+
+        return acq_signals
 
     def waveform_config(self, params):
         """

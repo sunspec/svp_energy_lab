@@ -3,8 +3,11 @@ DER1547 methods defined for SunSpec Modbus devices
 '''
 
 import os
-import sunspec2.modbus.client as client
-import sunspec2.file.client as file_client
+try:
+    import sunspec2.modbus.client as client
+    import sunspec2.file.client as file_client
+except Exception as e:
+    print('Missing pysunspec2 package. %s' % e)
 from . import der1547
 import script
 
@@ -25,36 +28,39 @@ def params(info, group_name):
     info.param_add_value(gname('mode'), mode)
     info.param_group(gname(GROUP_NAME), label='%s Parameters' % mode,
                      active=gname('mode'),  active_value=mode, glob=True)
-    info.param(pname('ifc_type'), label='Interface Type', default=client.RTU,
-               values=[client.RTU, client.TCP, client.MAPPED])
-    info.param(pname('slave_id'), label='Slave Id', default=1)
-    # RTU parameters
-    info.param(pname('ifc_name'), label='Interface Name', default='COM3',  active=pname('ifc_type'),
-               active_value=[client.RTU],
-               desc='Select the communication port from the UMS computer to the EUT.')
-    info.param(pname('baudrate'), label='Baud Rate', default=9600, values=[9600, 19200], active=pname('ifc_type'),
-               active_value=[client.RTU])
-    info.param(pname('parity'), label='Parity', default='N', values=['N', 'E'], active=pname('ifc_type'),
-               active_value=[client.RTU])
-    # TCP parameters
-    info.param(pname('ipaddr'), label='IP Address', default='127.0.0.1', active=pname('ifc_type'),
-               active_value=[client.TCP])
-    info.param(pname('ipport'), label='IP Port', default=502, active=pname('ifc_type'), active_value=[client.TCP])
-    info.param(pname('tls'), label='TLS Client', default=False, active=pname('ifc_type'), active_value=[client.TCP],
-               desc='Enable TLS (Modbus/TCP Security).')
-    info.param(pname('cafile'), label='CA Certificate', default=None, active=pname('ifc_type'),
-               active_value=[client.TCP],
-               desc='Path to certificate authority (CA) certificate to use for validating server certificates.')
-    info.param(pname('certfile'), label='Client TLS Certificate', default=None, active=pname('ifc_type'),
-               active_value=[client.TCP], desc='Path to client TLS certificate to use for client authentication.')
-    info.param(pname('keyfile'), label='Client TLS Key', default=None, active=pname('ifc_type'),
-               active_value=[client.TCP], desc='Path to client TLS key to use for client authentication.')
-    info.param(pname('insecure_skip_tls_verify'), label='Skip TLS Verification', default=False,
-               active=pname('ifc_type'), active_value=[client.TCP], desc='Skip Verification of Server TLS Certificate.')
-    # Mapped parameters
-    info.param(pname('map_name'), label='Map File', default='device_1547.json', active=pname('ifc_type'),
-               active_value=[client.MAPPED], ptype=script.PTYPE_FILE)
-
+    try:
+        info.param(pname('ifc_type'), label='Interface Type', default=client.RTU,
+                   values=[client.RTU, client.TCP, client.MAPPED])
+        info.param(pname('slave_id'), label='Slave Id', default=1)
+        # RTU parameters
+        info.param(pname('ifc_name'), label='Interface Name', default='COM3',  active=pname('ifc_type'),
+                   active_value=[client.RTU],
+                   desc='Select the communication port from the UMS computer to the EUT.')
+        info.param(pname('baudrate'), label='Baud Rate', default=9600, values=[9600, 19200], active=pname('ifc_type'),
+                   active_value=[client.RTU])
+        info.param(pname('parity'), label='Parity', default='N', values=['N', 'E'], active=pname('ifc_type'),
+                   active_value=[client.RTU])
+        # TCP parameters
+        info.param(pname('ipaddr'), label='IP Address', default='127.0.0.1', active=pname('ifc_type'),
+                   active_value=[client.TCP])
+        info.param(pname('ipport'), label='IP Port', default=502, active=pname('ifc_type'), active_value=[client.TCP])
+        info.param(pname('tls'), label='TLS Client', default=False, active=pname('ifc_type'), active_value=[client.TCP],
+                   desc='Enable TLS (Modbus/TCP Security).')
+        info.param(pname('cafile'), label='CA Certificate', default=None, active=pname('ifc_type'),
+                   active_value=[client.TCP],
+                   desc='Path to certificate authority (CA) certificate to use for validating server certificates.')
+        info.param(pname('certfile'), label='Client TLS Certificate', default=None, active=pname('ifc_type'),
+                   active_value=[client.TCP], desc='Path to client TLS certificate to use for client authentication.')
+        info.param(pname('keyfile'), label='Client TLS Key', default=None, active=pname('ifc_type'),
+                   active_value=[client.TCP], desc='Path to client TLS key to use for client authentication.')
+        info.param(pname('insecure_skip_tls_verify'), label='Skip TLS Verification', default=False,
+                   active=pname('ifc_type'), active_value=[client.TCP],
+                   desc='Skip Verification of Server TLS Certificate.')
+        # Mapped parameters
+        info.param(pname('map_name'), label='Map File', default='device_1547.json', active=pname('ifc_type'),
+                   active_value=[client.MAPPED], ptype=script.PTYPE_FILE)
+    except NameError as e:
+        print('pysunspec2 package is likely missing. %s' % e)
 
 
 GROUP_NAME = 'sunspec'
