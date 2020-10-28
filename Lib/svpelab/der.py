@@ -52,7 +52,7 @@ def params(info, id=None, label='DER', group_name=None, active=None, active_valu
 DER_DEFAULT_ID = 'der'
 
 
-def der_init(ts, id=None, group_name=None):
+def der_init(ts, id=None, group_name=None,support_interfaces=None):
     """
     Function to create specific der implementation instances.
     """
@@ -68,7 +68,7 @@ def der_init(ts, id=None, group_name=None):
     if mode != 'Disabled':
         sim_module = der_modules.get(mode)
         if sim_module is not None:
-            sim = sim_module.DER(ts, group_name)
+            sim = sim_module.DER(ts, group_name,support_interfaces=support_interfaces)
         else:
             raise DERError('Unknown DER system mode: %s' % mode)
 
@@ -88,9 +88,13 @@ class DER(object):
     independent DER classes can be created containing the methods contained in this class.
     """
 
-    def __init__(self, ts, group_name):
+    def __init__(self, ts, group_name, support_interfaces=None):
         self.ts = ts
         self.group_name = group_name
+        self.hil = None
+        if support_interfaces is not None:
+            if support_interfaces.get('hil') is not None:
+                self.hil = support_interfaces.get('hil')
 
     def config(self):
         """ Perform any configuration for the simulation based on the previously provided parameters. """

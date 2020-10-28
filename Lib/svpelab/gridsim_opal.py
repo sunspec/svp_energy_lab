@@ -49,14 +49,14 @@ def params(info, group_name):
     info.param_add_value(gname('mode'), mode)
     info.param_group(gname(GROUP_NAME), label='%s Parameters' % mode,
                      active=gname('mode'),  active_value=mode, glob=True)
-    info.param(pname('v_nom'), label='EUT nominal voltage for all 3 phases (V)', default=277.2)
-    info.param(pname('f_nom'), label='EUT nominal frequency', default=60.)
-    info.param(pname('p_nom'), label='EUT nominal power (W)', default=24000.)
+    info.param(pname('phases'), label='Phases', default=1, values=[1, 2, 3])
+    info.param(pname('v_nom'), label='Nominal voltage for all phases', default=120.0)
+    info.param(pname('freq'), label='Frequency', default=60.0)
 
-    info.param(pname('freq_params'), label='Frequency Block Names in Opal',
-               default="Frequency Phase A, Frequency Phase B, Frequency Phase C")
-    info.param(pname('volt_params'), label='Voltage Block Names in Opal',
-               default="Voltage RMS Phase A, Voltage RMS Phase B, Voltage RMS Phase C")
+    info.param(pname('v_max'), label='Max Voltage', default=300.0)
+    info.param(pname('f_max'), label='Max Frequency', default= 70.0)
+    info.param(pname('f_min'), label='Min Frequency', default= 45.0)
+
 
 GROUP_NAME = 'opal'
 
@@ -87,32 +87,34 @@ class GridSim(gridsim.GridSim):
         self.v2 = self.v_nom
         self.v3 = self.v_nom
 
-        self.f_nom = self._param_value('f_nom')
-        self.f = self.f_nom
+        self.f_nom = self._param_value('freq')
+        self.phases = self._param_value('phases')
+
+        self.v_max = self._param_value('v_max')
+        self.f_max = self._param_value('f_max')
+        self.f_min = self._param_value('f_min')
 
         # optional interfaces to other SVP abstraction layers/device drivers
         self.dc_measurement_device = self._param_value('dc_measurement_device')
 
-        self.hil_object = self.hil
-        self.ts.log_debug('Configuring gridsim with Opal hil parameters...using %s' % self.hil_object.info())
-        self.ts.log_debug('hil %s' % self.hil_object)
-        if self.hil_object is None:
+        
+        # Hil configuration
+        if self.hil is None:
             gridsim.GridSimError('GridSim config requires a Opal HIL object')
         else:
-            self.model_name = self.hil_object.rt_lab_model
-            self.rt_lab_model_dir = self.hil_object.rt_lab_model_dir
-            self.ts.log_debug('model_name = %s, rt_lab_model_dir = %s' % (self.model_name, self.rt_lab_model_dir))
-
-        try:
-            tempstring = self._param_value('freq_params').strip().split(',')
-            self.frequency_block_list = [entry.rstrip(' ').lstrip(' ') for entry in tempstring]
-            tempstring = self._param_value('volt_params').strip().split(',')
-            self.voltage_block_list = [entry.rstrip(' ').lstrip(' ') for entry in tempstring]
-            # self.ts.log_debug('Voltage parameters: %s' % self.voltage_block_list)
-            # self.ts.log_debug('Freq parameters: %s' % self.frequency_block_list)
-        except Exception as e:
-            ts.log("Failed freq or voltage block names: %s" % e)
-            raise e
+            self.ts.log_debug(f'Configuring gridsim with Opal hil parameters...using {self.hil.info()}')
+            self.ts.log_debug('hil object : {self.hil}')
+            self.model_name = self.hil.rt_lab_model
+            self.rt_lab_model_dir = self.hil.rt_lab_model_dir
+        # Remove the block name approach to us the matlab variables approach -Estefan
+        # try:
+        #     tempstring = self._param_value('freq_params').strip().split(',')
+        #     self.frequency_block_list = [entry.rstrip(' ').lstrip(' ') for entry in tempstring]
+        #     tempstring = self._param_value('volt_params').strip().split(',')
+        #     self.voltage_block_list = [entry.rstrip(' ').lstrip(' ') for entry in tempstring]
+        # except Exception as e:
+        #     ts.log("Failed freq or voltage block names: %s" % e)
+        #     raise e
 
         if self.auto_config == 'Enabled':
             self.config()
@@ -123,7 +125,7 @@ class GridSim(gridsim.GridSim):
     def gridsim_info(self):
         return opal_info
 
-    def config(self, hil_object=None):
+    def config(self):
         """
         Perform any configuration for the simulation based on the previously
         provided parameters.
@@ -133,26 +135,12 @@ class GridSim(gridsim.GridSim):
         self.freq(freq=self.f_nom)
         self.voltage(voltage=self.v_nom)
         
-    def config(self, hil_object=None):
-        """
-        This will create alias for all the needed signals needed in 
-        the model.
-        """
+        # Saturation at the waveform level
+        self.frequency_max(frequency=self.f_max)
+        self.frequency_min(frequency=self.f_min)
+        self.voltage_max(voltage=self.v_max)
+        self.voltage_min(voltage=0.0)
         
-
-    def set_parameters(self, parameters):
-        """
-        Sets the parameters in the RT-Lab Model
-
-        :param parameters: tuple of (parameter, value) pairs
-        :return: None
-        """
-
-        if parameters is not None:
-            for p, v in parameters:
-                self.ts.log_debug('Setting %s = %s' % (p, v))
-                self.hil_object.set_params(p, v)
-
     def config_phase_angles(self):
         """
         Set the phase angles for the simulation
@@ -162,29 +150,50 @@ class GridSim(gridsim.GridSim):
 
         parameters = []
         # set the phase angles for the 3 phases
-        self.ts.log('type(self.model_name) = %s, self.model_name=%s' % (type(self.model_name), self.model_name))
-        if len(self.frequency_block_list) == 1:  # single phase
-            # Phase A Switching times and Phase Angles
-            parameters.append((self.model_name + '/SM_Source/SVP Commands/phase_ph_a/Value', 0))
-        elif len(self.frequency_block_list) == 2:  # split phase
-            # Phase A Switching times and Phase Angles
-            parameters.append((self.model_name + '/SM_Source/SVP Commands/phase_ph_a/Value', 0))
-            # Phase B Switching times and Phase Angles
-            parameters.append((self.model_name + '/SM_Source/SVP Commands/phase_ph_b/Value', 180))
-        elif len(self.frequency_block_list) == 3:  # three phase
-            # Phase A Switching times and Phase Angles
-            parameters.append((self.model_name + '/SM_Source/SVP Commands/phase_ph_a/Value', 0))
-            # Phase B Switching times and Phase Angles
-            parameters.append((self.model_name + '/SM_Source/SVP Commands/phase_ph_b/Value', -120))
-            # Phase C Switching times and Phase Angles
-            parameters.append((self.model_name + '/SM_Source/Phase Angle Phase C0/Value', 120))
+        if self.phases == 1:
+            parameters.append(("PHASE_PHA",0))
+
+        elif self.phases == 2:
+            parameters.append(("PHASE_PHA",0))
+            parameters.append(("PHASE_PHB",180))
+
+        elif self.phases == 3:
+            parameters.append(("PHASE_PHA",0))
+            parameters.append(("PHASE_PHB",-120))
+            parameters.append(("PHASE_PHC",120))
+            
         else:
-            self.ts.log_warning('Phase angles not set for simulation because the number of grid simulation '
-                                'waveforms is not 1, 2, or 3.')
+            raise gridsim.GridSimError('Unsupported phase parameter: %s' % self.phases)
+        self.hil.set_matlab_variables(parameters)
+        parameters = []
+        parameters = self.hil.get_matlab_variables(["PHASE_PHA","PHASE_PHB","PHASE_PHC"])
+        return parameters
 
-        # self.ts.log_debug('parameters for config_phase_angles: %s' % parameters)
-        self.set_parameters(parameters)
+    def config_asymmetric_phase_angles(self, mag=None, angle=None):
+        """
+        :param mag: list of voltages for the imbalanced test, e.g., [277.2, 277.2, 277.2]
+        :param angle: list of phase angles for the imbalanced test, e.g., [0, 120, -120]
+        :returns: voltage list and phase list
+        """
+        parameters = []
+        i=0
+        # TODO : To be replace by sending a matlab variable list, else this code might create problems (current on neutral, etc.)
+        for volt_block in self.voltage_block_list:
+            #self.ts.log_debug('self.model_name = %s' % (self.model_name))
+            #self.ts.log_debug('volt_block = %s' % (volt_block))
+            parameters.append((self.model_name + '/SM_Source/SVP Commands/' + volt_block + '/Value', mag[i]))
+            i= i +1
+            # Phase A Switching times and Phase Angles
+        parameters.append((self.model_name + '/SM_Source/SVP Commands/phase_ph_a/Value', angle[0]))
+            # Phase B Switching times and Phase Angles
+        parameters.append((self.model_name + '/SM_Source/SVP Commands/phase_ph_b/Value', angle[1]))
+            # Phase C Switching times and Phase Angles
+        parameters.append((self.model_name + '/SM_Source/SVP Commands/phase_ph_c/Value', angle[2]))
+        
+        self.hil.set_parameters(parameters)
 
+
+        return None, None
     def current(self, current=None):
         """
         Set the value for current if provided. If none provided, obtains
@@ -199,7 +208,7 @@ class GridSim(gridsim.GridSim):
         """
         return self.v/self.p_nom
 
-    def freq(self, freq=None):
+    def freq(self, freq):
         """
         Set the value for frequency if provided. If none provided, obtains
         the value for frequency.
@@ -208,13 +217,14 @@ class GridSim(gridsim.GridSim):
         :return: frequency
         """
         if freq is not None:
-            self.f = freq
             parameters = []
-            for freq_block in self.frequency_block_list:
-                parameters.append((self.model_name + '/SM_Source/SVP Commands/' + freq_block + '/Value', freq))
-
-        freq = self.f
-        return freq
+            parameters.append(("FREQUENCY",freq))
+            self.hil.set_matlab_variables(parameters)
+            parameters = []
+            parameters = self.hil.get_matlab_variables(["FREQUENCY"])
+            return parameters
+        else:
+            pass
 
     def profile_load(self, profile_name=None, v_step=100, f_step=100, t_step=None, profile=None):
         pass
@@ -237,36 +247,48 @@ class GridSim(gridsim.GridSim):
         RELAY_CLOSED. If none is provided, obtains the state of the relay.
         """
         pass
-    def rocof(self, rocof=None, init_value = None):
+
+    def rocof(self, param = None):
         """
         Set the rate of change of frequency (ROCOF) if provided. If none provided, obtains the ROCOF.
-
-        :param rocof: ROCOF in Hz/s
-        :param init_value: Initialisation value in frequency (Hz)
-
+        :param : "ROCOF_ENABLE" is to enable (1) or disable (0). Default value 0
+        :param : "ROCOF_VALUE" is for ROCOF in Hz/s. Default value 3
+        :param : "ROCOF_INIT" is for ROCOF initialisation value. Default value 60
         """
+        if param is not None:
         parameters = []
-        parameters.append((self.model_name + '/SM_Source/Waveform_Generator/ROCOF_ENABLE/Value', 1))
-        parameters.append((self.model_name + '/SM_Source/Waveform_Generator/ROCOF_INIT/Value', init_value))
-        parameters.append((self.model_name + '/SM_Source/Waveform_Generator/ROCOF_VALUE/Value', rocof))
+            parameters.append(("ROCOF_ENABLE", param["ROCOF_ENABLE"]))
+            parameters.append(("ROCOF_VALUE", param["ROCOF_VALUE"]))
+            parameters.append(("ROCOF_INIT", param["ROCOF_INIT"]))
 
-        self.set_parameters(parameters)
+        self.hil.set_matlab_variables(parameters)
+        parameters = []
+        parameters = self.hil.get_matlab_variables(["ROCOF_ENABLE","ROCOF_VALUE","ROCOF_INIT"])
+        return parameters
 
-
-        return rocof
-    def rocom(self, rocom=None, init_value = None):
+    def rocom(self, param = None):
         """
         Set the rate of change of magnitude (ROCOM) if provided. If none provided, obtains the ROCOM.
-
-        :param rocom: ROCOM in V/s
-        :param init_value: Initialisation value for voltage (V)
+        :param : "ROCOM_ENABLE" is to enable (1) or disable (0). Default value 0
+        :param : "ROCOM_VALUE" is for ROCOF in V/s. Default value 3
+        :param : "ROCOM_INIT" is for ROCOF initialisation value. Default value 60
+        :param : "ROCOM_START_TIME" is for ROCOF initialisation value. Default value 60
+        :param : "ROCOM_END_TIME" is for ROCOF initialisation value. Default value 60
 
         """
+        if param is not None:
+            parameters = []
+            parameters.append(("ROCOF_ENABLE", param["ROCOF_ENABLE"]))
+            parameters.append(("ROCOF_VALUE", param["ROCOF_VALUE"]))
+            parameters.append(("ROCOF_INIT", param["ROCOF_INIT"]))
+            parameters.append(("ROCOM_START_TIME", param["ROCOM_START_TIME"]))
+            parameters.append(("ROCOM_END_TIME", param["ROCOM_END_TIME"]))
+
+        self.hil.set_matlab_variables(parameters)
         parameters = []
-        parameters.append((self.model_name + '/SM_Source/Waveform_Generator/ROCOM_INIT/Value', init_value))
-        parameters.append((self.model_name + '/SM_Source/Waveform_Generator/ROCOM_VALUE/Value', rocom))
-        self.set_parameters(parameters)
-        return rocom
+        parameters = self.hil.get_matlab_variables(["ROCOF_ENABLE","ROCOF_VALUE","ROCOF_INIT"
+            "ROCOM_START_TIME","ROCOM_END_TIME"])
+        return parameters
 
     def voltage(self, voltage=None):
         """
@@ -275,52 +297,101 @@ class GridSim(gridsim.GridSim):
         :param voltage: tuple of floats for voltages (to set voltage), None to read voltage
         :return: tuple of voltages
         """
-        if voltage is not None:
+        # Convert the parameter to P.U.
+        voltage /= self.v_nom
+        if voltage is not None and type(voltage) is not list:
             # single value case (not tuple voltages)
             parameters = []
-            if type(voltage) is not list and type(voltage) is not tuple:
-                self.v = voltage
-                for volt_block in self.voltage_block_list:
-                    #self.ts.log_debug('self.model_name = %s' % (self.model_name))
-                    #self.ts.log_debug('volt_block = %s' % (volt_block))
-                    parameters.append((self.model_name + '/SM_Source/SVP Commands/' + volt_block + '/Value', voltage))
-                self.v1 = self.v
-                self.v2 = self.v
-                self.v3 = self.v
+            # set the phase angles for the 3 phases
+            if self.phases == 1:
+                parameters.append(("VOLT_PHA",voltage))
+                parameters.append(("VOLT_PHB",0))
+                parameters.append(("VOLT_PHC",0))
+
+            elif self.phases == 2:
+                parameters.append(("VOLT_PHA",voltage))
+                parameters.append(("VOLT_PHB",voltage))
+                parameters.append(("VOLT_PHC",0))
+
+            elif self.phases == 3:
+                parameters.append(("VOLT_PHA",voltage))
+                parameters.append(("VOLT_PHB",voltage))
+                parameters.append(("VOLT_PHC",voltage))
 
             else:
-                phase = 0
-                v_sum = 0
-                for volt_block in self.voltage_block_list:
-                    phase += 1
-                    v_sum += voltage[phase - 1]
-                    # eval('self.v%d = voltage[phase - 1]' % phase)
-                    self.v1 = voltage[0]
-                    self.v2 = voltage[1]
-                    self.v3 = voltage[2]
-                    parameters.append((self.model_name + '/SM_Source/SVP Commands/' + volt_block + '/Value', voltage[phase-1]))
-                self.v = v_sum/phase
+                raise gridsim.GridSimError('Unsupported voltage parameter: %s' % voltage)
+        elif voltage is not None and type(voltage) is list and len(voltage) == 3:
+            # This consider the list contains three elements
+            parameters = []
+            # set the phase angles for the 3 phases
+            parameters.append(("VOLT_PHA",voltage[0]))
+            parameters.append(("VOLT_PHB",voltage[1]))
+            parameters.append(("VOLT_PHC",voltage[2]))
 
-            # write the new voltages to the simulation blocks
-            self.set_parameters(parameters)
+        self.hil.set_matlab_variables(parameters)
+        parameters = []
+        parameters = self.hil.get_matlab_variables(["VOLT_PHA","VOLT_PHB","VOLT_PHC"])
 
-        return self.v1, self.v2, self.v3
+        return parameters
 
     def voltage_max(self, voltage=None):
         """
         Set the value for max voltage if provided. If none provided, obtains
         the value for max voltage.
         """
-        if voltage is not None:
-            # set max voltage on all phases
-            pass
-        return self.v, self.v, self.v
+        parameters = []
+        parameters.append(("VOLTAGE_MAX_LIMIT",voltage/self.v_nom))
+        self.hil.set_matlab_variables(parameters)
+        parameters = []
+        parameters = self.hil.get_matlab_variables(["VOLTAGE_MAX_LIMIT"])
+
+        return parameters
+    
+    def voltage_min(self, voltage=None):
+        """
+        Set the value for min voltage if provided. If none provided, obtains
+        the value for min voltage.
+        """
+        parameters = []
+        # This is hard coded because the Grid simulator should be permitted to go as low as "0"
+        parameters.append(("VOLTAGE_MIN_LIMIT",0.0))
+        self.hil.set_matlab_variables(parameters)
+        parameters = []
+        parameters = self.hil.get_matlab_variables(["VOLTAGE_MIN_LIMIT"])
+
+        return parameters
+
+    def frequency_max(self, frequency=None):
+        """
+        Set the value for max frequency if provided. If none provided, obtains
+        the value for max frequency.
+        """
+        parameters = []
+        parameters.append(("FREQUENCY_MAX_LIMIT",frequency))
+        self.hil.set_matlab_variables(parameters)
+        parameters = []
+        parameters = self.hil.get_matlab_variables(["FREQUENCY_MAX_LIMIT"])
+
+        return parameters
+    
+    def frequency_min(self, frequency=None):
+        """
+        Set the value for min frequency if provided. If none provided, obtains
+        the value for min frequency.
+        """
+        parameters = []
+        parameters.append(("FREQUENCY_MIN_LIMIT",frequency))
+        self.hil.set_matlab_variables(parameters)
+        parameters = []
+        parameters = self.hil.get_matlab_variables(["FREQUENCY_MIN_LIMIT"])
+
+        return parameters
+
 
     def i_max(self):
         return self.v/self.p_nom
 
-    def v_max(self):
-        return self.v
+
 
     def v_nom(self):
         return self.v_nom

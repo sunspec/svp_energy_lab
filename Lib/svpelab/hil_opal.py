@@ -70,6 +70,7 @@ def params(info, group_name=None):
     info.param(pname('project_name'), label='RT-LAB project name (.llp)', default="IEEE_1547_Fast_Functions.llp")
     info.param(pname('project_dir'), label='Project Directory', default="IEEE_1547_Fast_Functions")
     info.param(pname('rt_lab_model'), label='RT-LAB model name (.mdl or .slx)', default='IEEE_1547_Fast_Functions')
+    info.param(pname('rt_mode'), label='Real-Time simulation mode', default='Hardware', values=["Software","Hardware"])
 
     info.param(pname('hil_config'), label='Configure HIL in init', default='False', values=['True', 'False'])
     info.param(pname('hil_config_open'), label='Open Project?', default="Yes", values=["Yes", "No"])
@@ -99,13 +100,14 @@ class HIL(hil.HIL):
         self.workspace_path = self._param_value('workspace_path')
 
         self.target_name = self._param_value('target_name')
+        self.rt_mode = self._param_value('rt_mode')
+
         # Get without .mdl
         self.rt_lab_model = self._param_value('rt_lab_model').split(".")[0]
         self.rt_lab_model_dir = self._param_value('rt_lab_model_dir')
-
         self.ts = ts
-
         self.rt_lab_python_dir = self._param_value('rt_lab_python_dir')
+        self.time_sig_path = None
         try:
             sys.path.insert(0, self.rt_lab_python_dir)
             import RtlabApi
@@ -468,10 +470,15 @@ class HIL(hil.HIL):
 
         if self.model_state() == 'Model Loadable':
             self.ts.log('Loading Model.  This may take a while...')
+            if self.rt_mode == "Hardware":
             realTimeMode = RtlabApi.HARD_SYNC_MODE
+            elif self.rt_mode == "Software":
+                realTimeMode = RtlabApi.SOFT_SIM_MODE 
             # Also possible to use SIM_MODE, SOFT_SIM_MODE, SIM_W_NO_DATA_LOSS_MODE or SIM_W_LOW_PRIO_MODE
             timeFactor = 1
             try:
+                self.ts.log(f'The realtimemod : {realTimeMode}')
+
                 RtlabApi.Load(realTimeMode, timeFactor)
             except Exception as e:
                 self.ts.log_warning('Model failed to load. Recommend opening and rebuilding the model in RT-Lab. '
@@ -617,7 +624,24 @@ class HIL(hil.HIL):
                                                            model_parameters[param][2],
                                                            model_parameters[param][4]))
         return mdl_params
+    def get_matlab_variable_value(self, variableName):
+        attributeNumber = RtlabApi.FindObjectId(RtlabApi.OP_TYPE_VARIABLE, self.rt_lab_model + '/' + variableName)
+        value = RtlabApi.GetAttribute(attributeNumber, RtlabApi.ATT_MATRIX_VALUE)
+        return str(value)
 
+    def set_matlab_variable_value(self,variableName,valueToSet):
+        attributeNumber = RtlabApi.FindObjectId(RtlabApi.OP_TYPE_VARIABLE, self.rt_lab_model + '/' + variableName)
+        value = RtlabApi.GetAttribute(attributeNumber, RtlabApi.ATT_MATRIX_VALUE)
+        if valueToSet != value:
+            self.ts.log_debug(f'Setting matlab variable {variableName} to {valueToSet} instead of {value} ')
+            self.ts.sleep(0.5) 
+            RtlabApi.SetAttribute(attributeNumber, RtlabApi.ATT_MATRIX_VALUE, valueToSet)
+            attributeNumber = RtlabApi.FindObjectId(RtlabApi.OP_TYPE_VARIABLE, self.rt_lab_model + '/' + variableName)
+            value = RtlabApi.GetAttribute(attributeNumber, RtlabApi.ATT_MATRIX_VALUE)
+        else:
+            self.ts.log_debug(f'matlab variable {variableName} was already configure to {valueToSet} ')
+
+        return str(value)
     def set_params(self, param, value):
         """
         Set parameters in the model
@@ -636,36 +660,33 @@ class HIL(hil.HIL):
             self.ts.log_debug('Error in the param or value types. type(param) = %s, type(value) = %s ' %
                               (type(param), type(value)))
         pass
-    def set_var(self, variable, value):
+
+
+    def set_matlab_variables(self, variables):
         """
-        Set Matlab variable in the model
+        Sets the variables in the RT-Lab Model
 
-        :param variable: variable name 
-        :param value: tuple of/or float values of the variable
-
-        :return: None
-        """
-        pass
-        modelName = self.rt_lab_model
-        attributeNumber = RtlabApi.FindObjectId(RtlabApi.OP_TYPE_VARIABLE, modelName + '/' + variable)
-        RtlabApi.SetAttribute(attributeNumber, RtlabApi.ATT_MATRIX_VALUE, value)
-
-        #attributeNumber = RtlabApi.FindObjectId(RtlabApi.OP_TYPE_VARIABLE, self.rt_lab_model + '/' + variable)
-
-
-
-    def set_variables(self, variables):
-        """
-        Sets the parameters in the RT-Lab Model
-
-        :param parameters: tuple of (parameter, value) pairs
+        :param variables: tuple of (variableName, valueToSet) pairs
         :return: None
         """
 
         if variables is not None:
             for variable, value in variables:
-                self.ts.log_debug(f'Setting variable {self.rt_lab_model}/{variable} = {value}')
-                self.set_var(variable, value)
+                self.set_matlab_variable_value(variable, value)
+
+    def get_matlab_variables(self, variables):
+        """
+        Get the variables in the RT-Lab Model
+
+        :param variables: tuple or list of (variableName) pairs
+        :return: None
+        """
+        parameter = []
+        if variables is not None:
+            for variable in variables:
+                parameter.append((variable, self.get_matlab_variable_value(variable)))
+        return parameter
+
     def get_signals(self, verbose=False):
         """
         Get the signals from the model
@@ -714,6 +735,18 @@ class HIL(hil.HIL):
             self.ts.log_warning('Stop time already set to %s' % stop_time)
         return RtlabApi.GetStopTime()
 
+    def set_time_sig(self, time_path):
+        """
+        Set the path of time signal
+
+        :return: None
+        """
+        _, model_name = RtlabApi.GetCurrentModel()
+        model_name = model_name.rstrip('.mdl').rstrip('.slx')
+
+        self.time_sig_path = model_name + time_path
+        self.ts.log_debug(f'Set the time signal path to {self.time_sig_path } ')
+
     def get_time(self):
         """
         Get simulation time from the clock signal
@@ -722,17 +755,7 @@ class HIL(hil.HIL):
 
         try:
             if self.model_state() == 'Model Running':
-                _, model_name = RtlabApi.GetCurrentModel()
-                model_name = model_name.rstrip('.mdl').rstrip('.slx')
-
-                # todo: fix this to be generic
-                try:
-                    sig = model_name + '/SM_Source/Clock/port1'
-                    sim_time = RtlabApi.GetSignalsByName(sig)
-                except Exception as e:
-                    sig = model_name + '/SM_LOHO13/Dynamic Load Landfill/Clock1/port1'
-                    sim_time = RtlabApi.GetSignalsByName(sig)
-
+                sim_time = RtlabApi.GetSignalsByName(self.time_sig_path)
                 return sim_time
             else:
                 self.ts.log_debug('Can not read simulation time becauase the simulation is not running. Returning 1e6.')
