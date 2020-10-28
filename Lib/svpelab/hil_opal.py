@@ -30,7 +30,12 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 Questions can be directed to support@sunspec.org
 """
 import os
-from . import hil
+try:
+    import hil
+except ImportError as e:
+    print("Could not import hil")
+    from . import hil
+
 import sys
 from time import sleep
 # import glob

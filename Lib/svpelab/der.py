@@ -580,7 +580,7 @@ def der_scan():
         except Exception as e:
             if module_name is not None and module_name in sys.modules:
                 del sys.modules[module_name]
-            raise DERError('Error scanning module %s: %s' % (module_name, str(e)))
+            print(DERError('Error scanning module %s: %s' % (module_name, str(e))))
 
 # scan for der modules on import
 der_scan()

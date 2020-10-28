@@ -247,7 +247,7 @@ def dcsim_scan():
         except Exception as e:
             if module_name is not None and module_name in sys.modules:
                 del sys.modules[module_name]
-            raise DCSimError('Error scanning module %s: %s' % (module_name, str(e)))
+            print(DCSimError('Error scanning module %s: %s' % (module_name, str(e))))
 
 # scan for dcsim modules on import
 dcsim_scan()
