@@ -20,6 +20,9 @@ sunspec_info = {
 def der1547_info():
     return sunspec_info
 
+MAPPED = 'Mapped SunSpec Device'
+RTU = 'Modbus RTU'
+TCP = 'Modbus TCP'
 
 def params(info, group_name):
     gname = lambda name: group_name + '.' + name
@@ -29,36 +32,36 @@ def params(info, group_name):
     info.param_group(gname(GROUP_NAME), label='%s Parameters' % mode,
                      active=gname('mode'),  active_value=mode, glob=True)
     try:
-        info.param(pname('ifc_type'), label='Interface Type', default=client.RTU,
-                   values=[client.RTU, client.TCP, client.MAPPED])
+        info.param(pname('ifc_type'), label='Interface Type', default=RTU,
+                   values=[RTU, TCP, MAPPED])
         info.param(pname('slave_id'), label='Slave Id', default=1)
         # RTU parameters
         info.param(pname('ifc_name'), label='Interface Name', default='COM3',  active=pname('ifc_type'),
-                   active_value=[client.RTU],
+                   active_value=[RTU],
                    desc='Select the communication port from the UMS computer to the EUT.')
         info.param(pname('baudrate'), label='Baud Rate', default=9600, values=[9600, 19200], active=pname('ifc_type'),
-                   active_value=[client.RTU])
+                   active_value=[RTU])
         info.param(pname('parity'), label='Parity', default='N', values=['N', 'E'], active=pname('ifc_type'),
-                   active_value=[client.RTU])
+                   active_value=[RTU])
         # TCP parameters
         info.param(pname('ipaddr'), label='IP Address', default='127.0.0.1', active=pname('ifc_type'),
-                   active_value=[client.TCP])
-        info.param(pname('ipport'), label='IP Port', default=502, active=pname('ifc_type'), active_value=[client.TCP])
-        info.param(pname('tls'), label='TLS Client', default=False, active=pname('ifc_type'), active_value=[client.TCP],
+                   active_value=[TCP])
+        info.param(pname('ipport'), label='IP Port', default=502, active=pname('ifc_type'), active_value=[TCP])
+        info.param(pname('tls'), label='TLS Client', default=False, active=pname('ifc_type'), active_value=[TCP],
                    desc='Enable TLS (Modbus/TCP Security).')
         info.param(pname('cafile'), label='CA Certificate', default=None, active=pname('ifc_type'),
-                   active_value=[client.TCP],
+                   active_value=[TCP],
                    desc='Path to certificate authority (CA) certificate to use for validating server certificates.')
         info.param(pname('certfile'), label='Client TLS Certificate', default=None, active=pname('ifc_type'),
-                   active_value=[client.TCP], desc='Path to client TLS certificate to use for client authentication.')
+                   active_value=[TCP], desc='Path to client TLS certificate to use for client authentication.')
         info.param(pname('keyfile'), label='Client TLS Key', default=None, active=pname('ifc_type'),
-                   active_value=[client.TCP], desc='Path to client TLS key to use for client authentication.')
+                   active_value=[TCP], desc='Path to client TLS key to use for client authentication.')
         info.param(pname('insecure_skip_tls_verify'), label='Skip TLS Verification', default=False,
-                   active=pname('ifc_type'), active_value=[client.TCP],
+                   active=pname('ifc_type'), active_value=[TCP],
                    desc='Skip Verification of Server TLS Certificate.')
         # Mapped parameters
         info.param(pname('map_name'), label='Map File', default='device_1547.json', active=pname('ifc_type'),
-                   active_value=[client.MAPPED], ptype=script.PTYPE_FILE)
+                   active_value=[MAPPED], ptype=script.PTYPE_FILE)
     except NameError as e:
         print('pysunspec2 package is likely missing. %s' % e)
 
@@ -150,7 +153,7 @@ class DER1547(der1547.DER1547):
         self.ifc_type = self.param_value('ifc_type')
         slave_id = self.param_value('slave_id')
 
-        if self.ifc_type == client.TCP:
+        if self.ifc_type == TCP:
             ipaddr = self.param_value('ipaddr')
             ipport = self.param_value('ipport')
 
@@ -171,10 +174,10 @@ class DER1547(der1547.DER1547):
                     print('Could not create Modbus client with TLS encryption: %s.  Attempted unencrypted option.')
                 self.inv = client.SunSpecClientDeviceTCP(self.ifc_type, slave_id=slave_id, ipaddr=ipaddr, ipport=ipport)
 
-        elif self.ifc_type == client.MAPPED:
+        elif self.ifc_type == MAPPED:
             ifc_name = self.param_value('map_name')
             self.inv = file_client.FileClientDevice(ifc_name)
-        elif self.ifc_type == client.RTU:
+        elif self.ifc_type == RTU:
             ifc_name = self.param_value('ifc_name')
             baudrate = self.param_value('baudrate')
             parity = self.param_value('parity')
@@ -188,7 +191,7 @@ class DER1547(der1547.DER1547):
         # self.ts.log('device models = %s' % self.inv.models)
 
     def close(self):
-        if self.inv is not None and self.ifc_type != client.MAPPED:
+        if self.inv is not None and self.ifc_type != MAPPED:
             self.inv.close()
             self.inv = None
 
