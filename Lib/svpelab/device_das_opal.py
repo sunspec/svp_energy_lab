@@ -276,11 +276,16 @@ class Device(object):
             self.data_points[self.data_points.index('Utility Vph(1)')] = 'AC_VRMS_SOURCE_1'  # Utility measurements
             self.data_points[self.data_points.index('Utility Vph(2)')] = 'AC_VRMS_SOURCE_2'
             self.data_points[self.data_points.index('Utility Vph(3)')] = 'AC_VRMS_SOURCE_3'
+            self.data_points[self.data_points.index('Utility Vph pu(1)')] = 'AC_VRMS_SOURCE_1_PU'  # Utility measurements
+            self.data_points[self.data_points.index('Utility Vph pu(2)')] = 'AC_VRMS_SOURCE_2_PU'
+            self.data_points[self.data_points.index('Utility Vph pu(3)')] = 'AC_VRMS_SOURCE_3_PU'
             self.data_points[self.data_points.index('Utility I(1)')] = 'AC_IRMS_SOURCE_1'
             self.data_points[self.data_points.index('Utility I(2)')] = 'AC_IRMS_SOURCE_2'
             self.data_points[self.data_points.index('Utility I(3)')] = 'AC_IRMS_SOURCE_3'
             self.data_points[self.data_points.index('Puti_Watts')] = 'AC_SOURCE_P'
             self.data_points[self.data_points.index('Quti_Vars')] = 'AC_SOURCE_Q'
+            self.data_points[self.data_points.index('Utility Ppu')] = 'AC_SOURCE_P_PU'
+            self.data_points[self.data_points.index('Utility Qpu')] = 'AC_SOURCE_Q_PU'
             self.data_points[self.data_points.index('Inv Vph(1)')] = 'AC_VRMS_1'  # Inverter measurements
             self.data_points[self.data_points.index('Inv Vph(2)')] = 'AC_VRMS_2'
             self.data_points[self.data_points.index('Inv Vph(3)')] = 'AC_VRMS_3'
@@ -296,6 +301,12 @@ class Device(object):
             self.data_points[self.data_points.index('Load I(1)')] = 'AC_IRMS_LOAD_1'
             self.data_points[self.data_points.index('Load I(2)')] = 'AC_IRMS_LOAD_2'
             self.data_points[self.data_points.index('Load I(3)')] = 'AC_IRMS_LOAD_3'
+            self.data_points[self.data_points.index('PLoad Watts')] = 'AC_P_LOAD'
+            self.data_points[self.data_points.index('QLoad Vars')] = 'AC_Q_LOAD'
+            self.data_points[self.data_points.index('Load Ppu')] = 'AC_P_LOAD_PU'
+            self.data_points[self.data_points.index('Load Qpu')] = 'AC_Q_LOAD_PU'
+
+            self.data_points[self.data_points.index('Inv QFactor')] = 'QUALITY_FACTOR'
 
             # R
             self.data_points[self.data_points.index('IR(1)')] = 'AC_IRMS_LOAD_R_1'
@@ -318,6 +329,7 @@ class Device(object):
             self.data_points[self.data_points.index('L1_Q')] = 'AC_Q_LOAD_L_1'
             self.data_points[self.data_points.index('L2_Q')] = 'AC_Q_LOAD_L_2'
             self.data_points[self.data_points.index('L3_Q')] = 'AC_Q_LOAD_L_3'
+            self.data_points[self.data_points.index('QL pu')] = 'QL'
 
             # C
             self.data_points[self.data_points.index('IC(1)')] = 'AC_IRMS_LOAD_C_1'
@@ -329,22 +341,23 @@ class Device(object):
             self.data_points[self.data_points.index('C1_Q')] = 'AC_Q_LOAD_C_1'
             self.data_points[self.data_points.index('C2_Q')] = 'AC_Q_LOAD_C_2'
             self.data_points[self.data_points.index('C3_Q')] = 'AC_Q_LOAD_C_3'
+            self.data_points[self.data_points.index('QC pu')] = 'QC'
 
             # Switch P/Q in pu
-            self.data_points[self.data_points.index('S1_P_Pu')] = 'AC_P_S1_1'
-            self.data_points[self.data_points.index('S2_P_Pu')] = 'AC_P_S1_2'
-            self.data_points[self.data_points.index('S3_P_Pu')] = 'AC_P_S1_3'
-            self.data_points[self.data_points.index('S1_Q_Pu')] = 'AC_Q_S1_1'
-            self.data_points[self.data_points.index('S2_Q_Pu')] = 'AC_Q_S1_1'
-            self.data_points[self.data_points.index('S3_Q_Pu')] = 'AC_Q_S1_1'
+            self.data_points[self.data_points.index('S1_P_Pu')] = 'AC_P_S1_PU'
+            self.data_points[self.data_points.index('S2_P_Pu')] = 'AC_P_S2_PU'
+            self.data_points[self.data_points.index('S3_P_Pu')] = 'AC_P_S3_PU'
+            self.data_points[self.data_points.index('S1_Q_Pu')] = 'AC_Q_S1_PU'
+            self.data_points[self.data_points.index('S2_Q_Pu')] = 'AC_Q_S2_PU'
+            self.data_points[self.data_points.index('S3_Q_Pu')] = 'AC_Q_S3_PU'
 
             # Switch P/Q in watts/vars
-            self.data_points[self.data_points.index('S1_P_Watts')] = 'AC_P_S1_1'
-            self.data_points[self.data_points.index('S2_P_Watts')] = 'AC_P_S1_2'
-            self.data_points[self.data_points.index('S3_P_Watts')] = 'AC_P_S1_3'
-            self.data_points[self.data_points.index('S1_Q_Vars')] = 'AC_Q_S1_1'
-            self.data_points[self.data_points.index('S2_Q_Vars')] = 'AC_Q_S1_1'
-            self.data_points[self.data_points.index('S3_Q_Vars')] = 'AC_Q_S1_1'
+            self.data_points[self.data_points.index('S1_P_Watts')] = 'AC_P_S1'
+            self.data_points[self.data_points.index('S2_P_Watts')] = 'AC_P_S2'
+            self.data_points[self.data_points.index('S3_P_Watts')] = 'AC_P_S3'
+            self.data_points[self.data_points.index('S1_Q_Vars')] = 'AC_Q_S1'
+            self.data_points[self.data_points.index('S2_Q_Vars')] = 'AC_Q_S2'
+            self.data_points[self.data_points.index('S3_Q_Vars')] = 'AC_Q_S3'
 
             self.data_points[self.data_points.index('Resistor (ohms)')] = 'R'  # RLC measurements
             self.data_points[self.data_points.index('Rint (ohms)')] = 'R_INT'
@@ -487,6 +500,7 @@ class Device(object):
         # 5 readonly: True when the signal is read-only.
         # 6 value: Current value of the signal.
 
+        # ts.log_debug('Signals: %s' % signals)
         acq_signals = {}
         for sig in range(len(signals)):
             if str(signals[sig][0]) == 'OP_ACQUISITION_SIGNAL(0)':

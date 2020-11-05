@@ -730,7 +730,7 @@ class HIL(hil.HIL):
 
         return acq_signals
 
-    def get_control_signals(self, details=True, verbose=False):
+    def get_control_signals(self, details=False, verbose=False):
         """
         Get the control signals from the model
 
@@ -946,47 +946,59 @@ if __name__ == "__main__":
         print((system_info[i]))
     print(("OPAL-RT - Platform version {0} (IP address : {1})".format(system_info[1], system_info[6])))
 
-    '''
-    projectName = "C:\\Users\\DETLDAQ\\OPAL-RT\\RT-LABv2019.1_Workspace\\" \
-                  "IEEE_1547.1_Phase_Jump\\IEEE_1547.1_Phase_Jump.llp"
+    projectName = r"C:/Users/DETLDAQ/OPAL-RT/RT-LABv2020.1_Workspace_new/1547.1_UI_CatB_22/1547.1_UI_CatB_22.llp"
+
     RtlabApi.OpenProject(projectName)
-    parameterControl = 1
-    RtlabApi.GetParameterControl(parameterControl)
+    RtlabApi.GetParameterControl(1)
+    RtlabApi.GetSystemControl(1)
 
-    status, _ = RtlabApi.GetModelState()
-    if status == RtlabApi.MODEL_LOADABLE:
-        realTimeMode = RtlabApi.HARD_SYNC_MODE
-        timeFactor = 1
-        RtlabApi.Load(realTimeMode, timeFactor)
-        print("The model is loaded.")
-    else:
-        print("The model is not loadable.")
+    io_interface = RtlabApi.GetIOInterfaces()
+    print('GetIOInterfaces: %s' % io_interface)
+    print(type(io_interface[0]))
+    io_name = io_interface[0]['name']
+    print('io_name: %s' % io_name)
+    io_points = RtlabApi.GetConnectionPointsForIO()
+    for point in range(len(io_points)):
+        print(io_points[point])
 
-    for loop in range(2):
-        print("Run times: %s" % loop)
+    control_signals = RtlabApi.GetControlSignals()
+    for sig in range(len(control_signals)):
+        print('GetControlSignals[%d]: %s' % (sig, control_signals[sig]))
 
-        status, _ = RtlabApi.GetModelState()
-        print('Status is: %s' % status)
-        if status == RtlabApi.MODEL_PAUSED:
-            RtlabApi.Execute(1)
-            modelState, realTimeMode = RtlabApi.GetModelState()
-            "The model state is now %s." % RtlabApi.OP_MODEL_STATE(modelState)
-        sleep(2)
+    RtlabApi.CloseProject()
 
-        model_parameters = RtlabApi.GetParametersDescription()
-        for param in range(len(model_parameters)):
-            print('Param: %s, %s is %s' % (model_parameters[param][1],
-                                           model_parameters[param][2],
-                                           model_parameters[param][4]))
+    # status, _ = RtlabApi.GetModelState()
+    # if status == RtlabApi.MODEL_LOADABLE:
+    #     realTimeMode = RtlabApi.HARD_SYNC_MODE
+    #     timeFactor = 1
+    #     RtlabApi.Load(realTimeMode, timeFactor)
+    #     print("The model is loaded.")
+    # else:
+    #     print("The model is not loadable.")
+    #
+    # status, _ = RtlabApi.GetModelState()
+    # print('Status is: %s' % status)
+    # if status == RtlabApi.MODEL_PAUSED:
+    #     RtlabApi.Execute(1)
+    #     modelState, realTimeMode = RtlabApi.GetModelState()
+    #     "The model state is now %s." % RtlabApi.OP_MODEL_STATE(modelState)
+    # sleep(2)
+    #
+    # model_parameters = RtlabApi.GetParametersDescription()
+    # for param in range(len(model_parameters)):
+    #     print('Param: %s, %s is %s' % (model_parameters[param][1],
+    #                                    model_parameters[param][2],
+    #                                    model_parameters[param][4]))
 
-        # print('Simulation time is: %s' % [RtlabApi.GetTimeInfo()])
-        # print('Simulation time is: %s' % (RtlabApi.GetPauseTime()))
-        # print('Simulation time is: %s' % (RtlabApi.GetStopTime()))
-        # print('Simulation time is: %s' % (RtlabApi.GetAcqSampleTime()))
+    # print('Simulation time is: %s' % [RtlabApi.GetTimeInfo()])
+    # print('Simulation time is: %s' % (RtlabApi.GetPauseTime()))
+    # print('Simulation time is: %s' % (RtlabApi.GetStopTime()))
+    # print('Simulation time is: %s' % (RtlabApi.GetAcqSampleTime()))
 
-        RtlabApi.Pause()
-        sleep(2)
+    # RtlabApi.Pause()
+    # sleep(2)
 
+    '''
     RtlabApi.CloseProject()
 
     RtlabApi.SetParametersByName("PF818072_test_model/sm_computation/Rocof/Value", 10.)
@@ -1036,10 +1048,10 @@ if __name__ == "__main__":
             # Display compilation log into Python console
             _, _, msg = RtlabApi.DisplayInformation(100)
             while len(msg) > 0:
-                print msg,
+                print(msg)
                 _, _, msg = RtlabApi.DisplayInformation(100)
 
-        except Exception, exc:
+        except Exception as exc:
             # Ignore error 11 which is raised when RtlabApi.DisplayInformation is called whereas there is no
             # pending message
             info = sys.exc_info()
@@ -1050,7 +1062,7 @@ if __name__ == "__main__":
 
     # Because we use a comma after print when forward compilation log into python log we have to ensure to
     # write a carriage return when finished.
-    print ''
+    print('')
 
     # Get project status to check is compilation succeeded
     status, _ = RtlabApi.GetModelState()
@@ -1078,6 +1090,5 @@ if __name__ == "__main__":
 
     RtlabApi.CloseProject()
     '''
-
 
 
