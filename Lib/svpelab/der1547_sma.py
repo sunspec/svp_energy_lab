@@ -648,13 +648,15 @@ class DER1547(der1547.DER1547):
 
         :return: dict with keys shown above.
         """
-        return self.sma.ui()
+        # self.sma.ui()
+        params = {'ui_mode_enable_as': False, 'ui_capability_er': ['UI_BLRC']}
+        return params
 
     def set_ui(self, params=None):
         """
         Set Unintentional Islanding Parameters
         """
-        return self.ts.prompt('Set UI with params = %s' % params)
+        return self.ts.confirm('Set UI with params = %s' % params)
 
     def get_ov(self, params=None):
         """

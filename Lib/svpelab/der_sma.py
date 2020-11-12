@@ -538,7 +538,8 @@ class DER(der.DER):
                     else:
                         self.inv.write(wlim_ena_reg[self.firmware], util.u32_to_data(303))
 
-                power = int(params.get('WMaxPct'))
+                if params.get('WMaxPct') is not None:
+                    power = int(params.get('WMaxPct'))
                 if control_mode[self.firmware] == 'PMAX':
                     self.inv.write(wlim_pmaxpct_reg[self.firmware], util.u32_to_data(int(power)))
                 elif control_mode[self.firmware] == 'PVPCT':

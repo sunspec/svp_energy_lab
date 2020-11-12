@@ -268,9 +268,12 @@ class HIL(hil.HIL):
             raise
         self.ts.log('Opened Project: %s' % self.project_name)
 
-        # Set parameter control for later
-        parameterControl = 1
-        RtlabApi.GetParameterControl(parameterControl)
+        # Set controls to the API
+        RtlabApi.GetParameterControl(1)
+        RtlabApi.GetSignalControl(1)
+        # RtlabApi.GetAcquisitionControl(1, 0)
+        RtlabApi.GetMonitoringControl(1)
+        self.control_panel_info(state=1)  # GetSystemControl
 
         pass
 
@@ -648,12 +651,25 @@ class HIL(hil.HIL):
                  if no signal map, return list of data.
         """
 
+        # SetAcqBlockLastVal -- Set the current settings for the blocking / non-blocking, and associated last value
+        # flag, for signal acquisition. This information is used by the API acquisition functions, which have the
+        # option not to wait for data, needed by some console's lack of multiple thread support. The ProbeControl
+        # panel sets these settings using this call.
+
+        # blockOnGroup: Acquisition group for which the API functions will wait for data (specify n for group n).
+        # If 0, API function will wait for data for all groups. If -1, API functions will not wait for any group's data.
+        BlockOnGroup = 0
+        # lastValues: Boolean, 1 means API functions will output the last values received while a group's data is
+        # not available. If 0, the API function will output zeroes. This paramater is ignored when blockOnGroup is
+        # not equal to -1.
+        lastValues = 1
+        RtlabApi.SetAcqBlockLastVal(BlockOnGroup, lastValues)
+
         # acquisitionGroup: Acquisition group number, starts from 0.
         # synchronization: synchronization 1/0 = Enable/Disable
         # interpolation: interpolation 1/0 = Enable/Disable
         # threshold: Threshold difference time between the simulation and the acquisition (console) time in seconds.
         # acqTimeStep: Sample interval: acquisition (console) timestep must be equal or greater than the model time step
-        # self.ts.log_debug(RtlabApi.GetAcqBlockLastVal())
         acquisitionGroup = 0
         synchronization = 0
         interpolation = 0
@@ -665,6 +681,7 @@ class HIL(hil.HIL):
         # monitoringInfo: Monitoring information tuple. It contains the following values: Missed data, offset,
         # simulationTime and sampleSec. See below for more details.
         missedData, offset, simulationTime, sampleSec = monitoringInfo
+        # self.ts.log_debug('SimulationTime of data acquisition = %s' % simulationTime)
 
         if missedData >= 1.0:
             self.ts.log_warning('Missing data in last acquisition. Number of missing data points: %s' % missedData)
@@ -749,17 +766,18 @@ class HIL(hil.HIL):
             # 1 id: Id of the signal.
             # 2 path: Path of the signal.
             # 3 label: Label or name of the signal.
-            # 4 readonly: True when the signal is read-only.
-            # 5 value: Current value of the signal
+            # 4 reserved:
+            # 5 readonly: True when the signal is read-only.
+            # 6 value: Current value of the signal
 
             control_signals = []
             for sig in range(len(signals)):
                 control_signals.append((signals[sig][0], signals[sig][1], signals[sig][2], signals[sig][3],
-                                       signals[sig][5]))
+                                       signals[sig][6]))
                 if verbose:
                     self.ts.log_debug('Sig #%d: Type: %s, Path: %s, Label: %s, value: %s' %
                                       (signals[sig][1], signals[sig][0], signals[sig][2], signals[sig][3],
-                                       signals[sig][5]))
+                                       signals[sig][6]))
 
         else:
             control_signals = list(RtlabApi.GetControlSignals())
@@ -941,6 +959,7 @@ class HIL(hil.HIL):
 
 if __name__ == "__main__":
 
+    import time
     system_info = RtlabApi.GetTargetNodeSystemInfo("Target_3")
     for i in range(len(system_info)):
         print((system_info[i]))
@@ -951,21 +970,57 @@ if __name__ == "__main__":
     RtlabApi.OpenProject(projectName)
     RtlabApi.GetParameterControl(1)
     RtlabApi.GetSystemControl(1)
+    RtlabApi.GetAcquisitionControl(1)
 
-    io_interface = RtlabApi.GetIOInterfaces()
-    print('GetIOInterfaces: %s' % io_interface)
-    print(type(io_interface[0]))
-    io_name = io_interface[0]['name']
-    print('io_name: %s' % io_name)
-    io_points = RtlabApi.GetConnectionPointsForIO()
-    for point in range(len(io_points)):
-        print(io_points[point])
+    RtlabApi.SetAcqBlockLastVal(0, 1)
+    print(RtlabApi.GetAcqBlockLastVal())
 
-    control_signals = RtlabApi.GetControlSignals()
-    for sig in range(len(control_signals)):
-        print('GetControlSignals[%d]: %s' % (sig, control_signals[sig]))
+    acquisitionGroup = 0
+    synchronization = 0
+    interpolation = 0
+    threshold = 0
+    acqTimeStep = 0.001
 
-    RtlabApi.CloseProject()
+    for i in range(10):
+
+        values, (missedData, offset, simulationTime, sampleSec), simulationTimeStep, endFrame = \
+            RtlabApi.GetAcqGroupSyncSignals(acquisitionGroup, synchronization, interpolation,
+                                            threshold, acqTimeStep)
+        print('Simulation Time = %s, Acquired signals from acquisition: %s' %
+              (simulationTime, str(values)[0:80]))
+
+        time.sleep(1)
+
+    for i in range(10):
+        frames = 0  # the number of frames is configured in the probe control for the model in RT-Lab
+        while 1:
+            values, (missedData, offset, simulationTime, sampleSec), simulationTimeStep, endFrame = \
+                RtlabApi.GetAcqGroupSyncSignals(acquisitionGroup, synchronization, interpolation,
+                                                threshold, acqTimeStep)
+
+            frames += 1
+            if endFrame:  # if the frame is over
+                print('Simulation Time = %s, Acquired signals from acquisition: %s' %
+                      (simulationTime, str(values)[0:300]))
+                break  # stop loop
+
+        # print('Total frames: %s' % frames)
+        time.sleep(1)
+
+    # io_interface = RtlabApi.GetIOInterfaces()
+    # print('GetIOInterfaces: %s' % io_interface)
+    # print(type(io_interface[0]))
+    # io_name = io_interface[0]['name']
+    # print('io_name: %s' % io_name)
+    # io_points = RtlabApi.GetConnectionPointsForIO()
+    # for point in range(len(io_points)):
+    #     print(io_points[point])
+    #
+    # control_signals = RtlabApi.GetControlSignals()
+    # for sig in range(len(control_signals)):
+    #     print('GetControlSignals[%d]: %s' % (sig, control_signals[sig]))
+
+
 
     # status, _ = RtlabApi.GetModelState()
     # if status == RtlabApi.MODEL_LOADABLE:

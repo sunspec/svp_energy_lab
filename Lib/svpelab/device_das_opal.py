@@ -66,6 +66,8 @@ WFM_CHANNELS = {'Generic': ['TIME', 'AC_V_1', 'AC_V_2', 'AC_V_3', 'AC_I_1', 'AC_
                             'AC_P_1', 'AC_P_2', 'AC_P_3',
                             'AC_Q_1', 'AC_Q_2', 'AC_Q_3',
                             'Trigger'],
+                'Opal_UI_1547': ['TIME', 'TRIGGER', 'AC_I_1', 'AC_I_2', 'AC_I_3',
+                                 'AC_V_1', 'AC_V_2', 'AC_V_3']
                 }
 
 
@@ -525,10 +527,10 @@ class Device(object):
         start_time_value = params["start_time_value"]
         end_time_value = params["end_time_value"]
         start_time_variable = params["start_time_variable"]
-        end_time_variable= params["end_time_variable"]
+        end_time_variable = params["end_time_variable"]
         variables = []
-        variables.append((start_time_variable,start_time_value))
-        variables.append((end_time_variable,end_time_value))
+        variables.append((start_time_variable, start_time_value))
+        variables.append((end_time_variable, end_time_value))
         self.hil.set_variables(variables)
         pass
 
@@ -570,7 +572,7 @@ class Device(object):
         datasets = []
         os.chdir(self.wfm_dir)
         for entry in glob.glob("*.mat"):
-            if self.data_name  in entry:
+            if self.data_name in entry:
                 self.mat_location = f'{self.wfm_dir}\{entry}'
                 self.ts.log_debug(f'The model state is {self.hil.model_state()}')
 
@@ -595,7 +597,7 @@ class Device(object):
                 self.ts.log('Loading %s file in matlab...' % self.mat_location)
                 m_cmd = "load('" + self.mat_location + "')"
                 self.ts.log_debug('Running matlab command: %s' % m_cmd)
-                #self.ts.log_debug('Matlab: ' + self.matlab_cmd(m_cmd))
+                # self.ts.log_debug('Matlab: ' + self.matlab_cmd(m_cmd))
                 if isinstance(self.matlab_cmd(m_cmd), MatlabException):
                     self.ts.log_warning('Matlab command failed. Waiting 10 sec and retrying...')
                     self.ts.sleep(10)
