@@ -51,26 +51,29 @@ except Exception as e:
 # ]
 
 # Channels to be captured during the waveform capture
+# Todo : This should be provided by the IEEE 1547 library
+
 WFM_CHANNELS = {'Generic': ['TIME', 'AC_V_1', 'AC_V_2', 'AC_V_3', 'AC_I_1', 'AC_I_2', 'AC_I_3', 'EXT'],
                 'PhaseJump': ['TIME', 'AC_V_1', 'AC_V_2', 'AC_V_3', 'AC_I_1', 'AC_I_2', 'AC_I_3', 'Trigger',
                               'Total_RMS_Current', 'Time_Below_80pct_Current', 'Time_Phase_Misalignment',
                               'Ph_Del_A', 'Ph_Del_B', 'Ph_Del_C'],
                 'PhaseJumpOld': ['TIME', 'AC_V_1', 'AC_V_2', 'AC_V_3', 'AC_I_1', 'AC_I_2', 'AC_I_3', 'Trigger',
                                  'Total_RMS_Current', 'Time_Below_80pct_Current', 'Time_Phase_Misalignment'],
-                'VRT': ['TIME', 'AC_V_1', 'AC_V_2', 'AC_V_3',
-                                'AC_I_1', 'AC_I_2', 'AC_I_3', 
-                                'AC_V_1_TARGET', 'AC_V_2_TARGET', 'AC_V_3_TARGET'],
-                'FRT': ['TIME', 'AC_V_1', 'AC_V_2', 'AC_V_3',
-                        'AC_I_1', 'AC_I_2', 'AC_I_3',
+                'VRT': ['TIME', 'AC_V_1', 'AC_V_2', 'AC_V_3', 'AC_I_1', 'AC_I_2', 'AC_I_3',
                         'AC_V_1_TARGET', 'AC_V_2_TARGET', 'AC_V_3_TARGET'],
-                'VRT_RMS': ['TIME',
-                            'AC_I_1', 'AC_I_2', 'AC_I_3',
-                            'AC_V_1', 'AC_V_2', 'AC_V_3',
-                            'AC_P_1', 'AC_P_2', 'AC_P_3',
-                            'AC_Q_1', 'AC_Q_2', 'AC_Q_3',
-                            'Trigger'],
+                'FRT': ['TIME', 'AC_V_1', 'AC_V_2', 'AC_V_3', 'AC_I_1', 'AC_I_2', 'AC_I_3',
+                        'AC_V_1_TARGET', 'AC_V_2_TARGET', 'AC_V_3_TARGET'],
+                'VRT_RMS': ['TIME','AC_I_1', 'AC_I_2', 'AC_I_3', 'AC_P_1', 'AC_P_2', 'AC_P_3',
+                            'AC_Q_1', 'AC_Q_2', 'AC_Q_3', 'Trigger'],
                 'Opal_UI_1547': ['TIME', 'TRIGGER', 'AC_I_1', 'AC_I_2', 'AC_I_3',
-                                 'AC_V_1', 'AC_V_2', 'AC_V_3']
+                                 'AC_V_1', 'AC_V_2', 'AC_V_3'],
+                'IEEE1547_VRT': ['TIME',
+                                 'AC_V_1', 'AC_V_2', 'AC_V_3',
+                                 'AC_I_1', 'AC_I_2', 'AC_I_3',
+                                 'AC_P_1', 'AC_P_2', 'AC_P_3',
+                                 'AC_Q_1', 'AC_Q_2', 'AC_Q_3',
+                                 'AC_V_CMD_1', 'AC_V_CMD_2', 'AC_V_CMD_3',
+                                 "TRIGGER"]
                 }
 
 
@@ -95,6 +98,9 @@ class Device(object):
         self.wfm_channels = WFM_CHANNELS.get(self.params['wfm_chan_list'])
         # _, self.model_name = RtlabApi.GetCurrentModel()
 
+        self.mat_location = ''
+        self.csv_location = ''
+
         # optional parameters for interfacing with other SVP devices
         self.hil = self.params['hil']
         self.model_name = self.hil.rt_lab_model
@@ -105,6 +111,7 @@ class Device(object):
 
         self.ts.log_debug('DAS connected to with HIL: %s, DC meas: %s, and gridsim: %s' %
                           (self.hil, self.dc_measurement_device, self.gridsim))
+
         # TODO: All this could be replaced with Alias manipulations.
         if self.sc_capture == 'No':
             # Mapping from the  channels to be captured and the names that are used in the Opal environment
@@ -216,37 +223,37 @@ class Device(object):
                 'DC_P': None})
 
             self.opal_fast_1547 = OrderedDict({  # data point : analog channel name
-                'TIME': self.model_name + '/SM_Source/IEEE_1547_TESTING/Clock/port1',
+                'TIME': self.model_name + "/SM_Source/IEEE_1547_TESTING/Clock/port1",
                 # Voltage
-                'AC_VRMS_1': self.model_name + '/SM_Source/Signal_conditionning/AC_VRMS_1/Switch/port1',
-                'AC_VRMS_2': self.model_name + '/SM_Source/Signal_conditionning/AC_VRMS_2/Switch/port1',
-                'AC_VRMS_3': self.model_name + '/SM_Source/Signal_conditionning/AC_VRMS_3/Switch/port1',
+                'AC_VRMS_1': self.model_name + '/SM_Source/IEEE_1547_TESTING/SignalConditionning/AC_VRMS_1/Switch/port1',
+                'AC_VRMS_2': self.model_name + '/SM_Source/IEEE_1547_TESTING/SignalConditionning/AC_VRMS_2/Switch/port1',
+                'AC_VRMS_3': self.model_name + '/SM_Source/IEEE_1547_TESTING/SignalConditionning/AC_VRMS_3/Switch/port1',
                 # Current
-                'AC_IRMS_1': self.model_name + '/SM_Source/Signal_conditionning/AC_IRMS_1/Switch/port1',
-                'AC_IRMS_2': self.model_name + '/SM_Source/Signal_conditionning/AC_IRMS_2/Switch/port1',
-                'AC_IRMS_3': self.model_name + '/SM_Source/Signal_conditionning/AC_IRMS_3/Switch/port1',
+                'AC_IRMS_1': self.model_name + '/SM_Source/IEEE_1547_TESTING/SignalConditionning/AC_IRMS_1/Switch/port1',
+                'AC_IRMS_2': self.model_name + '/SM_Source/IEEE_1547_TESTING/SignalConditionning/AC_IRMS_2/Switch/port1',
+                'AC_IRMS_3': self.model_name + '/SM_Source/IEEE_1547_TESTING/SignalConditionning/AC_IRMS_3/Switch/port1',
                 # Frequency
-                'AC_FREQ_1': self.model_name + '/SM_Source/Signal_conditionning/AC_FREQ_1/port1',
-                'AC_FREQ_2': self.model_name + '/SM_Source/Signal_conditionning/AC_FREQ_2/port1',
-                'AC_FREQ_3': self.model_name + '/SM_Source/Signal_conditionning/AC_FREQ_3/port1',
+                'AC_FREQ_1': self.model_name + '/SM_Source/IEEE_1547_TESTING/SignalConditionning/AC_FREQ_1/port1',
+                'AC_FREQ_2': self.model_name + '/SM_Source/IEEE_1547_TESTING/SignalConditionning/AC_FREQ_2/port1',
+                'AC_FREQ_3': self.model_name + '/SM_Source/IEEE_1547_TESTING/SignalConditionning/AC_FREQ_3/port1',
                 # Active Power
-                'AC_P_1': self.model_name + '/SM_Source/Signal_conditionning/AC_P_1/port1(2)',
-                'AC_P_2': self.model_name + '/SM_Source/Signal_conditionning/AC_P_2/port1(2)',
-                'AC_P_3': self.model_name + '/SM_Source/Signal_conditionning/AC_P_3/port1(2)',
+                'AC_P_1': self.model_name + '/SM_Source/IEEE_1547_TESTING/SignalConditionning/AC_P_1/port1',
+                'AC_P_2': self.model_name + '/SM_Source/IEEE_1547_TESTING/SignalConditionning/AC_P_2/port1',
+                'AC_P_3': self.model_name + '/SM_Source/IEEE_1547_TESTING/SignalConditionning/AC_P_3/port1',
                 # Reactive Power
-                'AC_Q_1': self.model_name + '/SM_Source/Signal_conditionning/AC_Q_1/port1(2)',
-                'AC_Q_2': self.model_name + '/SM_Source/Signal_conditionning/AC_Q_2/port1(2)',
-                'AC_Q_3': self.model_name + '/SM_Source/Signal_conditionning/AC_Q_3/port1(2)',
+                'AC_Q_1': self.model_name + '/SM_Source/IEEE_1547_TESTING/SignalConditionning/AC_Q_1/port1',
+                'AC_Q_2': self.model_name + '/SM_Source/IEEE_1547_TESTING/SignalConditionning/AC_Q_2/port1',
+                'AC_Q_3': self.model_name + '/SM_Source/IEEE_1547_TESTING/SignalConditionning/AC_Q_3/port1',
                 # Apparent Power
-                'AC_S_1': self.model_name + '/SM_Source/Signal_conditionning/AC_S_1/port1(2)',
-                'AC_S_2': self.model_name + '/SM_Source/Signal_conditionning/AC_S_2/port1(2)',
-                'AC_S_3': self.model_name + '/SM_Source/Signal_conditionning/AC_S_3/port1(2)',
+                'AC_S_1': self.model_name + '/SM_Source/IEEE_1547_TESTING/SignalConditionning/AC_S_1/port1',
+                'AC_S_2': self.model_name + '/SM_Source/IEEE_1547_TESTING/SignalConditionning/AC_S_2/port1',
+                'AC_S_3': self.model_name + '/SM_Source/IEEE_1547_TESTING/SignalConditionning/AC_S_3/port1',
                 # Power Factor
-                'AC_PF_1': self.model_name + '/SM_Source/Signal_conditionning/AC_PF_1/port1(2)',
-                'AC_PF_2': self.model_name + '/SM_Source/Signal_conditionning/AC_PF_2/port1(2)',
-                'AC_PF_3': self.model_name + '/SM_Source/Signal_conditionning/AC_PF_3/port1(2)',
+                'AC_PF_1': self.model_name + '/SM_Source/IEEE_1547_TESTING/SignalConditionning/AC_PF_1/port1',
+                'AC_PF_2': self.model_name + '/SM_Source/IEEE_1547_TESTING/SignalConditionning/AC_PF_2/port1',
+                'AC_PF_3': self.model_name + '/SM_Source/IEEE_1547_TESTING/SignalConditionning/AC_PF_3/port1',
 
-                # TODO : At some point this will be read from HIL
+                # TODO : As some point this will be read it from HIL
                 'DC_V': None,
                 'DC_I': None,
                 'DC_P': None})
@@ -375,24 +382,19 @@ class Device(object):
         # After the simulation the data is stored in a .mat file. Matlab is used to convert this to a .csv file.
         # Get the svpelab directory and then add the \OpalRT\...
         self.driver_path = os.path.dirname(os.path.realpath(__file__))
+
         # location where opal saves the waveform data (.mat)
-        self.mat_location = self.wfm_dir + self.data_name
+        #self.mat_location = self.wfm_dir + self.data_name
         # location where matlab saves the waveform data (.csv)
-        self.csv_location = self.wfm_dir + f'\{self.data_name.split(".mat")[0]}_temp.csv'
+        #self.csv_location = self.wfm_dir + f'\{self.data_name.split(".mat")[0]}_temp.csv'
+        self.waveform_config({"mat_file_name":self.data_name})
+
         # delete the old data file
         try:
             os.remove(self.csv_location)
         except Exception as e:
             # self.ts.log_warning('Could not delete old data file at %s: %s' % (self.csv_location, e))
             pass
-
-        # Delete prior .mat files
-        # self.ts.log_debug('Cleaning up mat files in %s' % (self.driver_path + self.wfm_dir))
-        # for entry in os.listdir(self.driver_path + self.wfm_dir):
-        #     if entry[-4:] == '.mat' and entry[:8] == 'SVP_Data':
-        #         old_mat_file = self.driver_path + self.wfm_dir + entry
-        #         self.ts.log('Deleting: %s' % old_mat_file)
-        #         os.remove(old_mat_file)
 
     def info(self):
         """
@@ -412,6 +414,7 @@ class Device(object):
 
     def data_capture(self, enable=True):
         pass
+
 
     def data_read(self):
         """
@@ -527,15 +530,22 @@ class Device(object):
             'timeout' - Timeout (sec)
             'channels' - Channels to capture - ['AC_V_1', 'AC_V_2', 'AC_V_3', 'AC_I_1', 'AC_I_2', 'AC_I_3', 'EXT']
         """
-        start_time_value = params["start_time_value"]
-        end_time_value = params["end_time_value"]
-        start_time_variable = params["start_time_variable"]
-        end_time_variable = params["end_time_variable"]
-        variables = []
-        variables.append((start_time_variable, start_time_value))
-        variables.append((end_time_variable, end_time_value))
-        self.hil.set_variables(variables)
-        pass
+
+        # start_time_value = params["start_time_value"]
+        # end_time_value = params["end_time_value"]
+        # start_time_variable = params["start_time_variable"]
+        # end_time_variable = params["end_time_variable"]
+        # variables = []
+        # variables.append((start_time_variable, start_time_value))
+        # variables.append((end_time_variable, end_time_value))
+        # self.hil.set_variables(variables)
+
+        self.ts.log_debug(params)
+        mat_file_name = params.get("mat_file_name")
+        self.wfm_channels = params.get("wfm_channels")
+        self.data_name = mat_file_name
+        self.mat_location = self.wfm_dir + mat_file_name
+        self.csv_location = self.wfm_dir + f'\{mat_file_name.split(".mat")[0]}_temp.csv'
 
     def waveform_capture(self, enable=True, sleep=None):
         """
@@ -574,6 +584,8 @@ class Device(object):
         # in case multiple waveform captures are required for the test, create list of datasets
         datasets = []
         os.chdir(self.wfm_dir)
+        self.ts.log_debug(f'.mat in  {self.wfm_dir,self.data_name }')
+
         for entry in glob.glob("*.mat"):
             if self.data_name in entry:
                 self.mat_location = f'{self.wfm_dir}\{entry}'
@@ -584,17 +596,7 @@ class Device(object):
                     self.ts.sleep(10)
 
                 self.ts.log_debug('Processing data in the .mat file at %s' % self.mat_location)
-                # Check that the data file is not still being written to
-                # attempts = 5
-                # while attempts > 0:
-                #     import os
-                #     try:
-                #         os.rename(self.mat_location, self.mat_location + '.temp')
-                #         os.rename(self.mat_location + '.temp', self.mat_location)
-                #     except OSError:
-                #         print('.mat file is still being written...')
-                #     self.ts.sleep(1)
-                #     attempts -= 1
+           
 
                 # Pull in saved data from the .mat files
                 self.ts.log('Loading %s file in matlab...' % self.mat_location)

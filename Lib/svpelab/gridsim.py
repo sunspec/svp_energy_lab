@@ -288,6 +288,38 @@ class GridSim(object):
             voltage = (0.0, 0.0, 0.0)
         return voltage
 
+    def voltage_min(self, voltage=None):
+        """
+        Set the value for min voltage if provided. If none provided, obtains
+        the value for min voltage.
+        """
+        if voltage is not None:
+            pass
+        else:
+            voltage = (0.0, 0.0, 0.0)
+        return voltage
+
+    def frequency_max(self, frequency=None):
+        """
+        Set the value for max frequency if provided. If none provided, obtains
+        the value for max frequency.
+        """
+        if frequency is not None:
+            pass
+        else:
+            frequency = (0.0, 0.0, 0.0)
+        return frequency
+    
+    def frequency_min(self, frequency=None):
+        """
+        Set the value for min frequency if provided. If none provided, obtains
+        the value for min frequency.
+        """
+        if frequency is not None:
+            pass
+        else:
+            frequency = (0.0, 0.0, 0.0)
+        return frequency
     def config_asymmetric_phase_angles(self, mag=None, angle=None):
         """
         Configure grid simulator to have imbalanced phases

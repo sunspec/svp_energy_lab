@@ -260,7 +260,7 @@ class PVSim(pvsim.PVSim):
                 if c is not None:
                     channel = self.tsas.channels[c]
                     channel.irradiance_set(irradiance=irradiance)
-                    # self.ts.log('TerraSAS power output changed to %0.2f on channel %d.' % (power, c))
+                    self.ts.log('TerraSAS power output changed to %0.2f on channel %d.' % (power, c))
         else:
             raise pvsim.PVSimError('Power was not changed.')
 
