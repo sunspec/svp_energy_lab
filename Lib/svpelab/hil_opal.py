@@ -77,12 +77,16 @@ def params(info, group_name=None):
     info.param(pname('rt_lab_model'), label='RT-LAB model name (.mdl or .slx)', default='IEEE_1547_Fast_Functions')
 
     info.param(pname('hil_config'), label='Configure HIL in init', default='False', values=['True', 'False'])
-    info.param(pname('hil_config_open'), label='Open Project?', default="Yes", values=["Yes", "No"])
-    info.param(pname('hil_config_compile'), label='Compilation needed?', default="No", values=["Yes", "No"])
+    # info.param(pname('hil_config_open'), label='Open Project?', default="Yes", values=["Yes", "No"],
+    #            active=pname('hil_config'), active_value='True')
+    info.param(pname('hil_config_compile'), label='Compilation needed?', default="No", values=["Yes", "No"],
+               active=pname('hil_config'), active_value='True')
     info.param(pname('hil_config_stop_sim'), label='Stop the simulation before loading/execution?',
-               default="Yes", values=["Yes", "No"])
-    info.param(pname('hil_config_load'), label='Load the model to target?', default="Yes", values=["Yes", "No"])
-    info.param(pname('hil_config_execute'), label='Execute the model on target?', default="Yes", values=["Yes", "No"])
+               default="Yes", values=["Yes", "No"], active=pname('hil_config'), active_value='True')
+    info.param(pname('hil_config_load'), label='Load the model to target?', default="Yes", values=["Yes", "No"],
+               active=pname('hil_config'), active_value='True')
+    info.param(pname('hil_config_execute'), label='Execute the model on target?', default="Yes", values=["Yes", "No"],
+               active=pname('hil_config'), active_value='True')
     info.param(pname('hil_stop_time'), label='Stop Time', default=3600.)
 
 
@@ -112,6 +116,7 @@ class HIL(hil.HIL):
         self.ts = ts
 
         self.rt_lab_python_dir = self._param_value('rt_lab_python_dir')
+        self.time_sig_path = None
         try:
             sys.path.insert(0, self.rt_lab_python_dir)
             import RtlabApi
@@ -143,8 +148,7 @@ class HIL(hil.HIL):
         provided parameters.
         """
         self.ts.log("{}".format(self.info()))
-        if self._param_value('hil_config_open') == 'Yes':
-            self.open()
+        self.open()
         if self.hil_config_compile == 'Yes':
             self.ts.sleep(1)
             self.ts.log("    Model ID: {}".format(self.compile_model().get("modelId")))
@@ -927,6 +931,17 @@ class HIL(hil.HIL):
             self.ts.log_warning('Stop time already set to %s' % stop_time)
         return RtlabApi.GetStopTime()
 
+    def set_time_sig(self, time_path):
+        """
+        Set the path of time signal
+        :return: None
+        """
+        _, model_name = RtlabApi.GetCurrentModel()
+        model_name = model_name.rstrip('.mdl').rstrip('.slx')
+
+        self.time_sig_path = model_name + time_path
+        self.ts.log_debug(f'Set the time signal path to {self.time_sig_path } ')
+
     def get_time(self):
         """
         Get simulation time from the clock signal
@@ -935,17 +950,7 @@ class HIL(hil.HIL):
 
         try:
             if self.model_state() == 'Model Running':
-                _, model_name = RtlabApi.GetCurrentModel()
-                model_name = model_name.rstrip('.mdl').rstrip('.slx')
-
-                # todo: fix this to be generic
-                try:
-                    sig = model_name + '/SM_Source/Clock/port1'
-                    sim_time = RtlabApi.GetSignalsByName(sig)
-                except Exception as e:
-                    sig = model_name + '/SM_LOHO13/Dynamic Load Landfill/Clock1/port1'
-                    sim_time = RtlabApi.GetSignalsByName(sig)
-
+                sim_time = RtlabApi.GetSignalsByName(self.time_sig_path)
                 return sim_time
             else:
                 self.ts.log_debug('Can not read simulation time becauase the simulation is not running. Returning 1e6.')

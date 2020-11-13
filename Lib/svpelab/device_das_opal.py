@@ -60,6 +60,9 @@ WFM_CHANNELS = {'Generic': ['TIME', 'AC_V_1', 'AC_V_2', 'AC_V_3', 'AC_I_1', 'AC_
                 'VRT': ['TIME', 'AC_V_1', 'AC_V_2', 'AC_V_3',
                                 'AC_I_1', 'AC_I_2', 'AC_I_3', 
                                 'AC_V_1_TARGET', 'AC_V_2_TARGET', 'AC_V_3_TARGET'],
+                'FRT': ['TIME', 'AC_V_1', 'AC_V_2', 'AC_V_3',
+                        'AC_I_1', 'AC_I_2', 'AC_I_3',
+                        'AC_V_1_TARGET', 'AC_V_2_TARGET', 'AC_V_3_TARGET'],
                 'VRT_RMS': ['TIME',
                             'AC_I_1', 'AC_I_2', 'AC_I_3',
                             'AC_V_1', 'AC_V_2', 'AC_V_3',
@@ -213,7 +216,7 @@ class Device(object):
                 'DC_P': None})
 
             self.opal_fast_1547 = OrderedDict({  # data point : analog channel name
-                'TIME': self.model_name + '/SM_Source/Clock/port1',
+                'TIME': self.model_name + '/SM_Source/IEEE_1547_TESTING/Clock/port1',
                 # Voltage
                 'AC_VRMS_1': self.model_name + '/SM_Source/Signal_conditionning/AC_VRMS_1/Switch/port1',
                 'AC_VRMS_2': self.model_name + '/SM_Source/Signal_conditionning/AC_VRMS_2/Switch/port1',
