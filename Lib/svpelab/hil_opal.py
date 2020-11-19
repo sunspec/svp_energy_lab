@@ -297,6 +297,7 @@ class HIL(hil.HIL):
         Return system information
         :return: Opal Information
         """
+        self.ts.log_debug('info(), self.target_name = %s' % self.target_name)
         system_info = RtlabApi.GetTargetNodeSystemInfo(self.target_name)
         opal_rt_info = "OPAL-RT - Platform version {0} (IP address : {1})".format(system_info[1], system_info[6])
         return opal_rt_info
@@ -643,21 +644,39 @@ class HIL(hil.HIL):
         return mdl_params
 
     def get_matlab_variable_value(self, variableName):
+        """
+        Get the matlab variable value
+
+        :param variableName: name of the variable
+        :return: value string
+        """
         attributeNumber = RtlabApi.FindObjectId(RtlabApi.OP_TYPE_VARIABLE, self.rt_lab_model + '/' + variableName)
         value = RtlabApi.GetAttribute(attributeNumber, RtlabApi.ATT_MATRIX_VALUE)
         return str(value)
 
     def set_matlab_variable_value(self, variableName, valueToSet):
+        """
+        Change matlab variable. Typically these are referenced in the simulink model, so these changes affect the
+        simulation.
+
+        :param variableName: Matlab variable
+        :param valueToSet: New matlab value
+        :return: value of variable as measured from the
+        """
+        # self.ts.log_debug('set_matlab_variable_value() variableName = %s, valueToSet = %s' %
+        #                   (variableName, valueToSet))
+
         attributeNumber = RtlabApi.FindObjectId(RtlabApi.OP_TYPE_VARIABLE, self.rt_lab_model + '/' + variableName)
         value = RtlabApi.GetAttribute(attributeNumber, RtlabApi.ATT_MATRIX_VALUE)
         if valueToSet != value:
             self.ts.log_debug(f'Setting matlab variable {variableName} to {valueToSet} instead of {value} ')
-            self.ts.sleep(0.5) 
+            self.ts.sleep(0.5)
             RtlabApi.SetAttribute(attributeNumber, RtlabApi.ATT_MATRIX_VALUE, valueToSet)
             attributeNumber = RtlabApi.FindObjectId(RtlabApi.OP_TYPE_VARIABLE, self.rt_lab_model + '/' + variableName)
             value = RtlabApi.GetAttribute(attributeNumber, RtlabApi.ATT_MATRIX_VALUE)
         else:
-            self.ts.log_debug(f'matlab variable {variableName} was already configure to {valueToSet} ')
+            self.ts.log_debug(f'matlab variable {variableName} was already configured to {valueToSet} ')
+        return value
 
     def get_acq_signals_raw(self, signal_map=None, verbose=False):
         """

@@ -63,7 +63,7 @@ WFM_CHANNELS = {'Generic': ['TIME', 'AC_V_1', 'AC_V_2', 'AC_V_3', 'AC_I_1', 'AC_
                         'AC_V_1_TARGET', 'AC_V_2_TARGET', 'AC_V_3_TARGET'],
                 'FRT': ['TIME', 'AC_V_1', 'AC_V_2', 'AC_V_3', 'AC_I_1', 'AC_I_2', 'AC_I_3',
                         'AC_V_1_TARGET', 'AC_V_2_TARGET', 'AC_V_3_TARGET'],
-                'VRT_RMS': ['TIME','AC_I_1', 'AC_I_2', 'AC_I_3', 'AC_P_1', 'AC_P_2', 'AC_P_3',
+                'VRT_RMS': ['TIME', 'AC_I_1', 'AC_I_2', 'AC_I_3', 'AC_P_1', 'AC_P_2', 'AC_P_3',
                             'AC_Q_1', 'AC_Q_2', 'AC_Q_3', 'Trigger'],
                 'Opal_UI_1547': ['TIME', 'TRIGGER', 'AC_I_1', 'AC_I_2', 'AC_I_3',
                                  'AC_V_1', 'AC_V_2', 'AC_V_3'],
