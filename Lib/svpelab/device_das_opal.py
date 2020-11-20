@@ -95,7 +95,6 @@ class Device(object):
         self.wfm_dir = self.params['wfm_dir']
         self.data_name = self.params['data_name']
         self.dc_measurement_device = None
-        self.wfm_channels = WFM_CHANNELS.get(self.params['wfm_chan_list'])
         # _, self.model_name = RtlabApi.GetCurrentModel()
 
         self.mat_location = ''
@@ -390,10 +389,11 @@ class Device(object):
         self.driver_path = os.path.dirname(os.path.realpath(__file__))
 
         # location where opal saves the waveform data (.mat)
-        #self.mat_location = self.wfm_dir + self.data_name
+        # self.mat_location = self.wfm_dir + self.data_name
         # location where matlab saves the waveform data (.csv)
-        #self.csv_location = self.wfm_dir + f'\{self.data_name.split(".mat")[0]}_temp.csv'
-        self.waveform_config({"mat_file_name":self.data_name})
+        # self.csv_location = self.wfm_dir + f'\{self.data_name.split(".mat")[0]}_temp.csv'
+        self.wfm_channels = WFM_CHANNELS.get(self.params['wfm_chan_list'])
+        self.waveform_config({"mat_file_name": self.data_name})
 
         # delete the old data file
         try:
@@ -420,7 +420,6 @@ class Device(object):
 
     def data_capture(self, enable=True):
         pass
-
 
     def data_read(self):
         """
@@ -546,9 +545,8 @@ class Device(object):
         # variables.append((end_time_variable, end_time_value))
         # self.hil.set_variables(variables)
 
-        self.ts.log_debug(params)
+        # self.ts.log_debug(params)
         mat_file_name = params.get("mat_file_name")
-        self.wfm_channels = params.get("wfm_channels")
         self.data_name = mat_file_name
         self.mat_location = self.wfm_dir + mat_file_name
         self.csv_location = self.wfm_dir + f'\{mat_file_name.split(".mat")[0]}_temp.csv'
@@ -558,9 +556,7 @@ class Device(object):
         Enable/disable waveform capture.
         """
         if enable:
-            self.wfm_data = None  # used as flag in waveform_status()
-            # start capture process and if everything ok, continue...
-        pass
+            pass
 
     def waveform_status(self):
         """
@@ -601,29 +597,18 @@ class Device(object):
                     self.ts.log_debug('The model is still resetting. Waiting 10 sec')
                     self.ts.sleep(10)
 
-                self.ts.log_debug('Processing data in the .mat file at %s' % self.mat_location)
-           
-
                 # Pull in saved data from the .mat files
                 self.ts.log('Loading %s file in matlab...' % self.mat_location)
                 m_cmd = "load('" + self.mat_location + "')"
-                self.ts.log_debug('Running matlab command: %s' % m_cmd)
-                # self.ts.log_debug('Matlab: ' + self.matlab_cmd(m_cmd))
+                # self.ts.log_debug('Running matlab command: %s' % m_cmd)
                 if isinstance(self.matlab_cmd(m_cmd), MatlabException):
                     self.ts.log_warning('Matlab command failed. Waiting 10 sec and retrying...')
                     self.ts.sleep(10)
                     self.matlab_cmd(m_cmd)
 
                 # Add the header to the data in Matlab
-                self.ts.log('Adding Data Header')
+                self.ts.log('Adding Data Header from self.wfm_channels = %s' % self.wfm_channels)
                 m_cmd = "header = {" + str(self.wfm_channels)[1:-1] + "};"
-                
-                self.ts.log_debug('Matlab: ' + self.matlab_cmd(m_cmd))
-                self.ts.log_debug('Matlab: ' + self.matlab_cmd("[x, y] = size(Data);"))
-                self.ts.log_debug('Matlab: ' + self.matlab_cmd("data_w_header = cell(y+1,x);"))
-                self.ts.log_debug('Matlab: ' + self.matlab_cmd("data_w_header(1,:) = header;"))
-                self.ts.log_debug('Matlab: ' + self.matlab_cmd("data_w_header(2:y+1,:) = num2cell(Data');"))
-                
                 if isinstance(self.matlab_cmd(m_cmd), MatlabException):
                     self.ts.log_warning('Matlab command failed. Waiting 10 sec and retrying...')
                     self.ts.sleep(10)
@@ -648,8 +633,8 @@ class Device(object):
                 m_cmd += "end\n"
                 m_cmd += "fclose(fid);\n"
                 m_cmd += "end\n"
-                #print(m_cmd)
-                self.ts.log_debug('Matlab: ' + m_cmd)
+
+                # self.ts.log_debug('Matlab: ' + m_cmd)
                 if self.matlab_cmd(m_cmd) == '':
                     self.ts.log_warning('Matlab command failed. Waiting 10 sec and retrying...')
                     self.ts.sleep(10)
