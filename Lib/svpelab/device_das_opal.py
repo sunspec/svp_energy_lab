@@ -285,6 +285,7 @@ class Device(object):
 
             # Replace Opal-RT keys in the dataset with SVP keys
             self.data_points = list(self.opal_map_ui.keys())
+            # self.ts.log_debug('List: %s' % self.data_points)
             self.data_points[self.data_points.index('Utility Vph(1)')] = 'AC_VRMS_SOURCE_1'  # Utility measurements
             self.data_points[self.data_points.index('Utility Vph(2)')] = 'AC_VRMS_SOURCE_2'
             self.data_points[self.data_points.index('Utility Vph(3)')] = 'AC_VRMS_SOURCE_3'
@@ -377,6 +378,11 @@ class Device(object):
             self.data_points[self.data_points.index('Capacitor (uF)')] = 'C'
             self.data_points[self.data_points.index('Freq PCC')] = 'AC_FREQ_PCC'
             self.data_points[self.data_points.index('pf_inv')] = 'AC_PF_1'
+
+            self.data_points[self.data_points.index('Trip Time(1)')] = 'TRIP_TIME'
+            self.data_points[self.data_points.index('Island Freq(1)')] = 'ISLAND_FREQ'
+            self.data_points[self.data_points.index('Island Vrms(1)')] = 'ISLAND_VRMS'
+
             # self.ts.log_debug('data_points %s' % self.data_points)
 
         # After the simulation the data is stored in a .mat file. Matlab is used to convert this to a .csv file.
