@@ -68,73 +68,6 @@ def params(info, group_name):
 
 GROUP_NAME = 'sunspec'
 
-volt_var_dept_ref = {
-    'W_MAX_PCT': 1,
-    'VAR_MAX_PCT': 2,
-    'VAR_AVAL_PCT': 3,
-    1: 'W_MAX_PCT',
-    2: 'VAR_MAX_PCT',
-    3: 'VAR_AVAL_PCT'
-}
-
-volt_watt_dept_ref = {
-    'W_MAX_PCT': 1,
-    'W_AVAL_PCT': 2,
-    1: 'W_MAX_PCT',
-    2: 'W_AVAL_PCT'
-}
-
-reactive_power_dept_ref = {
-    'None': 0,
-    'WMax': 1,
-    'VArMax': 2,
-    'VArAval': 3,
-    0: 'None',
-    1: 'WMax',
-    2: 'VArMax',
-    3: 'VArAval'
-}
-
-# connection state control enumeration as specified in SunSpec model 123
-CONN_DISCONNECT = 0
-CONN_CONNECT = 1
-
-# pv connection state status bitmasks as specified in SunSpec model 122
-PVCONN_CONNECTED = (1 << 0)
-PVCONN_AVAILABLE = (1 << 1)
-PVCONN_OPERATING = (1 << 2)
-PVCONN_TEST = (1 << 3)
-
-# storage connection state status bitmasks as specified in SunSpec model 122
-STORCONN_CONNECTED = (1 << 0)
-STORCONN_AVAILABLE = (1 << 0)
-STORCONN_OPERATING = (1 << 0)
-STORCONN_TEST = (1 << 0)
-
-# ecp connection state status bitmasks as specified in SunSpec model 122
-ECPCONN_CONNECTED = (1 << 0)
-
-# Status Active Control bitmasks as specified in SunSpec model 122
-STACTCTL_FIXED_W = (1 << 0)
-STACTCTL_FIXED_VAR = (1 << 1)
-STACTCTL_FIXED_PF = (1 << 2)
-STACTCTL_VOLT_VAR = (1 << 3)
-STACTCTL_FREQ_WATT_PARAM = (1 << 4)
-STACTCTL_FREQ_WATT_CURVE = (1 << 5)
-STACTCTL_DYN_REACTIVE_POWER = (1 << 6)
-STACTCTL_LVRT = (1 << 7)
-STACTCTL_HVRT = (1 << 8)
-STACTCTL_WATT_PF = (1 << 9)
-STACTCTL_VOLT_WATT = (1 << 10)
-STACTCTL_SCHEDULED = (1 << 12)
-STACTCTL_LFRT = (1 << 13)
-STACTCTL_HFRT = (1 << 14)
-
-VOLTVAR_WMAX = 1
-VOLTVAR_VARMAX = 2
-VOLTVAR_VARAVAL = 3
-
-
 class DER1547(der1547.DER1547):
 
     def __init__(self, ts, group_name):
@@ -645,24 +578,23 @@ class DER1547(der1547.DER1547):
             3-phase devices: [V1, V2, V3]
         Frequency                                                   mn_hz                              Hz
 
-        Operational State                                           mn_st                              dict of bools
-            {'mn_op_local': System in local/maintenance state
-             'mn_op_lockout': System locked out
-             'mn_op_starting': Start command has been received
-             'mn_op_stopping': Emergency Stop command has been received
-             'mn_op_started': Started
-             'mn_op_stopped': Stopped
-             'mn_op_permission_to_start': Start Permission Granted
-             'mn_op_permission_to_stop': Stop Permission Granted}
 
-        Connection State                                            mn_conn                            dict of bools
-            {'mn_conn_connected_idle': Idle-Connected
-             'mn_conn_connected_generating': On-Connected
-             'mn_conn_connected_charging': On-Charging-Connected
-             'mn_conn_off_available': Off-Available
-             'mn_conn_off_not_available': Off-Not-Available
-             'mn_conn_switch_closed_status': Switch Closed
-             'mn_conn_switch_closed_movement': Switch Moving}
+        Operational State                                           mn_st                              bool
+            'On': True, DER operating (e.g., generating)
+            'Off': False, DER not operating
+
+        Connection State                                            mn_conn                            bool
+            'Connected': True, DER connected
+            'Disconnected': False, DER not connected
+
+        DER State (not in IEEE 1547.1)                              mn_der_st                         dict of bools
+             'mn_der_st_off': OFF   # SunSpec Points
+             'mn_der_st_sleeping': SLEEPING
+             'mn_der_st_mppt': MPPT
+             'mn_der_st_throttled': THROTTLED  (curtailed), forced power reduction/derating
+             'mn_der_st_shutting_down': SHUTTING_DOWN
+             'mn_der_st_fault': FAULT
+             'mn_der_st_standby': STANDBY
 
         Alarm Status                                                mn_alrm                            dict of bools
             Reported Alarm Status matches the device
@@ -672,16 +604,23 @@ class DER1547(der1547.DER1547):
             way an alarm condition that is supported in
             the protocol being tested can be set and
             cleared.
-            {'mn_alm_system_comm_error': System Communication Error
-             'mn_alm_priority_1': System Has Priority 1 Alarms
-             'mn_alm_priority_2': System Has Priority 2 Alarms
-             'mn_alm_priority_3': System Has Priority 3 Alarms
-             'mn_alm_storage_chg_max': Storage State of Charge at Maximum. Maximum Usable State of Charge reached.
-             'mn_alm_storage_chg_high': Storage State of Charge is Too High. Maximum Reserve reached.
-             'mn_alm_storage_chg_low': Storage State of Charge is Too Low. Minimum Reserve reached.
-             'mn_alm_storage_chg_depleted': Storage State of Charge is Depleted. Minimum Usable State of Charge Reached.
-             'mn_alm_internal_temp_high': Storage Internal Temperature is Too High
-             'mn_alm_internal_temp_low': Storage External (Ambient) Temperature is Too High}
+             'mn_alm_ground_fault': Ground Fault  # Start of SunSpec Errors
+             'mn_alm_over_dc_volt': DC Over Voltage
+             'mn_alm_disconn_open': Disconnect Open
+             'mn_alm_dc_disconn_open': DC Disconnect Open
+             'mn_alm_grid_disconn': Grid Disconnect
+             'mn_alm_cabinet_open': Cabinet Open
+             'mn_alm_manual_shutdown': Manual Shutdown
+             'mn_alm_over_temp': Over Temperature
+             'mn_alm_over_freq': Frequency Above Limit
+             'mn_alm_under_freq': Frequency Under Limit
+             'mn_alm_over_volt': AC Voltage Above Limit
+             'mn_alm_under_volt': AC Voltage Under Limit
+             'mn_alm_fuse': Blown String Fuse On Input
+             'mn_alm_under_temp': Under Temperature
+             'mn_alm_mem_or_comm': Generic Memory Or Communication Error (Internal)
+             'mn_alm_hdwr_fail': Hardware Test Failure
+             'mn_alm_mfr_alrm': Manufacturer Alarm
 
         Operational State of Charge (not required in 1547)          mn_soc_pct                         pct
 
@@ -717,13 +656,63 @@ class DER1547(der1547.DER1547):
 
         # need to convert values to dict up with example
         if der_pts.St.cvalue is not None:
-            params['mn_st'] = der_pts.St.cvalue
+            params['mn_st'] = der_pts.St.cvalue == 2
+            # self.ts.log_debug('DER State: %s ' % der_pts.St.pdef['symbols'][params['mn_st']]['label'])
 
         if der_pts.ConnSt.cvalue is not None:
-            params['mn_st'] = der_pts.ConnSt.cvalue
+            params['mn_conn'] = der_pts.ConnSt.cvalue == 2
+            # self.ts.log_debug('DER Conn State: %s ' % der_pts.ConnSt.pdef['symbols'][params['mn_conn']]['label'])
 
-        if der_pts.MnAlrmInfo.cvalue is not None:
-            params['mn_alrm'] = der_pts.MnAlrmInfo.cvalue
+        if der_pts.Alrm.cvalue is not None:
+            cvalue = int(der_pts.Alrm.cvalue)  # bitfield
+            params['mn_alrm'] = {}
+            params['mn_alrm']['mn_alm_ground_fault'] = (cvalue & (1 << 0)) == (1 << 0)
+            params['mn_alrm']['mn_alm_over_dc_volt'] = (cvalue & (1 << 1)) == (1 << 1)
+            params['mn_alrm']['mn_alm_disconn_open'] = (cvalue & (1 << 2)) == (1 << 2)
+            params['mn_alrm']['mn_alm_dc_disconn_open'] = (cvalue & (1 << 3)) == (1 << 3)
+            params['mn_alrm']['mn_alm_grid_disconn'] = (cvalue & (1 << 4)) == (1 << 4)
+            params['mn_alrm']['mn_alm_cabinet_open'] = (cvalue & (1 << 5)) == (1 << 5)
+            params['mn_alrm']['mn_alm_manual_shutdown'] = (cvalue & (1 << 6)) == (1 << 6)
+            params['mn_alrm']['mn_alm_over_temp'] = (cvalue & (1 << 7)) == (1 << 7)
+            params['mn_alrm']['mn_alm_over_freq'] = (cvalue & (1 << 8)) == (1 << 8)
+            params['mn_alrm']['mn_alm_under_freq'] = (cvalue & (1 << 9)) == (1 << 9)
+            params['mn_alrm']['mn_alm_over_volt'] = (cvalue & (1 << 10)) == (1 << 10)
+            params['mn_alrm']['mn_alm_under_volt'] = (cvalue & (1 << 11)) == (1 << 11)
+            params['mn_alrm']['mn_alm_fuse'] = (cvalue & (1 << 12)) == (1 << 12)
+            params['mn_alrm']['mn_alm_under_temp'] = (cvalue & (1 << 13)) == (1 << 13)
+            params['mn_alrm']['mn_alm_mem_or_comm'] = (cvalue & (1 << 14)) == (1 << 14)
+            params['mn_alrm']['mn_alm_hdwr_fail'] = (cvalue & (1 << 15)) == (1 << 15)
+            params['mn_alrm']['mn_alm_mfr_alrm'] = (cvalue & (1 << 16)) == (1 << 16)
+
+            # self.ts.log_debug('DER Alarm: %s ' % params['mn_der_st'])
+            # self.ts.log_debug('DER Mfr Alarm: %s ' % der_pts.MnAlrmInfo.cvalue)
+
+        if hasattr(der_pts, 'InvSt'):
+            if der_pts.InvSt.cvalue is not None:
+                cvalue = der_pts.InvSt.cvalue
+                params['mn_der_st'] = {'mn_der_st_off': False,   # SunSpec Points
+                                       'mn_der_st_sleeping': False,
+                                       'mn_der_st_mppt': False,
+                                       'mn_der_st_throttled': False,
+                                       'mn_der_st_shutting_down': False,
+                                       'mn_der_st_fault': False,
+                                       'mn_der_st_standby': False}
+                if cvalue == 1:
+                    params['mn_der_st']['mn_der_st_off'] = True
+                elif cvalue == 2:
+                    params['mn_der_st']['mn_der_st_sleeping'] = True
+                elif cvalue == 3:
+                    params['mn_der_st']['mn_der_st_mppt'] = True
+                elif cvalue == 4:
+                    params['mn_der_st']['mn_der_st_throttled'] = True
+                elif cvalue == 5:
+                    params['mn_der_st']['mn_der_st_shutting_down'] = True
+                elif cvalue == 6:
+                    params['mn_der_st']['mn_der_st_fault'] = True
+                elif cvalue == 7:
+                    params['mn_der_st']['mn_der_st_standby'] = True
+
+                # self.ts.log_debug('DER State: %s ' % params['mn_der_st'])
 
         return params
 
@@ -827,6 +816,8 @@ class DER1547(der1547.DER1547):
             else:
                 der_pts.PFWAbs.Ext.cvalue = 1  # Under-excited
         der_pts.write()
+
+        return params
 
     def get_qv(self, group=1):
         """
@@ -1331,7 +1322,7 @@ class DER1547(der1547.DER1547):
 
         if der_pts.VarSetPct.cvalue is not None:
             # use positive Q value with excitation indicating directionality
-            params['const_q_as'] = abs(der_pts.VarSetPct.cvalue / 100.)
+            params['const_q_as'] = abs(der_pts.VarSetPct.cvalue * 100.)  # pu to pct
 
             if der_pts.VarSetPct.cvalue > 0:
                 params['const_q_mode_excitation_as'] = 'inj'
@@ -1361,11 +1352,12 @@ class DER1547(der1547.DER1547):
         if params.get('const_q_as') is not None:
             if params.get('const_q_mode_excitation_as') is not None:
                 if params.get('const_q_mode_excitation_as') == 'inj':
-                    der_pts.VarSetPct.cvalue = params.get('const_q_as') / 100.
+                    der_pts.VarSetPct.cvalue = params.get('const_q_as') / 100.  # pct to pu
                 else:
-                    der_pts.VarSetPct.cvalue = -1 * params.get('const_q_as') / 100.
+                    der_pts.VarSetPct.cvalue = -1 * params.get('const_q_as') / 100.  # pct to pu
             else:
-                raise der1547.DER1547Error('No excitation provided to set_const_q() method.')
+                self.ts.log_warning('No excitation provided to set_const_q() method.')
+                # raise der1547.DER1547Error('No excitation provided to set_const_q() method.')
 
         return params
 
@@ -1615,21 +1607,21 @@ class DER1547(der1547.DER1547):
             else:
                 der_pts.ES.cvalue = 0
 
-        if params['es_v_low_as'] is not None:
+        if params.get('es_v_low_as') is not None:
             der_pts.ESVLo.cvalueparams = ['es_v_low_as']
-        if params['es_v_high_as'] is not None:
+        if params.get('es_v_high_as') is not None:
             der_pts.ESVHi.cvalue = params['es_v_high_as']
 
-        if params['es_f_low_as'] is not None:
+        if params.get('es_f_low_as') is not None:
             der_pts.ESHzLo.cvalue = params['es_f_low_as']
-        if params['es_f_high_as'] is not None:
+        if params.get('es_f_high_as') is not None:
             der_pts.ESHzHi.cvalue = params['es_f_high_as']
 
-        if params['es_randomized_delay_as'] is not None:
+        if params.get('es_randomized_delay_as') is not None:
             der_pts.ESRndTms.cvalue = params['es_randomized_delay_as']
-        if params['es_delay_as'] is not None:
+        if params.get('es_delay_as') is not None:
             der_pts.ESDlyTms.cvalue = params['es_delay_as']
-        if params['es_ramp_rate_as'] is not None:
+        if params.get('es_ramp_rate_as') is not None:
             der_pts.ESRmpTms.cvalue = params['es_ramp_rate_as']
 
         der_pts.write()

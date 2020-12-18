@@ -265,24 +265,37 @@ class DER1547(object):
             3-phase devices: [V1, V2, V3]
         Frequency                                                   mn_hz                              Hz
 
-        Operational State                                           mn_st                              dict of bools
-            {'mn_op_local': System in local/maintenance state
-             'mn_op_lockout': System locked out
-             'mn_op_starting': Start command has been received
-             'mn_op_stopping': Emergency Stop command has been received
-             'mn_op_started': Started
-             'mn_op_stopped': Stopped
-             'mn_op_permission_to_start': Start Permission Granted
-             'mn_op_permission_to_stop': Stop Permission Granted}
+        Operational State                                           mn_st                              bool
+            'On': True, DER is operating (e.g., generating)
+            'Off': False, DER is not operating
 
-        Connection State                                            mn_conn                            dict of bools
-            {'mn_conn_connected_idle': Idle-Connected
-             'mn_conn_connected_generating': On-Connected
-             'mn_conn_connected_charging': On-Charging-Connected
-             'mn_conn_off_available': Off-Available
-             'mn_conn_off_not_available': Off-Not-Available
-             'mn_conn_switch_closed_status': Switch Closed
-             'mn_conn_switch_closed_movement': Switch Moving}
+        Connection State                                            mn_conn                            bool
+            'Connected': DER connected
+            'Disconnected': DER not connected
+
+        DER State (not in IEEE 1547.1)                              mn_der_st                         dict of bools
+            {'mn_der_st_local': System in local/maintenance state  # DNP3 points
+             'mn_der_st_lockout': System locked out
+             'mn_der_st_starting': Start command has been received
+             'mn_der_st_stopping': Emergency Stop command has been received
+             'mn_der_st_started': Started
+             'mn_der_st_stopped': Stopped
+             'mn_der_st_permission_to_start': Start Permission Granted
+             'mn_der_st_permission_to_stop': Stop Permission Granted
+             'mn_der_st_connected_idle': Idle-Connected
+             'mn_der_st_connected_generating': On-Connected
+             'mn_der_st_connected_charging': On-Charging-Connected
+             'mn_der_st_off_available': Off-Available
+             'mn_der_st_off_not_available': Off-Not-Available
+             'mn_der_st_switch_closed_status': Switch Closed
+             'mn_der_st_switch_closed_movement': Switch Moving}
+             'mn_der_st_off': OFF   # SunSpec Points
+             'mn_der_st_sleeping': SLEEPING
+             'mn_der_st_mppt': MPPT
+             'mn_der_st_throttled': THROTTLED  (curtailed)
+             'mn_der_st_shutting_down': SHUTTING_DOWN
+             'mn_der_st_fault': FAULT
+             'mn_der_st_standby': STANDBY
 
         Alarm Status                                                mn_alrm                            dict of bools
             Reported Alarm Status matches the device
@@ -292,7 +305,7 @@ class DER1547(object):
             way an alarm condition that is supported in
             the protocol being tested can be set and
             cleared.
-            {'mn_alm_system_comm_error': System Communication Error
+            {'mn_alm_system_comm_error': System Communication Error  # Start of DNP3 alarms (BI0-9)
              'mn_alm_priority_1': System Has Priority 1 Alarms
              'mn_alm_priority_2': System Has Priority 2 Alarms
              'mn_alm_priority_3': System Has Priority 3 Alarms
@@ -301,7 +314,31 @@ class DER1547(object):
              'mn_alm_storage_chg_low': Storage State of Charge is Too Low. Minimum Reserve reached.
              'mn_alm_storage_chg_depleted': Storage State of Charge is Depleted. Minimum Usable State of Charge Reached.
              'mn_alm_internal_temp_high': Storage Internal Temperature is Too High
-             'mn_alm_internal_temp_low': Storage External (Ambient) Temperature is Too High}
+             'mn_alm_internal_temp_low': Storage External (Ambient) Temperature is Too High
+             'mn_alm_ground_fault': Ground Fault  # Start of SunSpec Errors
+             'mn_alm_over_dc_volt': DC Over Voltage
+             'mn_alm_disconn_open': Disconnect Open
+             'mn_alm_dc_disconn_open': DC Disconnect Open
+             'mn_alm_grid_disconn': Grid Disconnect
+             'mn_alm_cabinet_open': Cabinet Open
+             'mn_alm_manual_shutdown': Manual Shutdown
+             'mn_alm_over_temp': Over Temperature
+             'mn_alm_over_freq': Frequency Above Limit
+             'mn_alm_under_freq': Frequency Under Limit
+             'mn_alm_over_volt': AC Voltage Above Limit
+             'mn_alm_under_volt': AC Voltage Under Limit
+             'mn_alm_fuse': Blown String Fuse On Input
+             'mn_alm_under_temp': Under Temperature
+             'mn_alm_mem_or_comm': Generic Memory Or Communication Error (Internal)
+             'mn_alm_hdwr_fail': Hardware Test Failure
+             'mn_alm_mfr_alrm': Manufacturer Alarm
+             'mn_alm_over_cur': Over Current  # IEEE 2030.5/CSIP Alarms (not covered in the above)
+             'mn_alm_imbalance_volt': Voltage Imbalance
+             'mn_alm_imbalance_cur': Current Imbalance
+             'mn_alm_local_emgcy': Local Emergency
+             'mn_alm_remote_emgcy': Remote Emergency
+             'mn_alm_input_power': Low Input Power
+             'mn_alm_phase_rotation': Phase Rotation}
 
         Operational State of Charge (not required in 1547)          mn_soc_pct                         pct
 
@@ -827,8 +864,7 @@ def der1547_scan():
         except Exception as e:
             if module_name is not None and module_name in sys.modules:
                 del sys.modules[module_name]
-            print(DER1547Error('Error scanning module %s: %s' % (module_name, str(e))))
-
+            raise DER1547Error('Error scanning module %s: %s' % (module_name, str(e)))
 
 # scan for der1547 modules on import
 der1547_scan()
