@@ -65,7 +65,7 @@
       "PFL3": 987,
       "AL3": 138,
       "VL3L1": 2080,
-      "VL3N": 1200,
+      "VL3": 1200,
       "TotWhInjL3": 51,
       "TotWhAbsL3": 0,
       "TotVarhInjL3": 4,
@@ -103,11 +103,11 @@
       "AMaxRtg": 50,
       "PFOvrExtRtg": 850,
       "PFUndExtRtg": 850,
-      "ReactSusceptRtg": null,
+      "ReactSusceptRtg": 0.5,
       "NorOpCatRtg": 2,
       "AbnOpCatRtg": 3,
-      "CtrlModes": null,
-      "IntIslandCatRtg": null,
+      "CtrlModes": 32767,
+      "IntIslandCatRtg": 14,
       "WMax": 10000,
       "WMaxOvrExt": null,
       "WOvrExtPF": null,
@@ -125,7 +125,7 @@
       "WDisChaRteMax": 8000,
       "VAChaRteMax": 8000,
       "VADisChaRteMax": 8000,
-      "IntIslandCat": null,
+      "IntIslandCat": 2,
       "W_SF": 0,
       "PF_SF": -3,
       "VA_SF": 0,
@@ -151,27 +151,27 @@
       "ID": 704,
       "L": null,
       "PFWInjEna": 0,
-      "PFWInjEnaRvrt": null,
-      "PFWInjRvrtTms": null,
+      "PFWInjRvrtEna": 10,
+      "PFWInjRvrtTms": 10,
       "PFWInjRvrtRem": null,
       "PFWAbsEna": 0,
-      "PFWAbsEnaRvrt": null,
-      "PFWAbsRvrtTms": null,
+      "PFWAbsRvrtEna": 1,
+      "PFWAbsRvrtTms": 100,
       "PFWAbsRvrtRem": null,
-      "WMaxLimEna": 0,
-      "WMaxLim": 1000,
-      "WMaxLimRvrt": null,
-      "WMaxLimEnaRvrt": null,
-      "WMaxLimRvrtTms": null,
-      "WMaxLimRvrtRem": null,
+      "WMaxLimPctEna": 0,
+      "WMaxLimPct": 1000,
+      "WMaxLimPctRvrt": 100,
+      "WMaxLimPctRvrtEna": 0,
+      "WMaxLimPctRvrtTms": 10,
+      "WMaxLimPctRvrtRem": null,
       "WSetEna": 0,
-      "WSetMod": null,
-      "WSet": null,
-      "WSetRvrt": null,
-      "WSetPct": null,
-      "WSetPctRvrt": null,
-      "WSetEnaRvrt": null,
-      "WSetRvrtTms": null,
+      "WSetMod": 1,
+      "WSet": 5000,
+      "WSetRvrt": 4000,
+      "WSetPct": 100,
+      "WSetPctRvrt": 100,
+      "WSetRvrtEna": 1,
+      "WSetRvrtTms": 10,
       "WSetRvrtRem": null,
       "VarSetEna": 0,
       "VarSetMod": null,
@@ -194,24 +194,23 @@
         "Ext": 1
       },
       "PFWInjRvrt": {
-        "PF": null,
-        "Ext": null
+        "PF": 920,
+        "Ext": 0
       },
       "PFWAbs": {
-        "PF": null,
-        "Ext": null
+        "PF": 85,
+        "Ext": 1
       },
       "PFWAbsRvrt": {
-        "PF": null,
-        "Ext": null
+        "PF": 85,
+        "Ext": 0
       }
     },
     {
       "ID": 705,
       "Ena": 1,
-      "CrvSt": 1,
       "AdptCrvReq": 0,
-      "AdptCrvRslt": 0,
+      "AdptCrvRslt": 1,
       "NPt": 4,
       "NCrv": 3,
       "RvrtTms": 0,
@@ -219,6 +218,7 @@
       "RvrtCrv": 0,
       "V_SF": -2,
       "DeptRef_SF": -2,
+	  "RspTms_SF": -2,
       "Crv": [
         {
           "ActPt": 4,
@@ -309,9 +309,8 @@
     {
       "ID": 706,
       "Ena": 0,
-      "CrvSt": 1,
       "AdptCrvReq": 0,
-      "AdptCrvRslt": 0,
+      "AdptCrvRslt": 1,
       "NPt": 2,
       "NCrv": 2,
       "RvrtTms": null,
@@ -319,6 +318,7 @@
       "RvrtCrv": null,
       "V_SF": 0,
       "DeptRef_SF": 0,
+	  "RspTms_SF": -1,
       "Crv": [
         {
           "ActPt": 2,
@@ -358,13 +358,13 @@
       "ID": 707,
       "L": null,
       "Ena": 1,
-      "CrvSt": null,
       "AdptCrvReq": null,
-      "AdptCrvRslt": null,
+      "AdptCrvRslt": 1,
       "NPt": 3,
       "NCrvSet": 1,
       "V_SF": -2,
       "Tms_SF": 0,
+	  "RspTms_SF": -1,
       "Crv": [
         {
           "MustTrip": {
@@ -425,9 +425,8 @@
       "ID": 708,
       "L": null,
       "Ena": 1,
-      "CrvSt": null,
       "AdptCrvReq": null,
-      "AdptCrvRslt": null,
+      "AdptCrvRslt": 1,
       "NPt": 3,
       "NCrvSet": 1,
       "V_SF": -2,
@@ -492,24 +491,24 @@
       "ID": 709,
       "L": null,
       "Ena": 1,
-      "CrvSt": null,
       "AdptCrvReq": null,
-      "AdptCrvRslt": null,
+      "AdptCrvRslt": 1,
       "NPt": 2,
       "NCrvSet": 1,
       "Freq_SF": -2,
       "Tms_SF": -2,
+	  "Hz_SF": -3,
       "Crv": [
         {
           "MustTrip": {
             "ActPt": 1,
             "Pt": [
               {
-                "Freq": 5300,
+                "Hz": 53000,
                 "Tms": 5
               },              
 			  {
-                "Freq": 5300,
+                "Hz": 53000,
                 "Tms": 5
               }
             ]
@@ -518,11 +517,11 @@
             "ActPt": 1,
             "Pt": [
               {
-                "Freq": 5850,
+                "Hz": 58500,
                 "Tms": 5
               },              
 			  {
-                "Freq": 5300,
+                "Hz": 53000,
                 "Tms": 5
               }
             ]
@@ -531,11 +530,11 @@
             "ActPt": 1,
             "Pt": [
               {
-                "Freq": 5850,
+                "Hz": 58500,
                 "Tms": 5
               },              
 			  {
-                "Freq": 5300,
+                "Hz": 53000,
                 "Tms": 5
               }
             ]
@@ -547,12 +546,11 @@
       "ID": 710,
       "L": null,
       "Ena": null,
-      "CrvSt": null,
       "AdptCrvReq": null,
-      "AdptCrvRslt": null,
+      "AdptCrvRslt": 1,
       "NPt": 2,
       "NCrvSet": 1,
-      "Freq_SF": -2,
+      "Hz_SF": -3,
       "Tms_SF": -2,
       "Crv": [
         {
@@ -560,11 +558,11 @@
             "ActPt": 1,
             "Pt": [
               {
-                "Freq": 6500,
+                "Hz": 65000,
                 "Tms": 5
               },              
 			  {
-                "Freq": 5300,
+                "Hz": 53000,
                 "Tms": 5
               }
             ]
@@ -573,11 +571,11 @@
             "ActPt": 1,
             "Pt": [
               {
-                "Freq": 6050,
+                "Hz": 60500,
                 "Tms": 5
               },              
 			  {
-                "Freq": 5300,
+                "Hz": 53000,
                 "Tms": 5
               }
             ]
@@ -586,11 +584,11 @@
             "ActPt": 1,
             "Pt": [
               {
-                "Freq": 6050,
+                "Hz": 60500,
                 "Tms": 5
               },              
 			  {
-                "Freq": 5300,
+                "Hz": 53000,
                 "Tms": 5
               }
             ]
@@ -602,9 +600,8 @@
       "ID": 711,
       "L": null,
       "Ena": null,
-      "CrvSt": null,
-      "AdptCrvReq": null,
-      "AdptCrvRslt": null,
+      "AdptCtlReq": null,
+      "AdptCtlRslt": 1,
       "NCtl": 1,
       "RvrtTms": 0,
       "RvrtRem": 0,
@@ -625,10 +622,9 @@
     {
       "ID": 712,
       "L": null,
-      "Ena": null,
-      "CrvSt": null,
+      "Ena": 0,
       "AdptCrvReq": null,
-      "AdptCrvRslt": null,
+      "AdptCrvRslt": 1,
       "NPt": 6,
       "NCrv": 1,
       "RvrtTms": 0,
@@ -680,10 +676,10 @@
       "DCW": null,
       "DCWhInj": null,
       "DCWhAbs": null,
-      "DCA_SF": null,
-      "DCV_SF": null,
-      "DCW_SF": null,
-      "DCWH_SF": null,
+      "DCA_SF": -2,
+      "DCV_SF": -1,
+      "DCW_SF": -1,
+      "DCWH_SF": -1,
       "Prt": [
         {
           "PrtTyp": null,

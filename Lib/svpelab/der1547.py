@@ -154,18 +154,18 @@ class DER1547(object):
         AC voltage maximum rating                               np_ac_v_max_er_max                      Vac
         AC voltage minimum rating                               np_ac_v_min_er_min                      Vac
         Supported control mode functions                        np_supported_modes                      dict
-            e.g., {'CONST_PF': True 'QV': False} with keys:
-            Supports Low Voltage Ride-Through Mode: 'UV'
-            Supports High Voltage Ride-Through Mode: 'OV'
-            Supports Low Freq Ride-Through Mode: 'UF'
-            Supports High Freq Ride-Through Mode: 'OF'
-            Supports Active Power Limit Mode: 'P_LIM'
-            Supports Volt-Watt Mode: 'PV'
-            Supports Frequency-Watt Curve Mode: 'PF'
-            Supports Constant VArs Mode: 'CONST_Q'
-            Supports Fixed Power Factor Mode: 'CONST_PF'
-            Supports Volt-VAr Control Mode: 'QV'
-            Supports Watt-VAr Mode: 'QP'
+            e.g., {'fixed_pf': True 'volt_var': False} with keys:
+            Supports Low Voltage Ride-Through Mode: 'lv_trip'
+            Supports High Voltage Ride-Through Mode: 'hv_trip'
+            Supports Low Freq Ride-Through Mode: 'lf_trip'
+            Supports High Freq Ride-Through Mode: 'hf_trip'
+            Supports Active Power Limit Mode: 'max_w'
+            Supports Volt-Watt Mode: 'volt_watt'
+            Supports Frequency-Watt Curve Mode: 'freq_watt'
+            Supports Constant VArs Mode: 'fixed_var'
+            Supports Fixed Power Factor Mode: 'fixed_pf'
+            Supports Volt-VAr Control Mode: 'volt_var'
+            Supports Watt-VAr Mode: 'watt_var'
         Reactive susceptance that remains connected to          np_reactive_susceptance                 Siemens
             the Area EPS in the cease to energize and trip
             state
@@ -234,6 +234,12 @@ class DER1547(object):
         """
         pass
 
+    def configuration(self, params=None):
+        if params is None:
+            return self.get_configuration()
+        else:
+            return self.set_configuration(params=params)
+
     def get_settings(self):
         """
         Get configuration information in the 1547 DER. Each rating in Table 28 may have an associated configuration
@@ -249,6 +255,12 @@ class DER1547(object):
         Set configuration information. params are those in get_nameplate().
         """
         return self.set_configuration(params)
+
+    def settings(self, params=None):
+        if params is None:
+            return self.get_settings()
+        else:
+            return self.set_settings(params=params)
 
     def get_monitoring(self):
         """
@@ -352,21 +364,21 @@ class DER1547(object):
         ________________________________________________________________________________________________________________
         Parameter                                               params dict key                     units
         ________________________________________________________________________________________________________________
-        Constant Power Factor Mode Select                       const_pf_mode_enable_as             bool (True=Enabled)
-        Constant Power Factor Excitation                        const_pf_excitation_as              str ('inj', 'abs')
+        Constant Power Factor Mode Select                       const_pf_mode_enable             bool (True=Enabled)
+        Constant Power Factor Excitation                        const_pf_excitation              str ('inj', 'abs')
         Constant Power Factor Setting (RofA not specified in    const_pf_abs_er_min                 decimal
             1547)
-        Constant Power Factor Absorbing Setting                 const_pf_abs_as                     decimal
+        Constant Power Factor Absorbing Setting                 const_pf_abs                        decimal
         Constant Power Factor Setting (RofA not specified in    const_pf_abs_er_max                 decimal
             1547)
         Constant Power Factor Setting (RofA not specified in    const_pf_inj_er_min                 decimal
             1547)
-        Constant Power Factor Injecting Setting                 const_pf_inj_as                     decimal
+        Constant Power Factor Injecting Setting                 const_pf_inj                        decimal
         Constant Power Factor Setting (RofA not specified in    const_pf_inj_er_max                 decimal
             1547)
         Maximum response time to maintain constant power        const_pf_olrt_er_min                s
             factor. (Not in 1547)
-        Maximum response time to maintain constant power        const_pf_olrt_as                    s
+        Maximum response time to maintain constant power        const_pf_olrt                       s
             factor. (Not in 1547)
         Maximum Response time to maintain constant power        const_pf_olrt_er_max                s
             factor. (Not in 1547)
@@ -381,21 +393,34 @@ class DER1547(object):
         """
         pass
 
+    # volt_var redirects
+    def get_volt_var(self):
+        return get_qv()
+
+    def set_volt_var(self, params=None):
+        return set_qv(params=params)
+
+    def volt_var(self, params=None):
+        if params is None:
+            return get_volt_var()
+        else:
+            return set_volt_var(params=params)
+
     def get_qv(self):
         """
         Get Q(V) parameters. [Volt-Var]
         ______________________________________________________________________________________________________________
         Parameter                                                   params dict key                 units
         ______________________________________________________________________________________________________________
-        Voltage-Reactive Power Mode Enable                          qv_mode_enable_as               bool (True=Enabled)
+        Voltage-Reactive Power Mode Enable                          qv_mode_enable                  bool (True=Enabled)
         Vref Min (RofA not specified in 1547)                       qv_vref_er_min                  V p.u.
-        Vref (0.95-1.05)                                            qv_vref_as                      V p.u.
+        Vref (0.95-1.05)                                            qv_vref                         V p.u.
         Vref Max (RofA not specified in 1547)                       qv_vref_er_max                  V p.u.
 
-        Autonomous Vref Adjustment Enable                           qv_vref_auto_mode_as            bool (True=Enabled)
+        Autonomous Vref Adjustment Enable                           qv_vref_auto_mode               bool (True=Enabled)
         Vref adjustment time Constant (RofA not specified           qv_vref_olrt_er_min             s
             in 1547)
-        Vref adjustment time Constant (300-5000)                    qv_vref_olrt_as                 s
+        Vref adjustment time Constant (300-5000)                    qv_vref_olrt                    s
         Vref adjustment time Constant (RofA not specified           qv_vref_olrt_er_max             s
             in 1547)
 
@@ -412,7 +437,7 @@ class DER1547(object):
             (RofA not specified in 1547) (list)
 
         Q(V) Open Loop Response Time (RofA not specified in 1547)   qv_olrt_er_min                  s
-        Q(V) Open Loop Response Time Setting  (1-90)                qv_olrt_as                      s
+        Q(V) Open Loop Response Time Setting  (1-90)                qv_olrt                         s
         Q(V) Open Loop Response Time (RofA not specified in 1547)   qv_olrt_er_max                  s
 
         :return: dict with keys shown above.
@@ -425,27 +450,40 @@ class DER1547(object):
         """
         pass
 
+    # watt_var redirects
+    def get_watt_var(self):
+        return get_qp()
+
+    def set_watt_var(self, params=None):
+        return set_qp(params=params)
+
+    def watt_var(self, params=None):
+        if params is None:
+            return get_watt_var()
+        else:
+            return set_watt_var(params=params)
+
     def get_qp(self):
         """
         Get Q(P) parameters. [Watt-Var] - IEEE 1547 Table 32
         _______________________________________________________________________________________________________________
         Parameter                                                   params dict key                     units
         _______________________________________________________________________________________________________________
-        Active Power-Reactive Power (Watt-VAr) Enable               qp_mode_enable_as                   bool
+        Active Power-Reactive Power (Watt-VAr) Enable               qp_mode_enable                      bool
         P-Q curve P1-3 Generation (RofA not Specified in 1547)      qp_curve_p_gen_pts_er_min           P p.u.
-        P-Q curve P1-3 Generation Setting (list)                    qp_curve_p_gen_pts_as               P p.u.
+        P-Q curve P1-3 Generation Setting (list)                    qp_curve_p_gen_pts                  P p.u.
         P-Q curve P1-3 Generation (RofA not Specified in 1547)      qp_curve_p_gen_pts_er_max           P p.u.
 
         P-Q curve Q1-3 Generation (RofA not Specified in 1547)      qp_curve_q_gen_pts_er_min           VAr p.u.
-        P-Q curve Q1-3 Generation Setting (list)                    qp_curve_q_gen_pts_as               VAr p.u.
+        P-Q curve Q1-3 Generation Setting (list)                    qp_curve_q_gen_pts                  VAr p.u.
         P-Q curve Q1-3 Generation (RofA not Specified in 1547)      qp_curve_q_gen_pts_er_max           VAr p.u.
 
         P-Q curve P1-3 Load (RofA not Specified in 1547)            qp_curve_p_load_pts_er_min          P p.u.
-        P-Q curve P1-3 Load Setting (list)                          qp_curve_p_load_pts_as              P p.u.
+        P-Q curve P1-3 Load Setting (list)                          qp_curve_p_load_pts                 P p.u.
         P-Q curve P1-3 Load (RofA not Specified in 1547)            qp_curve_p_load_pts_er_max          P p.u.
 
         P-Q curve Q1-3 Load (RofA not Specified in 1547)            qp_curve_q_load_pts_er_min          VAr p.u.
-        P-Q curve Q1-3 Load Setting (list)                          qp_curve_q_load_pts_as              VAr p.u.
+        P-Q curve Q1-3 Load Setting (list)                          qp_curve_q_load_pts                 VAr p.u.
         P-Q curve Q1-3 Load (RofA not Specified in 1547)            qp_curve_q_load_pts_er_max          VAr p.u.
 
         :return: dict with keys shown above.
@@ -458,28 +496,41 @@ class DER1547(object):
         """
         pass
 
+    # volt_watt redirects
+    def get_volt_watt(self):
+        return get_pv()
+
+    def set_volt_watt(self, params=None):
+        return set_pv(params=params)
+
+    def volt_watt(self, params=None):
+        if params is None:
+            return get_volt_watt()
+        else:
+            return set_volt_watt(params=params)
+
     def get_pv(self):
         """
         Get P(V), Voltage-Active Power (Volt-Watt), Parameters
         ______________________________________________________________________________________________________________
         Parameter                                                   params dict key                         units
         ______________________________________________________________________________________________________________
-        Voltage-Active Power Mode Enable                            pv_mode_enable_as                       bool
+        Voltage-Active Power Mode Enable                            pv_mode_enable                          bool
         P(V) Curve Point V1-2 Min (RofA not specified in 1547)      pv_curve_v_pts_er_min                   V p.u.
-        P(V) Curve Point V1-2 Setting (list)                        pv_curve_v_pts_as                       V p.u.
+        P(V) Curve Point V1-2 Setting (list)                        pv_curve_v_pts                          V p.u.
         P(V) Curve Point V1-2 Max (RofA not specified in 1547)      pv_curve_v_pts_er_max                   V p.u.
 
         P(V) Curve Point P1-2 Min (RofA not specified in 1547)      pv_curve_p_pts_er_min                   P p.u.
-        P(V) Curve Point P1-2 Setting (list)                        pv_curve_p_pts_as                       P p.u.
+        P(V) Curve Point P1-2 Setting (list)                        pv_curve_p_pts                          P p.u.
         P(V) Curve Point P1-2 Max (RofA not specified in 1547)      pv_curve_p_pts_er_max                   P p.u.
 
         P(V) Curve Point P1-P'2 Min (RofA not specified in 1547)    pv_curve_p_bidrct_pts_er_min            P p.u.
-        P(V) Curve Point P1-P'2 Setting (list)                      pv_curve_p_bidrct_pts_as                P p.u.
+        P(V) Curve Point P1-P'2 Setting (list)                      pv_curve_p_bidrct_pts                   P p.u.
         P(V) Curve Point P1-P'2 Max (RofA not specified in 1547)    pv_curve_p_bidrct_pts_er_max            P p.u.
 
         P(V) Open Loop Response time min (RofA not specified        pv_olrt_er_min                          s
             in 1547)
-        P(V) Open Loop Response time Setting (0.5-60)               pv_olrt_as                              s
+        P(V) Open Loop Response time Setting (0.5-60)               pv_olrt                                 s
         P(V) Open Loop Response time max (RofA not specified        pv_olrt_er_max                          s
             in 1547)
 
@@ -499,10 +550,10 @@ class DER1547(object):
         ______________________________________________________________________________________________________________
         Parameter                                               params dict key                     units
         ______________________________________________________________________________________________________________
-        Constant Reactive Power Mode Enable                     const_q_mode_enable_as              bool (True=Enabled)
-        Constant Reactive Power Excitation (not specified in    const_q_mode_excitation_as          str ('inj', 'abs')
+        Constant Reactive Power Mode Enable                     const_q_mode_enable              bool (True=Enabled)
+        Constant Reactive Power Excitation (not specified in    const_q_mode_excitation          str ('inj', 'abs')
             1547)
-        Constant Reactive power setting (See Table 7)           const_q_as                          VAr p.u.
+        Constant Reactive power setting (See Table 7)           const_q                             VAr p.u.
         Constant Reactive Power (RofA not specified in 1547)    const_q_abs_er_max                  VAr p.u.
             Absorbing Reactive Power Setting.  Per unit value
             based on NP Qmax Abs. Negative signs should not be
@@ -513,7 +564,7 @@ class DER1547(object):
             not be used but if present indicate Injecting VAr.
         Maximum Response Time to maintain constant reactive     const_q_olrt_er_min                 s
             power (not specified in 1547)
-        Maximum Response Time to maintain constant reactive     const_q_olrt_as                     s
+        Maximum Response Time to maintain constant reactive     const_q_olrt                        s
             power (not specified in 1547)
         Maximum Response Time to maintain constant reactive     const_q_olrt_er_max                 s
             power(not specified in 1547)
@@ -534,9 +585,9 @@ class DER1547(object):
         ______________________________________________________________________________________________________________
         Parameter                                                   params dict key                 units
         ______________________________________________________________________________________________________________
-        Frequency-Active Power Mode Enable                          p_lim_mode_enable_as            bool (True=Enabled)
+        Frequency-Active Power Mode Enable                          p_lim_mode_enable            bool (True=Enabled)
         Maximum Active Power Min                                    p_lim_w_er_min               P p.u.
-        Maximum Active Power                                        p_lim_w_as                   P p.u.
+        Maximum Active Power                                        p_lim_w                      P p.u.
         Maximum Active Power Max                                    p_lim_w_er_max               P p.u.
         """
         pass
@@ -547,31 +598,44 @@ class DER1547(object):
         """
         pass
 
+    # freq_watt redirects
+    def get_freq_watt(self):
+        return get_pf()
+
+    def set_freq_watt(self, params=None):
+        return set_pf(params=params)
+
+    def freq_watt(self, params=None):
+        if params is None:
+            return get_freq_watt()
+        else:
+            return set_freq_watt(params=params)
+
     def get_pf(self):
         """
         Get P(f), Frequency-Active Power Mode Parameters - IEEE 1547 Table 38
         ______________________________________________________________________________________________________________
         Parameter                                                   params dict key                 units
         ______________________________________________________________________________________________________________
-        Frequency-Active Power Mode Enable                          pf_mode_enable_as               bool (True=Enabled)
+        Frequency-Active Power Mode Enable                          pf_mode_enable               bool (True=Enabled)
         P(f) Overfrequency Droop dbOF RofA min                      pf_dbof_er_min                  Hz
-        P(f) Overfrequency Droop dbOF Setting                       pf_dbof_as                      Hz
+        P(f) Overfrequency Droop dbOF Setting                       pf_dbof                         Hz
         P(f) Overfrequency Droop dbOF RofA max                      pf_dbof_er_max                  Hz
 
         P(f) Underfrequency Droop dbUF RofA min                     pf_dbuf_er_min                  Hz
-        P(f) Underfrequency Droop dbUF Setting                      pf_dbuf_as                      Hz
+        P(f) Underfrequency Droop dbUF Setting                      pf_dbuf                         Hz
         P(f) Underfrequency Droop dbUF RofA max                     pf_dbuf_er_max                  Hz
 
         P(f) Overfrequency Droop kOF RofA min                       pf_kof_er_min                   unitless
-        P(f) Overfrequency Droop kOF  Setting                       pf_kof_as                       unitless
+        P(f) Overfrequency Droop kOF  Setting                       pf_kof                          unitless
         P(f) Overfrequency Droop kOF RofA max                       pf_kof_er_max                   unitless
 
         P(f) Underfrequency Droop kUF RofA min                      pf_kuf_er_min                   unitless
-        P(f) Underfrequency Droop kUF Setting                       pf_kuf_as                       unitless
+        P(f) Underfrequency Droop kUF Setting                       pf_kuf                          unitless
         P(f) Underfrequency Droop kUF RofA Max                      pf_kuf_er_max                   unitless
 
         P(f) Open Loop Response Time RofA min                       pf_olrt_er_min                  s
-        P(f) Open Loop Response Time Setting                        pf_olrt_as                      s
+        P(f) Open Loop Response Time Setting                        pf_olrt                         s
         P(f) Open Loop Response Time RofA max                       pf_olrt_er_max                  s
 
         :return: dict with keys shown above.
@@ -590,25 +654,25 @@ class DER1547(object):
         ______________________________________________________________________________________________________________
         Parameter                                               params dict key                 units
         ______________________________________________________________________________________________________________
-        Permit service                                          es_permit_service_as            bool (True=Enabled)
+        Permit service                                          es_permit_service               bool (True=Enabled)
         ES Voltage Low (RofA not specified in 1547)             es_v_low_er_min                 V p.u.
-        ES Voltage Low Setting                                  es_v_low_as                     V p.u.
+        ES Voltage Low Setting                                  es_v_low                        V p.u.
         ES Voltage Low (RofA not specified in 1547)             es_v_low_er_max                 V p.u.
         ES Voltage High (RofA not specified in 1547)            es_v_high_er_min                V p.u.
-        ES Voltage High Setting                                 es_v_high_as                    V p.u.
+        ES Voltage High Setting                                 es_v_high                       V p.u.
         ES Voltage High (RofA not specified in 1547)            es_v_high_er_max                V p.u.
         ES Frequency Low (RofA not specified in 1547)           es_f_low_er_min                 Hz
-        ES Frequency Low Setting                                es_f_low_as                     Hz
+        ES Frequency Low Setting                                es_f_low                        Hz
         ES Frequency Low (RofA not specified in 1547)           es_f_low_er_max                 Hz
         ES Frequency Low (RofA not specified in 1547)           es_f_high_er_min                Hz
-        ES Frequency High Setting                               es_f_high_as                    Hz
+        ES Frequency High Setting                               es_f_high                       Hz
         ES Frequency Low (RofA not specified in 1547)           es_f_high_er_max                Hz
-        ES Randomized Delay                                     es_randomized_delay_as          bool (True=Enabled)
+        ES Randomized Delay                                     es_randomized_delay             bool (True=Enabled)
         ES Delay (RofA not specified in 1547)                   es_delay_er_min                 s
-        ES Delay Setting                                        es_delay_as                     s
+        ES Delay Setting                                        es_delay                        s
         ES Delay (RofA not specified in 1547)                   es_delay_er_max                 s
         ES Ramp Rate Min (RofA not specified in 1547)           es_ramp_rate_er_min             %/s
-        ES Ramp Rate Setting                                    es_ramp_rate_as                 %/s
+        ES Ramp Rate Setting                                    es_ramp_rate                    %/s
         ES Ramp Rate Min (RofA not specified in 1547)           es_ramp_rate_er_max             %/s
 
         :return: dict with keys shown above.
@@ -627,7 +691,7 @@ class DER1547(object):
         _______________________________________________________________________________________________________________
         Parameter                                                   params dict key                     units
         _______________________________________________________________________________________________________________
-        Unintentional Islanding Mode (enabled/disabled). This       ui_mode_enable_as                   bool
+        Unintentional Islanding Mode (enabled/disabled). This       ui_mode_enable                      bool
             function is enabled by default, and disabled only by
             request from the Area EPS Operator.
             UI is always on in 1547 BUT 1547.1 says turn it off
@@ -658,11 +722,11 @@ class DER1547(object):
         _______________________________________________________________________________________________________________
         HV Trip Curve Point OV_V1-3 (see Tables 11-13)              ov_trip_v_pts_er_min                V p.u.
             (RofA not specified in 1547)
-        HV Trip Curve Point OV_V1-3 Setting (list)                  ov_trip_v_pts_as                    V p.u.
+        HV Trip Curve Point OV_V1-3 Setting (list)                  ov_trip_v_pts                       V p.u.
         HV Trip Curve Point OV_V1-3 (RofA not specified in 1547)    ov_trip_v_pts_er_max                V p.u.
         HV Trip Curve Point OV_T1-3 (see Tables 11-13)              ov_trip_t_pts_er_min                s
             (RofA not specified in 1547)
-        HV Trip Curve Point OV_T1-3 Setting (list)                  ov_trip_t_pts_as                    s
+        HV Trip Curve Point OV_T1-3 Setting (list)                  ov_trip_t_pts                       s
         HV Trip Curve Point OV_T1-3 (RofA not specified in 1547)    ov_trip_t_pts_er_max                s
 
         :return: dict with keys shown above.
@@ -683,11 +747,11 @@ class DER1547(object):
         _______________________________________________________________________________________________________________
         LV Trip Curve Point UV_V1-3 (see Tables 11-13)              uv_trip_v_pts_er_min                V p.u.
             (RofA not specified in 1547)
-        LV Trip Curve Point UV_V1-3 Setting (list)                  uv_trip_v_pts_as                    V p.u.
+        LV Trip Curve Point UV_V1-3 Setting (list)                  uv_trip_v_pts                       V p.u.
         LV Trip Curve Point UV_V1-3 (RofA not specified in 1547)    uv_trip_v_pts_er_max                V p.u.
         LV Trip Curve Point UV_T1-3 (see Tables 11-13)              uv_trip_t_pts_er_min                s
             (RofA not specified in 1547)
-        LV Trip Curve Point UV_T1-3 Setting (list)                  uv_trip_t_pts_as                    s
+        LV Trip Curve Point UV_T1-3 Setting (list)                  uv_trip_t_pts                       s
         LV Trip Curve Point UV_T1-3 (RofA not specified in 1547)    uv_trip_t_pts_er_max                s
 
         :return: dict with keys shown above.
@@ -708,11 +772,11 @@ class DER1547(object):
         _______________________________________________________________________________________________________________
         OF Trip Curve Point OF_F1-3 (see Tables 11-13)              of_trip_f_pts_er_min                Hz
             (RofA not specified in 1547)
-        OF Trip Curve Point OF_F1-3 Setting                         of_trip_f_pts_as                    Hz
+        OF Trip Curve Point OF_F1-3 Setting                         of_trip_f_pts                       Hz
         OF Trip Curve Point OF_F1-3 (RofA not specified in 1547)    of_trip_f_pts_er_max                Hz
         OF Trip Curve Point OF_T1-3 (see Tables 11-13)              of_trip_t_pts_er_min                s
             (RofA not specified in 1547)
-        OF Trip Curve Point OF_T1-3 Setting                         of_trip_t_pts_as                    s
+        OF Trip Curve Point OF_T1-3 Setting                         of_trip_t_pts                       s
         OF Trip Curve Point OF_T1-3 (RofA not specified in 1547)    of_trip_t_pts_er_max                s
 
         :return: dict with keys shown above.
@@ -733,11 +797,11 @@ class DER1547(object):
         _______________________________________________________________________________________________________________
         UF Trip Curve Point UF_F1-3 (see Tables 11-13)              uf_trip_f_pts_er_min                Hz
             (RofA not specified in 1547)
-        UF Trip Curve Point UF_F1-3 Setting                         uf_trip_f_pts_as                    Hz
+        UF Trip Curve Point UF_F1-3 Setting                         uf_trip_f_pts                       Hz
         UF Trip Curve Point UF_F1-3 (RofA not specified in 1547)    uf_trip_f_pts_er_max                Hz
         UF Trip Curve Point UF_T1-3 (see Tables 11-13)              uf_trip_t_pts_er_min                s
             (RofA not specified in 1547)
-        UF Trip Curve Point UF_T1-3 Setting                         uf_trip_t_pts_as                    s
+        UF Trip Curve Point UF_T1-3 Setting                         uf_trip_t_pts                       s
         UF Trip Curve Point UF_T1-3 (RofA not specified in 1547)    uf_trip_t_pts_er_max                s
 
         :return: dict with keys shown above.
@@ -758,11 +822,11 @@ class DER1547(object):
         _______________________________________________________________________________________________________________
         HV MC Curve Point OV_V1-3 (see Tables 11-13)                ov_mc_v_pts_er_min                  V p.u.
             (RofA not specified in 1547)
-        HV MC Curve Point OV_V1-3 Setting                           ov_mc_v_pts_as                      V p.u.
+        HV MC Curve Point OV_V1-3 Setting                           ov_mc_v_pts                         V p.u.
         HV MC Curve Point OV_V1-3 (RofA not specified in 1547)      ov_mc_v_pts_er_max                  V p.u.
         HV MC Curve Point OV_T1-3 (see Tables 11-13)                ov_mc_t_pts_er_min                  s
             (RofA not specified in 1547)
-        HV MC Curve Point OV_T1-3 Setting                           ov_mc_t_pts_as                      s
+        HV MC Curve Point OV_T1-3 Setting                           ov_mc_t_pts                         s
         HV MC Curve Point OV_T1-3 (RofA not specified in 1547)      ov_mc_t_pts_er_max                  s
 
         :return: dict with keys shown above.
@@ -783,11 +847,11 @@ class DER1547(object):
         _______________________________________________________________________________________________________________
         LV MC Curve Point UV_V1-3 (see Tables 11-13)                uv_mc_v_pts_er_min                V p.u.
             (RofA not specified in 1547)
-        LV MC Curve Point UV_V1-3 Setting                           uv_mc_v_pts_as                    V p.u.
+        LV MC Curve Point UV_V1-3 Setting                           uv_mc_v_pts                       V p.u.
         LV MC Curve Point UV_V1-3 (RofA not specified in 1547)      uv_mc_v_pts_er_max                V p.u.
         LV MC Curve Point UV_T1-3 (see Tables 11-13)                uv_mc_t_pts_er_min                s
             (RofA not specified in 1547)
-        LV MC Curve Point UV_T1-3 Setting                           uv_mc_t_pts_as                    s
+        LV MC Curve Point UV_T1-3 Setting                           uv_mc_t_pts                       s
         LV MC Curve Point UV_T1-3 (RofA not specified in 1547)      uv_mc_t_pts_er_max                s
 
         :return: dict with keys shown above.
@@ -811,7 +875,7 @@ class DER1547(object):
         Cease to energize and trip                              cease_to_energize               bool (True=Enabled)
 
         """
-        return self.set_es_permit_service(params={'es_permit_service_as': params['cease_to_energize']})
+        return self.set_es_permit_service(params={'es_permit_service': params['cease_to_energize']})
 
     # Additional functions outside of IEEE 1547-2018
     def get_conn(self):
@@ -820,7 +884,7 @@ class DER1547(object):
         ______________________________________________________________________________________________________________
         Parameter                                                   params dict key                 units
         ______________________________________________________________________________________________________________
-        Connect/Disconnect Enable                                   conn_as                     bool (True=Enabled)
+        Connect/Disconnect Enable                                   conn                     bool (True=Enabled)
         """
         pass
 
@@ -834,7 +898,7 @@ class DER1547(object):
         """
         Set Error, for testing Monitoring Data in DER
 
-        error_as = set error
+        error = set error
         """
         pass
 

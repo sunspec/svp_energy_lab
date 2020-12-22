@@ -314,18 +314,18 @@ class DER1547(der1547.DER1547):
         AC voltage maximum rating                               np_ac_v_max_er_max                      Vac
         AC voltage minimum rating                               np_ac_v_min_er_min                      Vac
         Supported control mode functions                        np_supported_modes                      dict
-            e.g., {'CONST_PF': True 'QV': False} with keys:
-            Supports Low Voltage Ride-Through Mode: 'UV'
-            Supports High Voltage Ride-Through Mode: 'OV'
-            Supports Low Freq Ride-Through Mode: 'UF'
-            Supports High Freq Ride-Through Mode: 'OF'
-            Supports Active Power Limit Mode: 'P_LIM'
-            Supports Volt-Watt Mode: 'PV'
-            Supports Frequency-Watt Curve Mode: 'PF'
-            Supports Constant VArs Mode: 'CONST_Q'
-            Supports Fixed Power Factor Mode: 'CONST_PF'
-            Supports Volt-VAr Control Mode: 'QV'
-            Supports Watt-VAr Mode: 'QP'
+            e.g., {'fixed_pf': True 'volt_var': False} with keys:
+            Supports Low Voltage Ride-Through Mode: 'lv_trip'
+            Supports High Voltage Ride-Through Mode: 'hv_trip'
+            Supports Low Freq Ride-Through Mode: 'lf_trip'
+            Supports High Freq Ride-Through Mode: 'hf_trip'
+            Supports Active Power Limit Mode: 'max_w'
+            Supports Volt-Watt Mode: 'volt_watt'
+            Supports Frequency-Watt Curve Mode: 'freq_watt'
+            Supports Constant VArs Mode: 'fixed_var'
+            Supports Fixed Power Factor Mode: 'fixed_pf'
+            Supports Volt-VAr Control Mode: 'volt_var'
+            Supports Watt-VAr Mode: 'watt_var'
         Reactive susceptance that remains connected to          np_reactive_susceptance                 Siemens
             the Area EPS in the cease to energize and trip
             state
@@ -364,11 +364,40 @@ class DER1547(der1547.DER1547):
             params['np_va_max'] = der_capacity.VAMaxRtg.cvalue / 1000.
 
         if der_capacity.NorOpCatRtg.cvalue is not None:
-            params['np_normal_op_cat'] = der_capacity.NorOpCatRtg.cvalue
+            numeric = der_capacity.NorOpCatRtg.cvalue
+            # self.ts.log_debug('NorOpCatRtg number: %d, symbols: %s' %
+            #                     (numeric, der_capacity.NorOpCatRtg.pdef['symbols']))
+            params['np_normal_op_cat'] = der_capacity.NorOpCatRtg.pdef['symbols'][numeric-1]['name']
         if der_capacity.AbnOpCatRtg.cvalue is not None:
-            params['np_abnormal_op_cat'] = der_capacity.AbnOpCatRtg.cvalue
-        if der_capacity.IntIslandCatRtg.cvalue is not None:
-            params['np_intentional_island_cat'] = der_capacity.IntIslandCatRtg.cvalue
+            numeric = der_capacity.AbnOpCatRtg.cvalue
+            params['np_abnormal_op_cat'] = der_capacity.AbnOpCatRtg.pdef['symbols'][numeric-1]['name']
+        if hasattr(der_capacity, 'IntIslandCatRtg'):
+            if der_capacity.IntIslandCatRtg.cvalue is not None:
+                cvalue = der_capacity.IntIslandCatRtg.cvalue
+                params['np_intentional_island_cat'] = ''
+                if (cvalue & (1 << 0)) == (1 << 0):
+                    params['np_intentional_island_cat'] += 'UNCATEGORIZED, '
+                if (cvalue & (1 << 1)) == (1 << 1):
+                    params['np_intentional_island_cat'] += 'INT_ISL_CAPABLE, '
+                if (cvalue & (1 << 2)) == (1 << 2):
+                    params['np_intentional_island_cat'] += 'BLACK_START_CAPABLE, '
+                if (cvalue & (1 << 3)) == (1 << 3):
+                    params['np_intentional_island_cat'] += 'ISOCH_CAPABLE, '
+                params['np_intentional_island_cat'].rstrip(', ')
+
+        if hasattr(der_capacity, 'IntIslandCat'):
+            if der_capacity.IntIslandCat.cvalue is not None:
+                cvalue = der_capacity.IntIslandCat.cvalue
+                params['np_intentional_island_mode'] = ''
+                if (cvalue & (1 << 0)) == (1 << 0):
+                    params['np_intentional_island_mode'] += 'UNCATEGORIZED, '
+                if (cvalue & (1 << 1)) == (1 << 1):
+                    params['np_intentional_island_mode'] += 'INT_ISL_CAPABLE, '
+                if (cvalue & (1 << 2)) == (1 << 2):
+                    params['np_intentional_island_mode'] += 'BLACK_START_CAPABLE, '
+                if (cvalue & (1 << 3)) == (1 << 3):
+                    params['np_intentional_island_cat'] += 'ISOCH_CAPABLE, '
+                params['np_intentional_island_mode'].rstrip(', ')
 
         if der_capacity.VarMaxInjRtg.cvalue is not None:
             params['np_q_max_inj'] = der_capacity.VarMaxInjRtg.cvalue / 1000.
@@ -391,8 +420,25 @@ class DER1547(der1547.DER1547):
         if der_capacity.VMinRtg.cvalue is not None:
             params['np_ac_v_min_er_min'] = der_capacity.VMinRtg.cvalue
 
-        if der_capacity.CtrlModes.cvalue is not None:
-            params['np_supported_modes'] = der_capacity.CtrlModes.cvalue
+        if hasattr(der_capacity, 'CtrlModes'):
+            if der_capacity.CtrlModes.cvalue is not None:
+                cvalue = der_capacity.CtrlModes.cvalue
+                params['np_supported_modes'] = {}
+                params['np_supported_modes']['max_w'] = (cvalue & (1 << 0)) == (1 << 0)
+                params['np_supported_modes']['fixed_w'] = (cvalue & (1 << 1)) == (1 << 1)
+                params['np_supported_modes']['fixed_var'] = (cvalue & (1 << 2)) == (1 << 2)
+                params['np_supported_modes']['fixed_pf'] = (cvalue & (1 << 3)) == (1 << 3)
+                params['np_supported_modes']['volt_var'] = (cvalue & (1 << 4)) == (1 << 4)
+                params['np_supported_modes']['freq_watt'] = (cvalue & (1 << 5)) == (1 << 5)
+                params['np_supported_modes']['dyn_react_curr'] = (cvalue & (1 << 6)) == (1 << 6)
+                params['np_supported_modes']['lv_trip'] = (cvalue & (1 << 7)) == (1 << 7)
+                params['np_supported_modes']['hv_trip'] = (cvalue & (1 << 8)) == (1 << 8)
+                params['np_supported_modes']['watt_var'] = (cvalue & (1 << 9)) == (1 << 9)
+                params['np_supported_modes']['volt_watt'] = (cvalue & (1 << 10)) == (1 << 10)
+                params['np_supported_modes']['scheduled'] = (cvalue & (1 << 11)) == (1 << 11)
+                params['np_supported_modes']['lf_trip'] = (cvalue & (1 << 12)) == (1 << 12)
+                params['np_supported_modes']['hf_trip'] = (cvalue & (1 << 13)) == (1 << 13)
+
         if der_capacity.ReactSusceptRtg.cvalue is not None:
             params['np_reactive_susceptance'] = der_capacity.ReactSusceptRtg.cvalue
 
@@ -411,9 +457,6 @@ class DER1547(der1547.DER1547):
             params['np_fw_ver'] = common.Vr.cvalue
 
         return params
-
-        # 'DERMeasureAC', 'DERCapacity', 'DEREnterService', 'DERCtlAC', 'DERVoltVar', 'DERVoltWatt', 'DERTripLV', \
-        # 'DERTripHV', 'DERTripLF', 'DERTripHF', 'DERFreqDroop', 'DERWattVar', 'DERMeasureDC'
 
     def get_configuration(self):
         """
@@ -462,15 +505,30 @@ class DER1547(der1547.DER1547):
         if der_capacity.VADisChaRteMax.cvalue is not None:  # not in 1547
             params['np_apparent_power_discharge_max'] = der_capacity.VADisChaRteMax.cvalue / 1000.
 
-        if der_capacity.Vnom.cvalue is not None:
-            params['np_ac_v_nom'] = der_capacity.Vnom.cvalue
+        if der_capacity.VNom.cvalue is not None:
+            params['np_ac_v_nom'] = der_capacity.VNom.cvalue
         if der_capacity.VMax.cvalue is not None:
             params['np_ac_v_max_er_max'] = der_capacity.VMax.cvalue
         if der_capacity.VMin.cvalue is not None:
             params['np_ac_v_min_er_min'] = der_capacity.VMin.cvalue
 
         if der_capacity.CtrlModes.cvalue is not None:
-            params['np_supported_modes'] = der_capacity.CtrlModes.cvalue
+            cvalue = der_capacity.CtrlModes.cvalue
+            params['np_supported_modes'] = {}
+            params['np_supported_modes']['max_w'] = (cvalue & (1 << 0)) == (1 << 0)
+            params['np_supported_modes']['fixed_w'] = (cvalue & (1 << 1)) == (1 << 1)
+            params['np_supported_modes']['fixed_var'] = (cvalue & (1 << 2)) == (1 << 2)
+            params['np_supported_modes']['fixed_pf'] = (cvalue & (1 << 3)) == (1 << 3)
+            params['np_supported_modes']['volt_var'] = (cvalue & (1 << 4)) == (1 << 4)
+            params['np_supported_modes']['freq_watt'] = (cvalue & (1 << 5)) == (1 << 5)
+            params['np_supported_modes']['dyn_react_curr'] = (cvalue & (1 << 6)) == (1 << 6)
+            params['np_supported_modes']['lv_trip'] = (cvalue & (1 << 7)) == (1 << 7)
+            params['np_supported_modes']['hv_trip'] = (cvalue & (1 << 8)) == (1 << 8)
+            params['np_supported_modes']['watt_var'] = (cvalue & (1 << 9)) == (1 << 9)
+            params['np_supported_modes']['volt_watt'] = (cvalue & (1 << 10)) == (1 << 10)
+            params['np_supported_modes']['scheduled'] = (cvalue & (1 << 11)) == (1 << 11)
+            params['np_supported_modes']['lf_trip'] = (cvalue & (1 << 12)) == (1 << 12)
+            params['np_supported_modes']['hf_trip'] = (cvalue & (1 << 13)) == (1 << 13)
         if der_capacity.ReactSusceptRtg.cvalue is not None:
             params['np_reactive_susceptance'] = der_capacity.ReactSusceptRtg.cvalue
 
@@ -530,7 +588,77 @@ class DER1547(der1547.DER1547):
             der_capacity.VMin.cvalue = params.get('np_ac_v_min_er_min')
 
         if params.get('np_supported_modes') is not None:
-            der_capacity.CtrlModes.cvalue = params.get('np_supported_modes')
+            if isinstance(params.get('np_supported_modes'), int):
+                der_capacity.CtrlModes.cvalue = params.get('np_supported_modes')
+            else:  # assume dict
+                ctrl_decimal = 0
+                if params['np_supported_modes']['max_w']:
+                    ctrl_decimal += 1 << 0
+                if params['np_supported_modes']['fixed_w']:
+                    ctrl_decimal += 1 << 1
+                if params['np_supported_modes']['fixed_var']:
+                    ctrl_decimal += 1 << 2
+                if params['np_supported_modes']['fixed_pf']:
+                    ctrl_decimal += 1 << 3
+                if params['np_supported_modes']['volt_var']:
+                    ctrl_decimal += 1 << 4
+                if params['np_supported_modes']['freq_watt']:
+                    ctrl_decimal += 1 << 5
+                if params['np_supported_modes']['dyn_react_curr']:
+                    ctrl_decimal += 1 << 6
+                if params['np_supported_modes']['lv_trip']:
+                    ctrl_decimal += 1 << 7
+                if params['np_supported_modes']['hv_trip']:
+                    ctrl_decimal += 1 << 8
+                if params['np_supported_modes']['watt_var']:
+                    ctrl_decimal += 1 << 9
+                if params['np_supported_modes']['volt_watt']:
+                    ctrl_decimal += 1 << 10
+                if params['np_supported_modes']['scheduled']:
+                    ctrl_decimal += 1 << 11
+                if params['np_supported_modes']['lf_trip']:
+                    ctrl_decimal += 1 << 12
+                if params['np_supported_modes']['hf_trip']:
+                    ctrl_decimal += 1 << 13
+                der_capacity.CtrlModes.cvalue = ctrl_decimal
+
+        if params.get('mn_alrm') is not None:
+            if isinstance(params.get('mn_alrm'), int):
+                der_capacity.Alrm.cvalue = params.get('mn_alrm')
+            else:  # assume dict
+                alrm_decimal = 0
+                if params['mn_alrm']['mn_alm_ground_fault']:
+                    alrm_decimal += 1 << 0
+                if params['mn_alrm']['mn_alm_over_dc_volt']:
+                    alrm_decimal += 1 << 1
+                if params['mn_alrm']['mn_alm_disconn_open']:
+                    alrm_decimal += 1 << 2
+                if params['mn_alrm']['mn_alm_dc_disconn_open']:
+                    alrm_decimal += 1 << 3
+                if params['mn_alrm']['mn_alm_grid_disconn']:
+                    alrm_decimal += 1 << 4
+                if params['mn_alrm']['mn_alm_cabinet_open']:
+                    alrm_decimal += 1 << 5
+                if params['mn_alrm']['mn_alm_manual_shutdown']:
+                    alrm_decimal += 1 << 6
+                if params['mn_alrm']['mn_alm_over_temp']:
+                    alrm_decimal += 1 << 7
+                if params['mn_alrm']['mn_alm_over_freq']:
+                    alrm_decimal += 1 << 8
+                if params['mn_alrm']['mn_alm_under_freq']:
+                    alrm_decimal += 1 << 9
+                if params['mn_alrm']['mn_alm_over_volt']:
+                    alrm_decimal += 1 << 10
+                if params['mn_alrm']['mn_alm_under_volt']:
+                    alrm_decimal += 1 << 11
+                if params['mn_alrm']['mn_alm_fuse']:
+                    alrm_decimal += 1 << 12
+                if params['mn_alrm']['mn_alm_under_temp']:
+                    alrm_decimal += 1 << 13
+                if params['mn_alrm']['mn_alm_mem_or_comm']:
+                    alrm_decimal += 1 << 14
+                der_capacity.Alrm.cvalue = alrm_decimal
+
         if params.get('np_reactive_susceptance') is not None:
             der_capacity.ReactSusceptRtg.cvalue = params.get('np_reactive_susceptance')
         der_capacity.write()
@@ -640,16 +768,28 @@ class DER1547(der1547.DER1547):
             params['mn_var'] = der_pts.Var.cvalue / 1000.
 
         if der_pts.ACType.cvalue is not None:
-            phases = der_pts.ACType.cvalue
+            numeric = der_pts.ACType.cvalue
+            params['np_ac_type'] = der_pts.ACType.pdef['symbols'][numeric-1]['name']
+            if params['np_ac_type'] == 'SINGLE_PHASE':
+                phases = 1
+            elif params['np_ac_type'] == 'SPLIT_PHASE':
+                    phases = 2
+            else:  # THREE_PHASE
+                phases = 3
         else:
-            phases = 1  # assume single/split phase DER
+            phases = 1  # assume single phase DER
+
         if phases == 1:
             params['mn_v'] = [der_pts.LNV.cvalue]
+        elif phases == 2:
+            params['mn_v'] = []
+            params['mn_v'].append(der_pts.VL1.cvalue)
+            params['mn_v'].append(der_pts.VL2.cvalue)
         else:  # phases == 3
             params['mn_v'] = []
             params['mn_v'].append(der_pts.VL1.cvalue)
             params['mn_v'].append(der_pts.VL2.cvalue)
-            params['mn_v'].append(der_pts.VL3N.cvalue)
+            params['mn_v'].append(der_pts.VL3.cvalue)
 
         if der_pts.Hz.cvalue is not None:
             params['mn_hz'] = der_pts.Hz.cvalue
@@ -714,6 +854,38 @@ class DER1547(der1547.DER1547):
 
                 # self.ts.log_debug('DER State: %s ' % params['mn_der_st'])
 
+        if hasattr(der_pts, 'DERMode'):
+            if der_pts.DERMode.cvalue is not None:
+                cvalue = der_pts.InvSt.cvalue
+                params['mn_op_mode'] = {}
+                params['mn_op_mode']['mn_op_mode_grid_following'] = (cvalue & (1 << 0)) == (1 << 0)
+                params['mn_op_mode']['mn_op_mode_grid_forming'] = (cvalue & (1 << 1)) == (1 << 1)
+                params['mn_op_mode']['mn_op_mode_curtailed'] = (cvalue & (1 << 2)) == (1 << 2)
+
+        if hasattr(der_pts, 'ThrotPct'):
+            if der_pts.ThrotPct.cvalue is not None:
+                params['mn_curtailed_pct'] = der_pts.ThrotPct.cvalue
+
+        if hasattr(der_pts, 'ThrotSrc'):
+            if der_pts.ThrotSrc.cvalue is not None:
+                cvalue = der_pts.InvSt.cvalue
+                params['mn_curtailed_mode'] = {}
+                params['mn_curtailed_mode']['max_w'] = (cvalue & (1 << 0)) == (1 << 0)
+                params['mn_curtailed_mode']['fixed_w'] = (cvalue & (1 << 1)) == (1 << 1)
+                params['mn_curtailed_mode']['fixed_var'] = (cvalue & (1 << 2)) == (1 << 2)
+                params['mn_curtailed_mode']['fixed_pf'] = (cvalue & (1 << 3)) == (1 << 3)
+                params['mn_curtailed_mode']['volt_var'] = (cvalue & (1 << 4)) == (1 << 4)
+                params['mn_curtailed_mode']['freq_watt'] = (cvalue & (1 << 5)) == (1 << 5)
+                params['mn_curtailed_mode']['dyn_react_curr'] = (cvalue & (1 << 6)) == (1 << 6)
+                params['mn_curtailed_mode']['lvrt'] = (cvalue & (1 << 7)) == (1 << 7)
+                params['mn_curtailed_mode']['hvrt'] = (cvalue & (1 << 8)) == (1 << 8)
+                params['mn_curtailed_mode']['watt_var'] = (cvalue & (1 << 9)) == (1 << 9)
+                params['mn_curtailed_mode']['volt_watt'] = (cvalue & (1 << 10)) == (1 << 10)
+                params['mn_curtailed_mode']['scheduled'] = (cvalue & (1 << 11)) == (1 << 11)
+                params['mn_curtailed_mode']['lfrt'] = (cvalue & (1 << 12)) == (1 << 12)
+                params['mn_curtailed_mode']['hfrt'] = (cvalue & (1 << 13)) == (1 << 13)
+                params['mn_curtailed_mode']['derated'] = (cvalue & (1 << 14)) == (1 << 14)
+
         return params
 
     def get_const_pf(self):
@@ -722,10 +894,10 @@ class DER1547(der1547.DER1547):
         ________________________________________________________________________________________________________________
         Parameter                                               params dict key                     units
         ________________________________________________________________________________________________________________
-        Constant Power Factor Mode Select                       const_pf_mode_enable_as             bool (True=Enabled)
-        Constant Power Factor Excitation                        const_pf_excitation_as              str ('inj', 'abs')
-        Constant Power Factor Absorbing Setting                 const_pf_abs_as                     decimal
-        Constant Power Factor Injecting Setting                 const_pf_inj_as                     decimal
+        Constant Power Factor Mode Select                       const_pf_mode_enable             bool (True=Enabled)
+        Constant Power Factor Excitation                        const_pf_excitation              str ('inj', 'abs')
+        Constant Power Factor Absorbing Setting                 const_pf_abs                     decimal
+        Constant Power Factor Injecting Setting                 const_pf_inj                     decimal
 
         SunSpec Points:
             Power Factor Enable (W Inj) Enable [PFWInjEna]: 0
@@ -765,25 +937,25 @@ class DER1547(der1547.DER1547):
 
         if der_pts.PFWInjEna.cvalue is not None:
             if der_pts.PFWInjEna.cvalue == 1:
-                params['const_pf_mode_enable_as'] = True
+                params['const_pf_mode_enable'] = True
             else:
-                params['const_pf_mode_enable_as'] = False
+                params['const_pf_mode_enable'] = False
 
         if der_pts.PFWInj.PF.cvalue is not None:
-            params['const_pf_inj_as'] = der_pts.PFWInj.PF.cvalue
+            params['const_pf_inj'] = der_pts.PFWInj.PF.cvalue
         if der_pts.PFWInj.Ext.cvalue is not None:
             if der_pts.PFWInj.Ext.cvalue == 0:  # todo check sign convension
-                params['const_pf_excitation_as'] = 'inj'  # Over-excited
+                params['const_pf_excitation'] = 'inj'  # Over-excited
             else:
-                params['const_pf_excitation_as'] = 'abs'
+                params['const_pf_excitation'] = 'abs'
 
         if der_pts.PFWAbs.PF.cvalue is not None:
-            params['const_pf_abs_as'] = der_pts.PFWAbs.PF.cvalue
+            params['const_pf_abs'] = der_pts.PFWAbs.PF.cvalue
         if der_pts.PFWAbs.Ext.cvalue is not None:
             if der_pts.PFWAbs.Ext.cvalue == 0:  # todo check sign convension
-                params['const_pf_excitation_as'] = 'inj'  # Over-excited
+                params['const_pf_excitation'] = 'inj'  # Over-excited
             else:
-                params['const_pf_excitation_as'] = 'abs'
+                params['const_pf_excitation'] = 'abs'
 
         return params
 
@@ -794,24 +966,24 @@ class DER1547(der1547.DER1547):
         der_pts = self.inv.DERCtlAC[0]
         der_pts.read()
 
-        if params.get('const_pf_mode_enable_as') is not None:
-            if params.get('const_pf_mode_enable_as') is True:
+        if params.get('const_pf_mode_enable') is not None:
+            if params.get('const_pf_mode_enable') is True:
                 der_pts.PFWInjEna.cvalue = 1
             else:
                 der_pts.PFWInjEna.cvalue = 0
 
-        if params.get('const_pf_inj_as') is not None:
-            der_pts.PFWInj.PF.cvalue = params.get('const_pf_inj_as')
-        if params.get('const_pf_excitation_as') is not None:
-            if params.get('const_pf_excitation_as') == 'inj':  # todo check sign convension
+        if params.get('const_pf_inj') is not None:
+            der_pts.PFWInj.PF.cvalue = params.get('const_pf_inj')
+        if params.get('const_pf_excitation') is not None:
+            if params.get('const_pf_excitation') == 'inj':  # todo check sign convension
                 der_pts.PFWInj.Ext.cvalue = 0  # Over-excited
             else:
                 der_pts.PFWInj.Ext.cvalue = 1  # Under-excited
 
-        if params.get('const_pf_abs_as') is not None:
-            der_pts.PFWAbs.PF.cvalue = params.get('const_pf_abs_as')
-        if params.get('const_pf_excitation_as') is not None:
-            if params.get('const_pf_excitation_as') == 'inj':  # todo check sign convension
+        if params.get('const_pf_abs') is not None:
+            der_pts.PFWAbs.PF.cvalue = params.get('const_pf_abs')
+        if params.get('const_pf_excitation') is not None:
+            if params.get('const_pf_excitation') == 'inj':  # todo check sign convension
                 der_pts.PFWAbs.Ext.cvalue = 0  # Over-excited
             else:
                 der_pts.PFWAbs.Ext.cvalue = 1  # Under-excited
@@ -827,13 +999,13 @@ class DER1547(der1547.DER1547):
         ______________________________________________________________________________________________________________
         Parameter                                                   params dict key                 units
         ______________________________________________________________________________________________________________
-        Voltage-Reactive Power Mode Enable                          qv_mode_enable_as               bool (True=Enabled)
-        Vref (0.95-1.05)                                            qv_vref_as                      V p.u.
-        Autonomous Vref Adjustment Enable                           qv_vref_auto_mode_as            bool (True=Enabled)
-        Vref adjustment time Constant (300-5000)                    qv_vref_olrt_as                 s
+        Voltage-Reactive Power Mode Enable                          qv_mode_enable                  bool (True=Enabled)
+        Vref (0.95-1.05)                                            qv_vref                         V p.u.
+        Autonomous Vref Adjustment Enable                           qv_vref_auto_mode               bool (True=Enabled)
+        Vref adjustment time Constant (300-5000)                    qv_vref_olrt                    s
         Q(V) Curve Point V1-4 (list, e.g., [95, 99, 101, 105])      qv_curve_v_pts                  V p.u.
         Q(V) Curve Point Q1-4 (list)                                qv_curve_q_pts                  VAr p.u.
-        Q(V) Open Loop Response Time Setting  (1-90)                qv_olrt_as                      s
+        Q(V) Open Loop Response Time Setting  (1-90)                qv_olrt                         s
 
         :return: dict with keys shown above.
 
@@ -841,7 +1013,6 @@ class DER1547(der1547.DER1547):
             Model ID [ID]: 705
             Model Length [L]: 64
             Module Enable [Ena]: 1 [Enabled]
-            Active Curve State [CrvSt]: 1 [Active Curve Enabled]
             Adopt Curve Request [AdptCrvReq]: 0
             Adopt Curve Result [AdptCrvRslt]: 0 [Update In Progress]
             Number Of Points [NPt]: 4
@@ -886,29 +1057,31 @@ class DER1547(der1547.DER1547):
 
         if der_pts.Ena.cvalue is not None:
             if der_pts.Ena.cvalue == 1:
-                params['qv_mode_enable_as'] = True
+                params['qv_mode_enable'] = True
             else:
-                params['qv_mode_enable_as'] = False
+                params['qv_mode_enable'] = False
 
-        if der_pts.CrvSt.cvalue is not None:
-            params['qv_active_curve'] = der_pts.CrvSt.cvalue
         if der_pts.NPt.cvalue is not None:
             params['qv_n_points'] = der_pts.NPt.cvalue
         if der_pts.NCrv.cvalue is not None:
             params['qv_n_curves'] = der_pts.NCrv.cvalue
+        # Stored Curve Sets - Number of curve sets contained in NCrv
+        # The first set is read-only and indicates the current settings.
 
         # curve points
         if der_pts.Crv[group].VRefAutoEna.cvalue is not None:
             if der_pts.Crv[group].VRefAutoEna.cvalue == 1:
-                params['qv_vref_auto_mode_as'] = True
+                params['qv_vref_auto_mode'] = True
             else:
-                params['qv_vref_auto_mode_as'] = False
-        if der_pts.Crv[group].VRefTms.cvalue is not None:
-            params['qv_vref_olrt_as'] = der_pts.Crv[group].VRefTms.cvalue
+                params['qv_vref_auto_mode'] = False
+        if der_pts.Crv[group].VRefAutoTms.cvalue is not None:
+            params['qv_vref_olrt'] = der_pts.Crv[group].VRefAutoTms.cvalue
+
         if der_pts.Crv[group].ActPt.cvalue is not None:
             params['qv_curve_n_active_pts'] = der_pts.Crv[group].ActPt.cvalue
         else:
             params['qv_curve_n_active_pts'] = 4
+
         params['qv_curve_v_pts'] = []
         params['qv_curve_q_pts'] = []
         for i in range(params['qv_curve_n_active_pts']):
@@ -916,35 +1089,48 @@ class DER1547(der1547.DER1547):
             params['qv_curve_q_pts'].append(der_pts.Crv[group].Pt[i].Var.cvalue / 100.)
 
         if der_pts.Crv[group].RspTms.cvalue is not None:
-            params['qv_olrt_as'] = der_pts.Crv[group].RspTms.cvalue
+            params['qv_olrt'] = der_pts.Crv[group].RspTms.cvalue
+
+        if der_pts.AdptCrvRslt.cvalue is not None:
+            write_result = der_pts.AdptCrvRslt.cvalue
+            params['qv_write_result'] = der_pts.AdptCrvRslt.pdef['symbols'][write_result]['name']
+        else:
+            params['qv_write_result'] = 'UNKNOWN'
 
         return params
 
-    def set_qv(self, params=None, group=1):
+    def set_qv(self, params=None, group=2):
         """
         Set Q(V) parameters. [Volt-Var]
+
+        VV Curve 1 is read only and represents the current operating state of the DER.
+        We will write to curve 2 by default and then enable it.
         """
         der_pts = self.inv.DERVoltVar[0]
         der_pts.read()
         group -= 1  # convert to python index
 
-        if params.get('qv_mode_enable_as') is not None:
-            if params.get('qv_mode_enable_as') is True:
+        # work with the read only points in curve 0 if it is a simulated DER
+        if self.ifc_type == MAPPED:
+            group = 0  #
+
+        if params.get('qv_mode_enable') is not None:
+            if params.get('qv_mode_enable') is True:
                 der_pts.Ena.cvalue = 1
             else:
                 der_pts.Ena.cvalue = 0
 
-        der_pts.CrvSt.cvalue = group
-
-        if params.get('qv_vref_auto_mode_as') is not None:
-            if params['qv_vref_auto_mode_as']:
+        if params.get('qv_vref_auto_mode') is not None:
+            if params['qv_vref_auto_mode']:
                 der_pts.Crv[group].VRefAutoEna.cvalue = 1
             else:
                 der_pts.Crv[group].VRefAutoEna.cvalue = 0
 
         # curve points
-        if params.get('qv_vref_olrt_as') is not None:
-            der_pts.Crv[group].VRefTms.cvalue = params['qv_vref_olrt_as']
+        curve_write = False
+        if params.get('qv_vref_olrt') is not None:
+            der_pts.Crv[group].VRefAutoTms.cvalue = params['qv_vref_olrt']
+            curve_write = True
 
         if params.get('qv_curve_v_pts') is not None:
             if params.get('qv_curve_q_pts') is None:
@@ -966,10 +1152,20 @@ class DER1547(der1547.DER1547):
                 der_pts.Crv[group].Pt[i].V.cvalue = params['qv_curve_v_pts'][i]*100.  # convert pu to %
                 der_pts.Crv[group].Pt[i].Var.cvalue = params['qv_curve_q_pts'][i]*100.
 
-        if params.get('qv_olrt_as') is not None:
-            der_pts.Crv[group].RspTms.cvalue = params['qv_olrt_as']
+            curve_write = True
 
-        der_pts.write()
+        if params.get('qv_olrt') is not None:
+            der_pts.Crv[group].RspTms.cvalue = params['qv_olrt']
+            curve_write = True
+
+        der_pts.write()  # write the VV points and curve
+        if curve_write:  # if writing a new curve, set AdptCrvReq
+            der_pts.AdptCrvReq.cvalue = group
+            der_pts.write()  # request enabling the new curve
+            self.ts.sleep(2)  # wait to reread the AdptCrvRslt register
+            curve_enable_result = self.get_qv()['qv_write_result']
+            if curve_enable_result == 'IN_PROGRESS' or curve_enable_result == 'FAILED':
+                self.ts.log_warning('VV Write Result: %s' % curve_enable_result)
 
         return params
 
@@ -977,14 +1173,14 @@ class DER1547(der1547.DER1547):
         """
         Get Q(P) parameters. [Watt-Var] - IEEE 1547 Table 32
         _______________________________________________________________________________________________________________
-        Parameter                                                   params dict key                     units
+        Parameter                                                   params dict key                  units
         _______________________________________________________________________________________________________________
-        Active Power-Reactive Power (Watt-VAr) Enable               qp_mode_enable_as                   bool
-        P-Q curve P1-3 Generation Setting (list)                    qp_curve_p_gen_pts_as               P p.u.
-        P-Q curve Q1-3 Generation Setting (list)                    qp_curve_q_gen_pts_as               VAr p.u.
-        P-Q curve P1-3 Load Setting (list), negative values         qp_curve_p_load_pts_as              P p.u.
-        P-Q curve Q1-3 Load Setting (list)                          qp_curve_q_load_pts_as              VAr p.u.
-        QP Open Loop Response Time Setting                          qp_olrt_as                          s
+        Active Power-Reactive Power (Watt-VAr) Enable               qp_mode_enable                   bool
+        P-Q curve P1-3 Generation Setting (list)                    qp_curve_p_gen_pts               P p.u.
+        P-Q curve Q1-3 Generation Setting (list)                    qp_curve_q_gen_pts               VAr p.u.
+        P-Q curve P1-3 Load Setting (list), negative values         qp_curve_p_load_pts              P p.u.
+        P-Q curve Q1-3 Load Setting (list)                          qp_curve_q_load_pts              VAr p.u.
+        QP Open Loop Response Time Setting                          qp_olrt                          s
 
         :return: dict with keys shown above.
 
@@ -992,7 +1188,6 @@ class DER1547(der1547.DER1547):
             Model ID [ID]: 712
             Model Length [L]: 19
             Module Enable [Ena]: None
-            Active Curve State [CrvSt]: None
             Set Active Curve Request [AdptCrvReq]: None
             Set Active Curve Result [AdptCrvRslt]: None
             Number Of Points [NPt]: 1
@@ -1021,12 +1216,10 @@ class DER1547(der1547.DER1547):
 
         if der_pts.Ena.cvalue is not None:
             if der_pts.Ena.cvalue == 1:
-                params['qp_mode_enable_as'] = True
+                params['qp_mode_enable'] = True
             else:
-                params['qp_mode_enable_as'] = False
+                params['qp_mode_enable'] = False
 
-        if der_pts.CrvSt.cvalue is not None:
-            params['qp_active_curve'] = der_pts.CrvSt.cvalue
         if der_pts.NPt.cvalue is not None:
             params['qp_n_points'] = der_pts.NPt.cvalue
         if der_pts.NCrv.cvalue is not None:
@@ -1037,10 +1230,10 @@ class DER1547(der1547.DER1547):
             params['qp_curve_n_active_pts'] = der_pts.Crv[group].ActPt.cvalue
         else:
             params['qp_curve_n_active_pts'] = 6
-        params['qp_curve_p_gen_pts_as'] = []
-        params['qp_curve_q_gen_pts_as'] = []
-        params['qp_curve_p_load_pts_as'] = []
-        params['qp_curve_q_load_pts_as'] = []
+        params['qp_curve_p_gen_pts'] = []
+        params['qp_curve_q_gen_pts'] = []
+        params['qp_curve_p_load_pts'] = []
+        params['qp_curve_q_load_pts'] = []
         for i in range(params['qp_curve_n_active_pts']):
             # self.ts.log_debug('%s, Pt: %s' % (i, der_pts.Crv[group].Pt[i]))
             if der_pts.Crv[group].Pt[i].W.cvalue is not None:
@@ -1048,21 +1241,24 @@ class DER1547(der1547.DER1547):
                 q_pu = der_pts.Crv[group].Pt[i].Var.cvalue / 100.
                 # self.ts.log_debug('P = %s, Q: %s' % (p_pu, q_pu))
                 if p_pu < 0:
-                    params['qp_curve_p_load_pts_as'].append(p_pu)  # pu
-                    params['qp_curve_q_load_pts_as'].append(q_pu)
+                    params['qp_curve_p_load_pts'].append(p_pu)  # pu
+                    params['qp_curve_q_load_pts'].append(q_pu)
                 else:
-                    params['qp_curve_p_gen_pts_as'].append(p_pu)  # pu
-                    params['qp_curve_q_gen_pts_as'].append(q_pu)
+                    params['qp_curve_p_gen_pts'].append(p_pu)  # pu
+                    params['qp_curve_q_gen_pts'].append(q_pu)
 
-        params['qp_curve_p_load_pts_as'].reverse()  # place P'1 next to axis and P'3 toward -100% P pu
-        params['qp_curve_q_load_pts_as'].reverse()
+        params['qp_curve_p_load_pts'].reverse()  # place P'1 next to axis and P'3 toward -100% P pu
+        params['qp_curve_q_load_pts'].reverse()
 
-        # if der_pts.Crv[group].RspTms.cvalue is not None:
-        #     params['qp_olrt_as'] = der_pts.Crv[group].RspTms.cvalue
+        if der_pts.AdptCrvRslt.cvalue is not None:
+            write_result = der_pts.AdptCrvRslt.cvalue
+            params['qp_write_result'] = der_pts.AdptCrvRslt.pdef['symbols'][write_result]['name']
+        else:
+            params['qp_write_result'] = 'UNKNOWN'
 
         return params
 
-    def set_qp(self, params=None, group=1):
+    def set_qp(self, params=None, group=2):
         """
         Set Q(P) parameters. [Watt-Var]
         """
@@ -1070,56 +1266,60 @@ class DER1547(der1547.DER1547):
         der_pts.read()
         group -= 1  # convert to python index
 
-        if params.get('qp_mode_enable_as') is not None:
-            if params.get('qp_mode_enable_as') is True:
+        # work with the read only points in curve 0 if it is a simulated DER
+        if self.ifc_type == MAPPED:
+            group = 0
+
+        if params.get('qp_mode_enable') is not None:
+            if params.get('qp_mode_enable'):
                 der_pts.Ena.cvalue = 1
             else:
                 der_pts.Ena.cvalue = 0
+        der_pts.write()
 
-        der_pts.CrvSt.cvalue = group
-
-        if params.get('qp_curve_p_gen_pts_as') is not None:
-            p_gen_points = params.get('qp_curve_p_gen_pts_as')
-            if params.get('qp_curve_q_gen_pts_as') is None:
+        if params.get('qp_curve_p_gen_pts') is not None:
+            p_gen_points = params.get('qp_curve_p_gen_pts')
+            if params.get('qp_curve_q_gen_pts') is None:
                 raise der1547.DER1547Error('Watt-Var curves must be writen in pairs. No Qgen points provided.')
-            if len(params['qp_curve_p_gen_pts_as']) != len(params['qp_curve_q_gen_pts_as']):
+            if len(params['qp_curve_p_gen_pts']) != len(params['qp_curve_q_gen_pts']):
                 raise der1547.DER1547Error('P and Q lists are not the same lengths')
         else:
-            p_gen_points = self.get_qp().get('qp_curve_p_gen_pts_as')
+            p_gen_points = self.get_qp().get('qp_curve_p_gen_pts')
 
-        if params.get('qp_curve_q_gen_pts_as') is not None:
-            q_gen_points = params.get('qp_curve_q_gen_pts_as')
-            if params.get('qp_curve_p_gen_pts_as') is None:
+        if params.get('qp_curve_q_gen_pts') is not None:
+            q_gen_points = params.get('qp_curve_q_gen_pts')
+            if params.get('qp_curve_p_gen_pts') is None:
                 raise der1547.DER1547Error('Watt-Var curves must be writen in pairs. No Pgen points provided')
         else:
-            q_gen_points = self.get_qp().get('qp_curve_q_gen_pts_as')
+            q_gen_points = self.get_qp().get('qp_curve_q_gen_pts')
 
-        if params.get('qp_curve_p_load_pts_as') is not None:
-            p_load_points = params.get('qp_curve_p_load_pts_as')
-            if params.get('qp_curve_q_load_pts_as') is None:
+        if params.get('qp_curve_p_load_pts') is not None:
+            p_load_points = params.get('qp_curve_p_load_pts')
+            if params.get('qp_curve_q_load_pts') is None:
                 raise der1547.DER1547Error('Watt-Var curves must be writen in pairs. No Qload points provided.')
-            if len(params['qp_curve_p_load_pts_as']) != len(params['qp_curve_q_load_pts_as']):
+            if len(params['qp_curve_p_load_pts']) != len(params['qp_curve_q_load_pts']):
                 raise der1547.DER1547Error('P and Q lists are not the same lengths')
         else:
-            p_load_points = self.get_qp().get('qp_curve_p_load_pts_as')
+            p_load_points = self.get_qp().get('qp_curve_p_load_pts')
             # self.ts.log_debug('From read')
 
-        if params.get('qp_curve_q_load_pts_as') is not None:
-            q_load_points = params.get('qp_curve_q_load_pts_as')
-            if params.get('qp_curve_p_load_pts_as') is None:
+        if params.get('qp_curve_q_load_pts') is not None:
+            q_load_points = params.get('qp_curve_q_load_pts')
+            if params.get('qp_curve_p_load_pts') is None:
                 raise der1547.DER1547Error('Watt-Var curves must be writen in pairs. No Pload points provided')
         else:
-            q_load_points = self.get_qp().get('qp_curve_q_load_pts_as')
+            q_load_points = self.get_qp().get('qp_curve_q_load_pts')
 
         points = len(p_gen_points) + len(p_load_points)
         if points > der_pts.NPt.cvalue:
             raise der1547.DER1547Error('Watt-Var curves require more points than are supported.')
 
-        if params.get('qp_curve_p_gen_pts_as') is None and params.get('qp_curve_q_gen_pts_as') is None and \
-            params.get('qp_curve_p_load_pts_as') is None and params.get('qp_curve_q_load_pts_as'):
+        if params.get('qp_curve_p_gen_pts') is None and params.get('qp_curve_q_gen_pts') is None and \
+            params.get('qp_curve_p_load_pts') is None and params.get('qp_curve_q_load_pts'):
             # do not write points, because none included in params
             return params
         else:
+            curve_write = False
             if points != der_pts.Crv[group].ActPt.cvalue:
                 der_pts.Crv[group].ActPt.cvalue = points
             der_pts.write()
@@ -1132,13 +1332,21 @@ class DER1547(der1547.DER1547):
             q_points = q_load_points + q_gen_points
             # self.ts.log_debug('p_points = %s, q_points: %s' % (p_points, q_points))
             for i in range(points):
+                curve_write = True
                 der_pts.Crv[group].Pt[i].W.cvalue = p_points[i]*100.  # convert pu to %
                 der_pts.Crv[group].Pt[i].Var.cvalue = q_points[i]*100.
 
-            # if params.get('qp_olrt_as') is not None:
-            #     der_pts.Crv[group].RspTms.cvalue = params['qp_olrt_as']
+            # if params.get('qp_olrt') is not None:
+            #     der_pts.Crv[group].RspTms.cvalue = params['qp_olrt']
 
-            der_pts.write()
+            der_pts.write()  # write the VV points and curve
+            if curve_write:  # if writing a new curve, set AdptCrvReq
+                der_pts.AdptCrvReq.cvalue = group
+                der_pts.write()  # request enabling the new curve
+                self.ts.sleep(2)  # wait to reread the AdptCrvRslt register
+                curve_enable_result = self.get_qp()['qp_write_result']
+                if curve_enable_result == 'IN_PROGRESS' or curve_enable_result == 'FAILED':
+                    self.ts.log_warning('WV Write Result: %s' % curve_enable_result)
 
             return params
 
@@ -1146,13 +1354,13 @@ class DER1547(der1547.DER1547):
         """
         Get P(V), Voltage-Active Power (Volt-Watt), Parameters
         ______________________________________________________________________________________________________________
-        Parameter                                                   params dict key                         units
+        Parameter                                                   params dict key                      units
         ______________________________________________________________________________________________________________
-        Voltage-Active Power Mode Enable                            pv_mode_enable_as                       bool
-        P(V) Curve Point V1-2 Setting (list)                        pv_curve_v_pts_as                       V p.u.
-        P(V) Curve Point P1-2 Setting (list)                        pv_curve_p_pts_as                       P p.u.
-        P(V) Curve Point P1-P'2 Setting (list)                      pv_curve_p_bidrct_pts_as                P p.u.
-        P(V) Open Loop Response time Setting (0.5-60)               pv_olrt_as                              s
+        Voltage-Active Power Mode Enable                            pv_mode_enable                       bool
+        P(V) Curve Point V1-2 Setting (list)                        pv_curve_v_pts                       V p.u.
+        P(V) Curve Point P1-2 Setting (list)                        pv_curve_p_pts                       P p.u.
+        P(V) Curve Point P1-P'2 Setting (list)                      pv_curve_p_bidrct_pts                P p.u.
+        P(V) Open Loop Response time Setting (0.5-60)               pv_olrt                              s
 
         :return: dict with keys shown above.
 
@@ -1160,7 +1368,6 @@ class DER1547(der1547.DER1547):
             Model ID [ID]: 706
             Model Length [L]: 29
             Module Enable [Ena]: 0 [Disabled]
-            Active Curve State [CrvSt]: 1 [Active Curve Enabled]
             Adopt Curve Request [AdptCrvReq]: 0
             Adopt Curve Result [AdptCrvRslt]: 0 [Update In Progress]
             Number Of Points [NPt]: 2
@@ -1192,12 +1399,10 @@ class DER1547(der1547.DER1547):
 
         if der_pts.Ena.cvalue is not None:
             if der_pts.Ena.cvalue == 1:
-                params['pv_mode_enable_as'] = True
+                params['pv_mode_enable'] = True
             else:
-                params['pv_mode_enable_as'] = False
+                params['pv_mode_enable'] = False
 
-        if der_pts.CrvSt.cvalue is not None:
-            params['pv_active_curve'] = der_pts.CrvSt.cvalue
         if der_pts.NPt.cvalue is not None:
             params['pv_n_points'] = der_pts.NPt.cvalue
         if der_pts.NCrv.cvalue is not None:
@@ -1209,9 +1414,9 @@ class DER1547(der1547.DER1547):
         else:
             params['pv_curve_n_active_pts'] = None
 
-        params['pv_curve_v_pts_as'] = []
-        params['pv_curve_p_pts_as'] = []
-        params['pv_curve_p_bidrct_pts_as'] = []
+        params['pv_curve_v_pts'] = []
+        params['pv_curve_p_pts'] = []
+        params['pv_curve_p_bidrct_pts'] = []
         for i in range(params['pv_curve_n_active_pts']):
             # self.ts.log_debug('%s, Pt: %s' % (i, der_pts.Crv[group].Pt[i]))
             if der_pts.Crv[group].Pt[i].W.cvalue is not None:
@@ -1219,18 +1424,24 @@ class DER1547(der1547.DER1547):
                 p_pu = der_pts.Crv[group].Pt[i].W.cvalue / 100.
                 # self.ts.log_debug('P = %s, Q: %s' % (p_pu, q_pu))
                 if p_pu >= 0:
-                    params['pv_curve_p_pts_as'].append(p_pu)  # pu
-                    params['pv_curve_v_pts_as'].append(v_pu)
+                    params['pv_curve_p_pts'].append(p_pu)  # pu
+                    params['pv_curve_v_pts'].append(v_pu)
                 else:
-                    params['pv_curve_p_bidrct_pts_as'].append(p_pu)  # pu
-                    params['pv_curve_v_pts_as'].append(v_pu)
+                    params['pv_curve_p_bidrct_pts'].append(p_pu)  # pu
+                    params['pv_curve_v_pts'].append(v_pu)
 
         if der_pts.Crv[group].RspTms.cvalue is not None:
-            params['pv_olrt_as'] = der_pts.Crv[group].RspTms.cvalue
+            params['pv_olrt'] = der_pts.Crv[group].RspTms.cvalue
+
+        if der_pts.AdptCrvRslt.cvalue is not None:
+            write_result = der_pts.AdptCrvRslt.cvalue
+            params['pv_write_result'] = der_pts.AdptCrvRslt.pdef['symbols'][write_result]['name']
+        else:
+            params['pv_write_result'] = 'UNKNOWN'
 
         return params
 
-    def set_pv(self, params=None, group=1):
+    def set_pv(self, params=None, group=2):
         """
         Set P(V), Voltage-Active Power (Volt-Watt), Parameters
         """
@@ -1238,17 +1449,20 @@ class DER1547(der1547.DER1547):
         der_pts.read()
         group -= 1  # convert to python index
 
-        if params.get('pv_mode_enable_as') is not None:
-            if params.get('pv_mode_enable_as') is True:
+        # work with the read only points in curve 0 if it is a simulated DER
+        if self.ifc_type == MAPPED:
+            group = 0
+
+        if params.get('pv_mode_enable') is not None:
+            if params.get('pv_mode_enable') is True:
                 der_pts.Ena.cvalue = 1
             else:
                 der_pts.Ena.cvalue = 0
 
-        der_pts.CrvSt.cvalue = group
-
-        v_pts = params.get('pv_curve_v_pts_as')
-        p_pts = params.get('pv_curve_p_pts_as')
-        p_prime_pts = params.get('pv_curve_p_bidrct_pts_as')
+        curve_write = False
+        v_pts = params.get('pv_curve_v_pts')
+        p_pts = params.get('pv_curve_p_pts')
+        p_prime_pts = params.get('pv_curve_p_bidrct_pts')
         points = None
         if p_pts is not None:
             if p_prime_pts is not None:
@@ -1270,15 +1484,24 @@ class DER1547(der1547.DER1547):
 
             if points != der_pts.Crv[group].ActPt.cvalue:
                 der_pts.Crv[group].ActPt.cvalue = points
+                curve_write = True
 
             for i in range(points):
                 der_pts.Crv[group].Pt[i].V.cvalue = v_pts[i] * 100.  # convert pu to %
                 der_pts.Crv[group].Pt[i].W.cvalue = p_pts[i] * 100.  # convert pu to %
+                curve_write = True
 
-        if params.get('pv_olrt_as') is not None:
-            der_pts.Crv[group].RspTms.cvalue = params['pv_olrt_as']
+        if params.get('pv_olrt') is not None:
+            der_pts.Crv[group].RspTms.cvalue = params['pv_olrt']
 
-        der_pts.write()
+        der_pts.write()  # write the VV points and curve
+        if curve_write:  # if writing a new curve, set AdptCrvReq
+            der_pts.AdptCrvReq.cvalue = group
+            der_pts.write()  # request enabling the new curve
+            self.ts.sleep(2)  # wait to reread the AdptCrvRslt register
+            curve_enable_result = self.get_pv()['pv_write_result']
+            if curve_enable_result == 'IN_PROGRESS' or curve_enable_result == 'FAILED':
+                self.ts.log_warning('VV Write Result: %s' % curve_enable_result)
 
         return params
 
@@ -1286,13 +1509,13 @@ class DER1547(der1547.DER1547):
         """
         Get Constant Reactive Power Mode
         ______________________________________________________________________________________________________________
-        Parameter                                               params dict key                     units
+        Parameter                                               params dict key                  units
         ______________________________________________________________________________________________________________
-        Constant Reactive Power Mode Enable                     const_q_mode_enable_as              bool (True=Enabled)
-        Constant Reactive Power Excitation (not specified in    const_q_mode_excitation_as          str ('inj', 'abs')
+        Constant Reactive Power Mode Enable                     const_q_mode_enable              bool (True=Enabled)
+        Constant Reactive Power Excitation (not specified in    const_q_mode_excitation          str ('inj', 'abs')
             1547)
-        Constant Reactive power setting (See Table 7)           const_q_as                          VAr p.u.
-        Maximum Response Time to maintain constant reactive     const_q_olrt_as                     s
+        Constant Reactive power setting (See Table 7)           const_q                          VAr p.u.
+        Maximum Response Time to maintain constant reactive     const_q_olrt                     s
             power (not specified in 1547)
 
         :return: dict with keys shown above.
@@ -1316,18 +1539,18 @@ class DER1547(der1547.DER1547):
 
         if der_pts.VarSetEna.cvalue is not None:
             if der_pts.VarSetEna.cvalue == 1:
-                params['const_q_mode_enable_as'] = True
+                params['const_q_mode_enable'] = True
             else:
-                params['const_q_mode_enable_as'] = False
+                params['const_q_mode_enable'] = False
 
         if der_pts.VarSetPct.cvalue is not None:
             # use positive Q value with excitation indicating directionality
-            params['const_q_as'] = abs(der_pts.VarSetPct.cvalue * 100.)  # pu to pct
+            params['const_q'] = abs(der_pts.VarSetPct.cvalue * 100.)  # pu to pct
 
             if der_pts.VarSetPct.cvalue > 0:
-                params['const_q_mode_excitation_as'] = 'inj'
+                params['const_q_mode_excitation'] = 'inj'
             else:
-                params['const_q_mode_excitation_as'] = 'abs'
+                params['const_q_mode_excitation'] = 'abs'
 
         return params
 
@@ -1339,22 +1562,44 @@ class DER1547(der1547.DER1547):
         der_pts = self.inv.DERCtlAC[0]
         der_pts.read()
 
-        if params.get('const_q_mode_enable_as') is not None:
-            if params.get('const_q_mode_enable_as'):
+        if params.get('const_q_mode_enable') is not None:
+            if params.get('const_q_mode_enable'):
                 der_pts.VarSetEna.cvalue = 1
             else:
                 der_pts.VarSetEna.cvalue = 0
 
-            # todo
-            # der_pts.VarSetMod.cvalue = 'Pct'
-            # der_pts.VarSetPri.cvalue = 'Reactive Power Priority'
+        if params.get('const_q_var_mode') is not None:  # Set Reactive Power Mode
+            if params.get('const_q_var_mode') == 'W_MAX_PCT':
+                der_pts.VarSetMod.cvalue = 1
+            elif params.get('const_q_var_mode') == 'VAR_MAX_PCT':
+                der_pts.VarSetMod.cvalue = 2
+            elif params.get('const_q_var_mode') == 'VAR_AVAIL_PCT':
+                der_pts.VarSetMod.cvalue = 3
+            elif params.get('const_q_var_mode') == 'VARS':
+                der_pts.VarSetMod.cvalue = 4
+            else:
+                self.ts.log_warning('const_q_var_mode parameter error')
 
-        if params.get('const_q_as') is not None:
-            if params.get('const_q_mode_excitation_as') is not None:
-                if params.get('const_q_mode_excitation_as') == 'inj':
-                    der_pts.VarSetPct.cvalue = params.get('const_q_as') / 100.  # pct to pu
+        if params.get('const_q_var_priority') is not None:  # Reactive Power Priority
+            if params.get('const_q_var_priority') == 'ACTIVE':
+                der_pts.VarSetPri.cvalue = 1
+            elif params.get('const_q_var_priority') == 'REACTIVE':
+                der_pts.VarSetPri.cvalue = 2
+            elif params.get('const_q_var_priority') == 'IEEE_1547':
+                der_pts.VarSetPri.cvalue = 3
+            elif params.get('const_q_var_priority') == 'PF':
+                der_pts.VarSetPri.cvalue = 4
+            elif params.get('const_q_var_priority') == 'VENDOR':
+                der_pts.VarSetPri.cvalue = 5
+            else:
+                self.ts.log_warning('const_q_var_priority parameter error')
+
+        if params.get('const_q') is not None:
+            if params.get('const_q_mode_excitation') is not None:
+                if params.get('const_q_mode_excitation') == 'inj':
+                    der_pts.VarSetPct.cvalue = params.get('const_q') / 100.  # pct to pu
                 else:
-                    der_pts.VarSetPct.cvalue = -1 * params.get('const_q_as') / 100.  # pct to pu
+                    der_pts.VarSetPct.cvalue = -1 * params.get('const_q') / 100.  # pct to pu
             else:
                 self.ts.log_warning('No excitation provided to set_const_q() method.')
                 # raise der1547.DER1547Error('No excitation provided to set_const_q() method.')
@@ -1365,18 +1610,18 @@ class DER1547(der1547.DER1547):
         """
         Get Limit maximum active power - IEEE 1547 Table 40
         ______________________________________________________________________________________________________________
-        Parameter                                                   params dict key                 units
+        Parameter                                                   params dict key              units
         ______________________________________________________________________________________________________________
-        Frequency-Active Power Mode Enable                          p_lim_mode_enable_as            bool (True=Enabled)
-        Maximum Active Power                                        p_lim_w_as                     P p.u.
+        Frequency-Active Power Mode Enable                          p_lim_mode_enable            bool (True=Enabled)
+        Maximum Active Power                                        p_lim_w                      P p.u.
 
         SunSpec Points:
-            Limit Max Active Power Enable [WMaxLimEna]: 0
+            Limit Max Active Power Enable [WMaxLimPctEna]: 0
             Limit Max Power Setpoint [WMaxLim]: 100.0
-            Reversion Limit Max Power [WMaxLimRvrt]: None
-            Reversion Limit Max Power Enable [WMaxLimRvrtEna]: None
-            Limit Max Power Reversion Time [WMaxLimRvrtTms]: None
-            Limit Max Power Rev Time Rem [WMaxLimRvrtRem]: None
+            Reversion Limit Max Power [WMaxLimPctRvrt]: None
+            Reversion Limit Max Power Enable [WMaxLimPctRvrtEna]: None
+            Limit Max Power Reversion Time [WMaxLimPctRvrtTms]: None
+            Limit Max Power Rev Time Rem [WMaxLimPctRvrtRem]: None
 
             Set Active Power Enable [WSetEna]: None
             Set Active Power Mode [WSetMod]: None
@@ -1393,19 +1638,26 @@ class DER1547(der1547.DER1547):
         der_pts = self.inv.DERCtlAC[0]
         der_pts.read()
 
-        if der_pts.WMaxLimEna.cvalue is not None:
-            if der_pts.WMaxLimEna.cvalue == 1:
-                params['p_lim_mode_enable_as'] = True
+        if der_pts.WMaxLimPctEna.cvalue is not None:
+            if der_pts.WMaxLimPctEna.cvalue == 1:
+                params['p_lim_mode_enable'] = True
             else:
-                params['p_lim_mode_enable_as'] = False
-        if der_pts.WMaxLim.cvalue is not None:
-            params['p_lim_w_as'] = der_pts.WMaxLim.cvalue / 100.
+                params['p_lim_mode_enable'] = False
+        if der_pts.WMaxLimPct.cvalue is not None:
+            params['p_lim_w'] = der_pts.WMaxLimPct.cvalue / 100.
 
-        # todo for non-DER
-        # if der_pts.WSetEna.cvalue is not None:
-        #     params['p_lim_mode_enable_as'] = der_pts.WSetEna.cvalue
-        # if der_pts.WSet.cvalue is not None:
-        #     params['p_lim_mode_enable_as'] = der_pts.WSet.cvalue
+        if der_pts.WMaxLimPctRvrt.cvalue is not None:
+            params['p_lim_w_rvrt'] = der_pts.WMaxLimPct.cvalue
+        if der_pts.WMaxLimPctRvrtEna.cvalue is not None:
+            if der_pts.WMaxLimPctRvrtEna.cvalue == 1:
+                params['p_lim_w_rvrt_ena'] = True
+            else:
+                params['p_lim_w_rvrt_ena'] = False
+
+        if der_pts.WMaxLimPctRvrtTms.cvalue is not None:
+            params['p_lim_w_rvrt_time'] = der_pts.WMaxLimPctRvrtTms.cvalue
+        if der_pts.WMaxLimPctRvrtRem.cvalue is not None:
+            params['p_lim_w_rvrt_time_remaining'] = der_pts.WMaxLimPctRvrtRem.cvalue
 
         return params
 
@@ -1416,36 +1668,75 @@ class DER1547(der1547.DER1547):
         der_pts = self.inv.DERCtlAC[0]
         der_pts.read()
 
-        if params.get('p_lim_mode_enable_as') is not None:
-            if params.get('p_lim_mode_enable_as'):
-                der_pts.WMaxLimEna.cvalue = 1
+        if params.get('p_lim_mode_enable') is not None:
+            if params.get('p_lim_mode_enable'):
+                der_pts.WMaxLimPctEna.cvalue = 1
             else:
-                der_pts.WMaxLimEna.cvalue = 0
-        if params.get('p_lim_w_as') is not None:
-            der_pts.WMaxLim.cvalue = params.get('p_lim_w_as') * 100.
+                der_pts.WMaxLimPctEna.cvalue = 0
+        if params.get('p_lim_w') is not None:
+            der_pts.WMaxLimPct.cvalue = params.get('p_lim_w') * 100.
 
         # todo for non-DER
-        # if params.get('p_lim_mode_enable_as') is not None:
-        #     der_pts.WSetEna.cvalue = params.get('p_lim_mode_enable_as')
-        # if params.get('p_lim_mode_enable_as') is not None:
-        #     der_pts.WSet.cvalue = params.get('p_lim_mode_enable_as')
+        # if params.get('p_lim_mode_enable') is not None:
+        #     der_pts.WSetEna.cvalue = params.get('p_lim_mode_enable')
+        # if params.get('p_lim_mode_enable') is not None:
+        #     der_pts.WSet.cvalue = params.get('p_lim_mode_enable')
 
         der_pts.write()
 
         return params
 
+    def get_active_power(self):
+        """
+        Get active power of DER
+
+        :return:
+        """
+        params = {}
+        der_pts = self.inv.DERCtlAC[0]
+        der_pts.read()
+
+        if der_pts.WSetEna.cvalue is not None:
+            if der_pts.WSetEna.cvalue == 1:
+                params['p_set_mode_enable'] = True
+            else:
+                params['p_set_mode_enable'] = False
+        if der_pts.WSetMod.cvalue is not None:
+            numeric = der_pts.WSetMod.cvalue
+            params['p_set_w'] = der_pts.WSetMod.pdef['symbols'][numeric-1]['name']
+        if der_pts.WSet.cvalue is not None:
+            params['p_set_w'] = der_pts.WMaxPctLim.cvalue / 100.
+
+        if der_pts.WSetRvrt.cvalue is not None:
+            params['p_set_w_rvrt'] = der_pts.WSetRvrt.cvalue
+        if der_pts.WSetRvrtEna.cvalue is not None:
+            if der_pts.WSetRvrtEna.cvalue == 1:
+                params['p_set_w_rvrt_ena'] = True
+            else:
+                params['p_set_w_rvrt_ena'] = False
+
+        if der_pts.WSetRvrtTms.cvalue is not None:
+            params['p_set_w_rvrt_time'] = der_pts.WSetRvrtTms.cvalue
+        if der_pts.WSetRvrtRem.cvalue is not None:
+            params['p_set_w_rvrt_time_remaining'] = der_pts.WSetRvrtRem.cvalue
+
+        return params
+
+    def set_active_power(self, params=None):
+        pass
+
     def get_pf(self, group=1):
         """
         Get P(f), Frequency-Active Power Mode Parameters - IEEE 1547 Table 38
         ______________________________________________________________________________________________________________
-        Parameter                                                   params dict key                 units
+        Parameter                                                   params dict key              units
         ______________________________________________________________________________________________________________
-        Frequency-Active Power Mode Enable                          pf_mode_enable_as               bool (True=Enabled)
-        P(f) Overfrequency Droop dbOF Setting                       pf_dbof_as                      Hz
-        P(f) Underfrequency Droop dbUF Setting                      pf_dbuf_as                      Hz
-        P(f) Overfrequency Droop kOF  Setting                       pf_kof_as                       unitless
-        P(f) Underfrequency Droop kUF Setting                       pf_kuf_as                       unitless
-        P(f) Open Loop Response Time Setting                        pf_olrt_as                      s
+        Frequency-Active Power Mode Enable                          pf_mode_enable               bool (True=Enabled)
+        P(f) Overfrequency Droop dbOF Setting                       pf_dbof                      Hz
+        P(f) Underfrequency Droop dbUF Setting                      pf_dbuf                      Hz
+        P(f) Overfrequency Droop kOF  Setting                       pf_kof                       unitless
+        P(f) Underfrequency Droop kUF Setting                       pf_kuf                       unitless
+        P(f) Open Loop Response Time Setting                        pf_olrt                      s
 
         :return: dict with keys shown above.
 
@@ -1453,7 +1744,6 @@ class DER1547(der1547.DER1547):
             DER Frequency Droop ID [ID]: 711
             DER Frequency Droop Length [L]: 19
             DER Frequency-Watt (Frequency-Droop) Module Enable. [Ena]: None
-            Active Curve State [CrvSt]: None
             Set Active Control Request [AdptCtlReq]: None
             Set Active Control Result [AdptCtlRslt]: None
             Stored Curve Count [NCtl]: 1
@@ -1480,29 +1770,34 @@ class DER1547(der1547.DER1547):
 
         if der_pts.Ena.cvalue is not None:
             if der_pts.Ena.cvalue == 1:
-                params['pf_mode_enable_as'] = True
+                params['pf_mode_enable'] = True
             else:
-                params['pf_mode_enable_as'] = False
+                params['pf_mode_enable'] = False
 
-        if der_pts.CrvSt.cvalue is not None:
-            params['pf_active_curve'] = der_pts.CrvSt.cvalue
         if der_pts.NCtl.cvalue is not None:
             params['pf_n_curves'] = der_pts.NCtl.cvalue
 
         if der_pts.Ctl[group].DbOf.cvalue is not None:
-            params['pf_dbof_as'] = der_pts.Ctl[group].DbOf.cvalue
+            params['pf_dbof'] = der_pts.Ctl[group].DbOf.cvalue
         if der_pts.Ctl[group].DbUf.cvalue is not None:
-            params['pf_dbuf_as'] = der_pts.Ctl[group].DbUf.cvalue
+            params['pf_dbuf'] = der_pts.Ctl[group].DbUf.cvalue
         if der_pts.Ctl[group].KOf.cvalue is not None:
-            params['pf_kof_as'] = der_pts.Ctl[group].KOf.cvalue
+            params['pf_kof'] = der_pts.Ctl[group].KOf.cvalue
         if der_pts.Ctl[group].KUf.cvalue is not None:
-            params['pf_kuf_as'] = der_pts.Ctl[group].KUf.cvalue
+            params['pf_kuf'] = der_pts.Ctl[group].KUf.cvalue
         if der_pts.Ctl[group].RspTms.cvalue is not None:
-            params['pf_olrt_as'] = der_pts.Ctl[group].RspTms.cvalue
+            params['pf_olrt'] = der_pts.Ctl[group].RspTms.cvalue
+
+        if der_pts.AdptCtlRslt is not None:
+            if der_pts.AdptCtlRslt.cvalue is not None:
+                write_result = der_pts.AdptCtlRslt.cvalue
+                params['pf_write_result'] = der_pts.AdptCtlRslt.pdef['symbols'][write_result]['name']
+            else:
+                params['pf_write_result'] = 'UNKNOWN'
 
         return params
 
-    def set_pf(self, params=None, group=1):
+    def set_pf(self, params=None, group=2):
         """
         Set P(f), Frequency-Active Power Mode Parameters
         """
@@ -1510,26 +1805,41 @@ class DER1547(der1547.DER1547):
         der_pts.read()
         group -= 1  # convert to the python index
 
-        if params.get('pf_mode_enable_as') is not None:
-            if params.get('pf_mode_enable_as'):
+        # work with the read only points in curve 0 if it is a simulated DER
+        if self.ifc_type == MAPPED:
+            group = 0
+
+        if params.get('pf_mode_enable') is not None:
+            if params.get('pf_mode_enable'):
                 der_pts.Ena.cvalue = 1
             else:
                 der_pts.Ena.cvalue = 0
 
-        der_pts.CrvSt.cvalue = group
+        curve_write = False
+        if params.get('pf_dbof') is not None:
+            der_pts.Ctl[group].DbOf.cvalue = params.get('pf_dbof')
+            curve_write = True
+        if params.get('pf_dbuf') is not None:
+            der_pts.Ctl[group].DbUf.cvalue = params.get('pf_dbuf')
+            curve_write = True
+        if params.get('pf_kof') is not None:
+            der_pts.Ctl[group].KOf.cvalue = params.get('pf_kof')
+            curve_write = True
+        if params.get('pf_kuf') is not None:
+            der_pts.Ctl[group].KUf.cvalue = params.get('pf_kuf')
+            curve_write = True
+        if params.get('pf_olrt') is not None:
+            der_pts.Ctl[group].RspTms.cvalue = params.get('pf_olrt')
+            curve_write = True
 
-        if params.get('pf_dbof_as') is not None:
-            der_pts.Ctl[group].DbOf.cvalue = params.get('pf_dbof_as')
-        if params.get('pf_dbuf_as') is not None:
-            der_pts.Ctl[group].DbUf.cvalue = params.get('pf_dbuf_as')
-        if params.get('pf_kof_as') is not None:
-            der_pts.Ctl[group].KOf.cvalue = params.get('pf_kof_as')
-        if params.get('pf_kuf_as') is not None:
-            der_pts.Ctl[group].KUf.cvalue = params.get('pf_kuf_as')
-        if params.get('pf_olrt_as') is not None:
-            der_pts.Ctl[group].RspTms.cvalue = params.get('pf_olrt_as')
-
-        der_pts.write()
+        der_pts.write()  # write the VV points and curve
+        if curve_write:  # if writing a new curve, set AdptCrvReq
+            der_pts.AdptCtlReq.cvalue = group
+            der_pts.write()  # request enabling the new curve
+            self.ts.sleep(2)  # wait to reread the AdptCrvRslt register
+            curve_enable_result = self.get_pf()['pf_write_result']
+            if curve_enable_result == 'IN_PROGRESS' or curve_enable_result == 'FAILED':
+                self.ts.log_warning('VV Write Result: %s' % curve_enable_result)
 
         return params
 
@@ -1537,16 +1847,16 @@ class DER1547(der1547.DER1547):
         """
         Get Permit Service Mode Parameters - IEEE 1547 Table 39
         ______________________________________________________________________________________________________________
-        Parameter                                               params dict key                 units
+        Parameter                                               params dict key              units
         ______________________________________________________________________________________________________________
-        Permit service                                          es_permit_service_as            bool (True=Enabled)
-        ES Voltage Low Setting                                  es_v_low_as                     V p.u.
-        ES Voltage High Setting                                 es_v_high_as                    V p.u.
-        ES Frequency Low Setting                                es_f_low_as                     Hz
-        ES Frequency High Setting                               es_f_high_as                    Hz
-        ES Randomized Delay                                     es_randomized_delay_as          bool (True=Enabled)
-        ES Delay Setting                                        es_delay_as                     s
-        ES Ramp Rate Setting                                    es_ramp_rate_as                 %/s
+        Permit service                                          es_permit_service            bool (True=Enabled)
+        ES Voltage Low Setting                                  es_v_low                     V p.u.
+        ES Voltage High Setting                                 es_v_high                    V p.u.
+        ES Frequency Low Setting                                es_f_low                     Hz
+        ES Frequency High Setting                               es_f_high                    Hz
+        ES Randomized Delay                                     es_randomized_delay          bool (True=Enabled)
+        ES Delay Setting                                        es_delay                     s
+        ES Ramp Rate Setting                                    es_ramp_rate                 %/s
 
         :return: dict with keys shown above.
 
@@ -1571,26 +1881,26 @@ class DER1547(der1547.DER1547):
 
         if der_pts.ES.cvalue is not None:
             if der_pts.ES.cvalue == 1:
-                params['es_permit_service_as'] = True
+                params['es_permit_service'] = True
             else:
-                params['es_permit_service_as'] = False
+                params['es_permit_service'] = False
 
         if der_pts.ESVLo.cvalue is not None:
-            params['es_v_low_as'] = der_pts.ESVLo.cvalue
+            params['es_v_low'] = der_pts.ESVLo.cvalue
         if der_pts.ESVHi.cvalue is not None:
-            params['es_v_high_as'] = der_pts.ESVHi.cvalue
+            params['es_v_high'] = der_pts.ESVHi.cvalue
 
         if der_pts.ESHzLo.cvalue is not None:
-            params['es_f_low_as'] = der_pts.ESHzLo.cvalue
+            params['es_f_low'] = der_pts.ESHzLo.cvalue
         if der_pts.ESHzHi.cvalue is not None:
-            params['es_f_high_as'] = der_pts.ESHzHi.cvalue
+            params['es_f_high'] = der_pts.ESHzHi.cvalue
 
         if der_pts.ESRndTms.cvalue is not None:
-            params['es_randomized_delay_as'] = der_pts.ESRndTms.cvalue
+            params['es_randomized_delay'] = der_pts.ESRndTms.cvalue
         if der_pts.ESDlyTms.cvalue is not None:
-            params['es_delay_as'] = der_pts.ESDlyTms.cvalue
+            params['es_delay'] = der_pts.ESDlyTms.cvalue
         if der_pts.ESRmpTms.cvalue is not None:
-            params['es_ramp_rate_as'] = der_pts.ESRmpTms.cvalue
+            params['es_ramp_rate'] = der_pts.ESRmpTms.cvalue
 
         return params
 
@@ -1601,28 +1911,28 @@ class DER1547(der1547.DER1547):
         der_pts = self.inv.DEREnterService[0]
         der_pts.read()
 
-        if params.get('es_permit_service_as') is not None:
-            if params.get('es_permit_service_as'):
+        if params.get('es_permit_service') is not None:
+            if params.get('es_permit_service'):
                 der_pts.ES.cvalue = 1
             else:
                 der_pts.ES.cvalue = 0
 
-        if params.get('es_v_low_as') is not None:
-            der_pts.ESVLo.cvalueparams = ['es_v_low_as']
-        if params.get('es_v_high_as') is not None:
-            der_pts.ESVHi.cvalue = params['es_v_high_as']
+        if params.get('es_v_low') is not None:
+            der_pts.ESVLo.cvalue = params['es_v_low']
+        if params.get('es_v_high') is not None:
+            der_pts.ESVHi.cvalue = params['es_v_high']
 
-        if params.get('es_f_low_as') is not None:
-            der_pts.ESHzLo.cvalue = params['es_f_low_as']
-        if params.get('es_f_high_as') is not None:
-            der_pts.ESHzHi.cvalue = params['es_f_high_as']
+        if params.get('es_f_low') is not None:
+            der_pts.ESHzLo.cvalue = params['es_f_low']
+        if params.get('es_f_high') is not None:
+            der_pts.ESHzHi.cvalue = params['es_f_high']
 
-        if params.get('es_randomized_delay_as') is not None:
-            der_pts.ESRndTms.cvalue = params['es_randomized_delay_as']
-        if params.get('es_delay_as') is not None:
-            der_pts.ESDlyTms.cvalue = params['es_delay_as']
-        if params.get('es_ramp_rate_as') is not None:
-            der_pts.ESRmpTms.cvalue = params['es_ramp_rate_as']
+        if params.get('es_randomized_delay') is not None:
+            der_pts.ESRndTms.cvalue = params['es_randomized_delay']
+        if params.get('es_delay') is not None:
+            der_pts.ESDlyTms.cvalue = params['es_delay']
+        if params.get('es_ramp_rate') is not None:
+            der_pts.ESRmpTms.cvalue = params['es_ramp_rate']
 
         der_pts.write()
 
@@ -1634,7 +1944,7 @@ class DER1547(der1547.DER1547):
         _______________________________________________________________________________________________________________
         Parameter                                                   params dict key                     units
         _______________________________________________________________________________________________________________
-        Unintentional Islanding Mode (enabled/disabled). This       ui_mode_enable_as                   bool
+        Unintentional Islanding Mode (enabled/disabled). This       ui_mode_enable                      bool
             function is enabled by default, and disabled only by
             request from the Area EPS Operator.
             UI is always on in 1547 BUT 1547.1 says turn it off
@@ -1671,7 +1981,6 @@ class DER1547(der1547.DER1547):
             DER Trip LV Model ID [ID]: 707
             DER Trip LV Model Length [L]: 18
             DER Trip LV Module Enable [Ena]: 1 [Enabled]
-            Active Curve State [CrvSt]: None
             Adopt Curve Request [AdptCrvReq]: None
             Adopt Curve Result [AdptCrvRslt]: None
             Number Of Points [NPt]: 1
@@ -1714,20 +2023,16 @@ class DER1547(der1547.DER1547):
             else:
                 params['Ena'] = False
 
-        if der_pts.CrvSt.cvalue is not None:
-            params['CrvSt'] = der_pts.CrvSt.cvalue
-        else:
-            params['CrvSt'] = None
-
         if der_pts.AdptCrvReq.cvalue is not None:
             params['AdptCrvReq'] = der_pts.AdptCrvReq.cvalue
         else:
             params['AdptCrvReq'] = None
 
         if der_pts.AdptCrvRslt.cvalue is not None:
-            params['AdptCrvRslt'] = der_pts.AdptCrvRslt.cvalue
+            write_result = der_pts.AdptCrvRslt.cvalue
+            params['write_result'] = der_pts.AdptCrvRslt.pdef['symbols'][write_result]['name']
         else:
-            params['AdptCrvRslt'] = None
+            params['write_result'] = 'UNKNOWN'
 
         if der_pts.NPt.cvalue is not None:
             params['NPt'] = der_pts.NPt.cvalue
@@ -1778,7 +2083,7 @@ class DER1547(der1547.DER1547):
             except Exception as e:
                 pass  # not a voltage curve
             try:
-                params['F'].append(curve.Pt[i].Freq.cvalue)
+                params['F'].append(curve.Pt[i].Hz.cvalue)
             except Exception as e:
                 pass  # not a freq curve
 
@@ -1804,12 +2109,8 @@ class DER1547(der1547.DER1547):
             else:
                 der_pts.Ena.cvalue = 0
 
-        if params.get('CrvSt') is not None:
-             der_pts.CrvSt.cvalue = params['CrvSt']
         if params.get('AdptCrvReq') is not None:
              der_pts.AdptCrvReq.cvalue = params['AdptCrvReq']
-        if params.get('AdptCrvRslt') is not None:
-             der_pts.AdptCrvRslt.cvalue = params['AdptCrvRslt']
         if params.get('NPt') is not None:
              der_pts.NPt.cvalue = params['NPt']
         if params.get('NCrvSet') is not None:
@@ -1833,7 +2134,9 @@ class DER1547(der1547.DER1547):
         else:
             raise der1547.DER1547Error('Incorrect curve_type string in get_any_ride_thru_trip_or_mc')
 
+        curve_write = False
         if params.get('T') is not None:
+            curve_write = True
             if len(params.get('T')) > der_pts.NPt.cvalue:
                 raise der1547.DER1547Error('Number of points is larger than NPt')
             if curve.ActPt.cvalue > der_pts.NPt.cvalue:
@@ -1849,9 +2152,16 @@ class DER1547(der1547.DER1547):
                     curve.Pt[i].V.cvalue = params['V'][i]
                 if params.get('F') is not None:
                     # self.ts.log_debug('params[F]: %s' % params['F'])
-                    curve.Pt[i].Freq.cvalue = params['F'][i]
+                    curve.Pt[i].Hz.cvalue = params['F'][i]
 
         der_pts.write()
+        if curve_write:
+            der_pts.AdptCrvReq.cvalue = group
+            der_pts.write()  # request enabling the new curve
+            self.ts.sleep(2)  # wait to reread the AdptCrvRslt register
+            curve_enable_result = self.get_any_ride_thru_trip_or_mc(der_pts, group, curve_type)['write_result']
+            if curve_enable_result == 'IN_PROGRESS' or curve_enable_result == 'FAILED':
+                self.ts.log_warning('Write Result: %s' % curve_enable_result)
 
         return params
 
@@ -1861,13 +2171,13 @@ class DER1547(der1547.DER1547):
         _______________________________________________________________________________________________________________
         Parameter                                                   params dict key                     units
         _______________________________________________________________________________________________________________
-        HV Trip Curve Point OV_V1-3 Setting                         ov_trip_v_pts_as                    V p.u.
-        HV Trip Curve Point OV_T1-3 Setting                         ov_trip_t_pts_as                    s
+        HV Trip Curve Point OV_V1-3 Setting                         ov_trip_v_pts                       V p.u.
+        HV Trip Curve Point OV_T1-3 Setting                         ov_trip_t_pts                       s
 
         :return: dict with keys shown above.
         """
         suns_dict = self.get_any_ride_thru_trip_or_mc(der_pts=self.inv.DERTripHV[0], group=1, curve_type='MustTrip')
-        params = {'ov_trip_v_pts_as': [v / 100. for v in suns_dict['V']], 'ov_trip_t_pts_as': suns_dict['T']}
+        params = {'ov_trip_v_pts': [v / 100. for v in suns_dict['V']], 'ov_trip_t_pts': suns_dict['T']}
         return params
 
     def set_ov(self, params=None):
@@ -1875,14 +2185,15 @@ class DER1547(der1547.DER1547):
         Set Overvoltage Trip Parameters - IEEE 1547 Table 35
         """
         suns_dict = {}
-        if params.get('ov_trip_v_pts_as') is not None:
-            suns_dict['V'] = [v * 100. for v in params.get('ov_trip_v_pts_as')]
+        if params.get('ov_trip_v_pts') is not None:
+            suns_dict['V'] = [v * 100. for v in params.get('ov_trip_v_pts')]
             if sorted(suns_dict['V']) != suns_dict['V']:
                 raise der1547.DER1547Error('Voltage points are not increasing')
-        if params.get('ov_trip_t_pts_as') is not None:
-            suns_dict['T'] = params.get('ov_trip_t_pts_as')
+        if params.get('ov_trip_t_pts') is not None:
+            suns_dict['T'] = params.get('ov_trip_t_pts')
 
-        self.set_any_ride_thru_trip_or_mc(params=suns_dict, der_pts=self.inv.DERTripHV[0], group=1, curve_type='MustTrip')
+        self.set_any_ride_thru_trip_or_mc(params=suns_dict, der_pts=self.inv.DERTripHV[0],
+                                          group=1, curve_type='MustTrip')
 
         return params
 
@@ -1892,13 +2203,13 @@ class DER1547(der1547.DER1547):
         _______________________________________________________________________________________________________________
         Parameter                                                   params dict key                     units
         _______________________________________________________________________________________________________________
-        LV Trip Curve Point UV_V1-3 Setting                         uv_trip_v_pts_as                    V p.u.
-        LV Trip Curve Point UV_T1-3 Setting                         uv_trip_t_pts_as                    s
+        LV Trip Curve Point UV_V1-3 Setting                         uv_trip_v_pts                       V p.u.
+        LV Trip Curve Point UV_T1-3 Setting                         uv_trip_t_pts                       s
 
         :return: dict with keys shown above.
         """
         suns_dict = self.get_any_ride_thru_trip_or_mc(der_pts=self.inv.DERTripLV[0], group=1, curve_type='MustTrip')
-        params= {'uv_trip_v_pts_as': [v / 100. for v in suns_dict['V']], 'uv_trip_t_pts_as': suns_dict['T']}
+        params= {'uv_trip_v_pts': [v / 100. for v in suns_dict['V']], 'uv_trip_t_pts': suns_dict['T']}
         return params
 
     def set_uv(self, params=None):
@@ -1906,14 +2217,15 @@ class DER1547(der1547.DER1547):
         Set Undervoltage Trip Parameters - IEEE 1547 Table 35
         """
         suns_dict = {}
-        if params.get('uv_trip_v_pts_as') is not None:
-            suns_dict['V'] = [v * 100. for v in params.get('uv_trip_v_pts_as')]
+        if params.get('uv_trip_v_pts') is not None:
+            suns_dict['V'] = [v * 100. for v in params.get('uv_trip_v_pts')]
             if sorted(reversed(suns_dict['V'])) != list(reversed(suns_dict['V'])):
                 raise der1547.DER1547Error('Voltage points are not decreasing')
-        if params.get('uv_trip_t_pts_as') is not None:
-            suns_dict['T'] = params.get('uv_trip_t_pts_as')
+        if params.get('uv_trip_t_pts') is not None:
+            suns_dict['T'] = params.get('uv_trip_t_pts')
 
-        self.set_any_ride_thru_trip_or_mc(params=suns_dict, der_pts=self.inv.DERTripLV[0], group=1, curve_type='MustTrip')
+        self.set_any_ride_thru_trip_or_mc(params=suns_dict, der_pts=self.inv.DERTripLV[0],
+                                          group=1, curve_type='MustTrip')
 
         return params
 
@@ -1923,13 +2235,13 @@ class DER1547(der1547.DER1547):
         _______________________________________________________________________________________________________________
         Parameter                                                   params dict key                     units
         _______________________________________________________________________________________________________________
-        OF Trip Curve Point OF_F1-3 Setting                         of_trip_f_pts_as                    Hz
-        OF Trip Curve Point OF_T1-3 Setting                         of_trip_t_pts_as                    s
+        OF Trip Curve Point OF_F1-3 Setting                         of_trip_f_pts                       Hz
+        OF Trip Curve Point OF_T1-3 Setting                         of_trip_t_pts                       s
 
         :return: dict with keys shown above.
         """
         suns_dict = self.get_any_ride_thru_trip_or_mc(der_pts=self.inv.DERTripHF[0], group=1, curve_type='MustTrip')
-        params= {'of_trip_f_pts_as': suns_dict['F'], 'of_trip_t_pts_as': suns_dict['T']}
+        params= {'of_trip_f_pts': suns_dict['F'], 'of_trip_t_pts': suns_dict['T']}
         return params
 
     def set_of(self, params=None):
@@ -1937,14 +2249,15 @@ class DER1547(der1547.DER1547):
         Set Overfrequency Trip Parameters - IEEE 1547 Table 37
         """
         suns_dict = {}
-        if params.get('of_trip_f_pts_as') is not None:
-            suns_dict['F'] = params.get('of_trip_f_pts_as')
+        if params.get('of_trip_f_pts') is not None:
+            suns_dict['F'] = params.get('of_trip_f_pts')
             if sorted(suns_dict['F']) != suns_dict['F']:
                 raise der1547.DER1547Error('Freq points are not decreasing')
-        if params.get('of_trip_t_pts_as') is not None:
-            suns_dict['T'] = params.get('of_trip_t_pts_as')
+        if params.get('of_trip_t_pts') is not None:
+            suns_dict['T'] = params.get('of_trip_t_pts')
 
-        self.set_any_ride_thru_trip_or_mc(params=suns_dict, der_pts=self.inv.DERTripHF[0], group=1, curve_type='MustTrip')
+        self.set_any_ride_thru_trip_or_mc(params=suns_dict, der_pts=self.inv.DERTripHF[0],
+                                          group=1, curve_type='MustTrip')
 
         return params
 
@@ -1954,13 +2267,13 @@ class DER1547(der1547.DER1547):
         _______________________________________________________________________________________________________________
         Parameter                                                   params dict key                     units
         _______________________________________________________________________________________________________________
-        UF Trip Curve Point UF_F1-3 Setting                         uf_trip_f_pts_as                    Hz
-        UF Trip Curve Point UF_T1-3 Setting                         uf_trip_t_pts_as                    s
+        UF Trip Curve Point UF_F1-3 Setting                         uf_trip_f_pts                       Hz
+        UF Trip Curve Point UF_T1-3 Setting                         uf_trip_t_pts                       s
 
         :return: dict with keys shown above.
         """
         suns_dict = self.get_any_ride_thru_trip_or_mc(der_pts=self.inv.DERTripLF[0], group=1, curve_type='MustTrip')
-        params= {'uf_trip_f_pts_as': suns_dict['F'], 'uf_trip_t_pts_as': suns_dict['T']}
+        params= {'uf_trip_f_pts': suns_dict['F'], 'uf_trip_t_pts': suns_dict['T']}
         return params
 
     def set_uf(self, params=None):
@@ -1968,12 +2281,12 @@ class DER1547(der1547.DER1547):
         Set Underfrequency Trip Parameters - IEEE 1547 Table 37
         """
         suns_dict = {}
-        if params.get('uf_trip_f_pts_as') is not None:
-            suns_dict['F'] = params.get('uf_trip_f_pts_as')
+        if params.get('uf_trip_f_pts') is not None:
+            suns_dict['F'] = params.get('uf_trip_f_pts')
             if sorted(reversed(suns_dict['F'])) != list(reversed(suns_dict['F'])):
                 raise der1547.DER1547Error('Freq points are not decreasing')
-        if params.get('uf_trip_t_pts_as') is not None:
-            suns_dict['T'] = params.get('uf_trip_t_pts_as')
+        if params.get('uf_trip_t_pts') is not None:
+            suns_dict['T'] = params.get('uf_trip_t_pts')
 
         self.set_any_ride_thru_trip_or_mc(params=suns_dict, der_pts=self.inv.DERTripLF[0], group=1,
                                           curve_type='MustTrip')
@@ -1988,17 +2301,17 @@ class DER1547(der1547.DER1547):
         _______________________________________________________________________________________________________________
         HV MC Curve Point OV_V1-3 (see Tables 11-13)                ov_mc_v_pts_er_min                  V p.u.
             (RofA not specified in 1547)
-        HV MC Curve Point OV_V1-3 Setting                           ov_mc_v_pts_as                      V p.u.
+        HV MC Curve Point OV_V1-3 Setting                           ov_mc_v_pts                         V p.u.
         HV MC Curve Point OV_V1-3 (RofA not specified in 1547)      ov_mc_v_pts_er_max                  V p.u.
         HV MC Curve Point OV_T1-3 (see Tables 11-13)                ov_mc_t_pts_er_min                  s
             (RofA not specified in 1547)
-        HV MC Curve Point OV_T1-3 Setting                           ov_mc_t_pts_as                      s
+        HV MC Curve Point OV_T1-3 Setting                           ov_mc_t_pts                         s
         HV MC Curve Point OV_T1-3 (RofA not specified in 1547)      ov_mc_t_pts_er_max                  s
 
         :return: dict with keys shown above.
         """
         suns_dict = self.get_any_ride_thru_trip_or_mc(der_pts=self.inv.DERTripHV[0], group=1, curve_type='MomCess')
-        params = {'ov_mc_v_pts_as': [v / 100. for v in suns_dict['V']], 'ov_mc_t_pts_as': suns_dict['T']}
+        params = {'ov_mc_v_pts': [v / 100. for v in suns_dict['V']], 'ov_mc_t_pts': suns_dict['T']}
         return params
 
     def set_ov_mc(self, params=None):
@@ -2006,12 +2319,12 @@ class DER1547(der1547.DER1547):
         Set Overvoltage Momentary Cessation (MC) Parameters - IEEE 1547 Table 36
         """
         suns_dict = {}
-        if params.get('ov_mc_v_pts_as') is not None:
-            suns_dict['V'] = [v * 100. for v in params.get('ov_mc_v_pts_as')]
+        if params.get('ov_mc_v_pts') is not None:
+            suns_dict['V'] = [v * 100. for v in params.get('ov_mc_v_pts')]
             if sorted(suns_dict['V']) != suns_dict['V']:
                 raise der1547.DER1547Error('Voltage points are not increasing')
-        if params.get('ov_mc_t_pts_as') is not None:
-            suns_dict['T'] = params.get('ov_mc_t_pts_as')
+        if params.get('ov_mc_t_pts') is not None:
+            suns_dict['T'] = params.get('ov_mc_t_pts')
 
         self.set_any_ride_thru_trip_or_mc(params=suns_dict, der_pts=self.inv.DERTripHV[0], group=1,
                                           curve_type='MomCess')
@@ -2026,17 +2339,17 @@ class DER1547(der1547.DER1547):
         _______________________________________________________________________________________________________________
         LV MC Curve Point UV_V1-3 (see Tables 11-13)                uv_mc_v_pts_er_min                V p.u.
             (RofA not specified in 1547)
-        LV MC Curve Point UV_V1-3 Setting                           uv_mc_v_pts_as                    V p.u.
+        LV MC Curve Point UV_V1-3 Setting                           uv_mc_v_pts                       V p.u.
         LV MC Curve Point UV_V1-3 (RofA not specified in 1547)      uv_mc_v_pts_er_max                V p.u.
         LV MC Curve Point UV_T1-3 (see Tables 11-13)                uv_mc_t_pts_er_min                s
             (RofA not specified in 1547)
-        LV MC Curve Point UV_T1-3 Setting                           uv_mc_t_pts_as                    s
+        LV MC Curve Point UV_T1-3 Setting                           uv_mc_t_pts                       s
         LV MC Curve Point UV_T1-3 (RofA not specified in 1547)      uv_mc_t_pts_er_max                s
 
         :return: dict with keys shown above.
         """
-        suns_dict = self.get_any_ride_thru_trip_or_mc(der_pts=self.inv.DERTripHV[0], group=1, curve_type='MomCess')
-        params = {'uv_mc_v_pts_as': [v / 100. for v in suns_dict['V']], 'uv_mc_t_pts_as': suns_dict['T']}
+        suns_dict = self.get_any_ride_thru_trip_or_mc(der_pts=self.inv.DERTripLV[0], group=1, curve_type='MomCess')
+        params = {'uv_mc_v_pts': [v / 100. for v in suns_dict['V']], 'uv_mc_t_pts': suns_dict['T']}
         return params
 
     def set_uv_mc(self, params=None):
@@ -2044,12 +2357,12 @@ class DER1547(der1547.DER1547):
         Set Undervoltage Momentary Cessation (MC) Parameters - IEEE 1547 Table 36
         """
         suns_dict = {}
-        if params.get('uv_mc_v_pts_as') is not None:
-            suns_dict['V'] = [v * 100. for v in params.get('uv_mc_v_pts_as')]
+        if params.get('uv_mc_v_pts') is not None:
+            suns_dict['V'] = [v * 100. for v in params.get('uv_mc_v_pts')]
             if sorted(reversed(suns_dict['V'])) != list(reversed(suns_dict['V'])):
                 raise der1547.DER1547Error('Voltage points are not decreasing')
-        if params.get('uv_mc_t_pts_as') is not None:
-            suns_dict['T'] = params.get('uv_mc_t_pts_as')
+        if params.get('uv_mc_t_pts') is not None:
+            suns_dict['T'] = params.get('uv_mc_t_pts')
 
         self.set_any_ride_thru_trip_or_mc(params=suns_dict, der_pts=self.inv.DERTripLV[0], group=1,
                                           curve_type='MomCess')
@@ -2067,7 +2380,7 @@ class DER1547(der1547.DER1547):
         Cease to energize and trip                              cease_to_energize               bool (True=Enabled)
 
         """
-        return self.set_es_permit_service(params={'es_permit_service_as': params['cease_to_energize']})
+        return self.set_es_permit_service(params={'es_permit_service': params['cease_to_energize']})
 
     # Additional functions outside of IEEE 1547-2018
     def get_conn(self):
@@ -2076,7 +2389,7 @@ class DER1547(der1547.DER1547):
         ______________________________________________________________________________________________________________
         Parameter                                                   params dict key                 units
         ______________________________________________________________________________________________________________
-        Connect/Disconnect Enable                                   conn_as                     bool (True=Enabled)
+        Connect/Disconnect Enable                                   conn                     bool (True=Enabled)
         """
         pass
 
@@ -2090,7 +2403,7 @@ class DER1547(der1547.DER1547):
         """
         Set Error, for testing Monitoring Data in DER
 
-        error_as = set error
+        error = set error
         """
         pass
 

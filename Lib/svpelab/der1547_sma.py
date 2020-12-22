@@ -244,11 +244,11 @@ class DER1547(der1547.DER1547):
         ________________________________________________________________________________________________________________
         Parameter                                               params dict key                     units
         ________________________________________________________________________________________________________________
-        Constant Power Factor Mode Select                       const_pf_mode_enable_as             bool (True=Enabled)
-        Constant Power Factor Excitation                        const_pf_excitation_as              str ('inj', 'abs')
-        Constant Power Factor Absorbing Setting                 const_pf_abs_as                     VAr p.u
-        Constant Power Factor Injecting Setting                 const_pf_inj_as                     VAr p.u
-        Maximum response time to maintain constant power        const_pf_olrt_as                    s
+        Constant Power Factor Mode Select                       const_pf_mode_enable             bool (True=Enabled)
+        Constant Power Factor Excitation                        const_pf_excitation              str ('inj', 'abs')
+        Constant Power Factor Absorbing Setting                 const_pf_abs                     VAr p.u
+        Constant Power Factor Injecting Setting                 const_pf_inj                     VAr p.u
+        Maximum response time to maintain constant power        const_pf_olrt                    s
             factor. (Not in 1547)
 
         :return: dict with keys shown above.
@@ -257,14 +257,14 @@ class DER1547(der1547.DER1547):
         pf = self.sma.fixed_pf()
         ieee_dict = {}
         if pf.get('Ena') is not None:
-            ieee_dict['const_pf_mode_enable_as'] = pf['Ena']
+            ieee_dict['const_pf_mode_enable'] = pf['Ena']
         if pf.get('PF') is not None:
             if pf['PF'] >= 0.:
-                ieee_dict['const_pf_abs_as'] = pf['PF']
-                ieee_dict['const_pf_excitation_as'] = 'abs'
+                ieee_dict['const_pf_abs'] = pf['PF']
+                ieee_dict['const_pf_excitation'] = 'abs'
             else:
-                ieee_dict['const_pf_inj_as'] = pf['PF']
-                ieee_dict['const_pf_excitation_as'] = 'inj'
+                ieee_dict['const_pf_inj'] = pf['PF']
+                ieee_dict['const_pf_excitation'] = 'inj'
 
         return ieee_dict
 
@@ -274,27 +274,27 @@ class DER1547(der1547.DER1547):
         ________________________________________________________________________________________________________________
         Parameter                                               params dict key                     units
         ________________________________________________________________________________________________________________
-        Constant Power Factor Mode Select                       const_pf_mode_enable_as             bool (True=Enabled)
-        Constant Power Factor Excitation                        const_pf_excitation_as              str ('inj', 'abs')
-        Constant Power Factor Absorbing Setting                 const_pf_abs_as                     VAr p.u
-        Constant Power Factor Injecting Setting                 const_pf_inj_as                     VAr p.u
-        Maximum response time to maintain constant power        const_pf_olrt_as                    s
+        Constant Power Factor Mode Select                       const_pf_mode_enable             bool (True=Enabled)
+        Constant Power Factor Excitation                        const_pf_excitation              str ('inj', 'abs')
+        Constant Power Factor Absorbing Setting                 const_pf_abs                     VAr p.u
+        Constant Power Factor Injecting Setting                 const_pf_inj                     VAr p.u
+        Maximum response time to maintain constant power        const_pf_olrt                    s
             factor. (Not in 1547)
 
         :return: dict with keys shown above.
         """
         new_params = {}
 
-        if 'const_pf_mode_enable_as' in params:
-            new_params['Ena'] = params['const_pf_mode_enable_as']
+        if 'const_pf_mode_enable' in params:
+            new_params['Ena'] = params['const_pf_mode_enable']
 
         # todo improve this logic
-        if 'const_pf_excitation_as' in params and 'const_pf_inj_as' in params:
-            if params['const_pf_excitation_as'] == 'inj':
-                new_params['PF'] = -1*abs(parms['const_pf_inj_as'])
-        if 'const_pf_excitation_as' in params and 'const_pf_abs_as' in params:
-            if params['const_pf_excitation_as'] == 'abs':
-                new_params['PF'] = abs(parms['const_pf_abs_as'])
+        if 'const_pf_excitation' in params and 'const_pf_inj' in params:
+            if params['const_pf_excitation'] == 'inj':
+                new_params['PF'] = -1*abs(parms['const_pf_inj'])
+        if 'const_pf_excitation' in params and 'const_pf_abs' in params:
+            if params['const_pf_excitation'] == 'abs':
+                new_params['PF'] = abs(parms['const_pf_abs'])
 
         return self.sma.fixed_pf(params=new_params)
 
@@ -304,20 +304,20 @@ class DER1547(der1547.DER1547):
         ______________________________________________________________________________________________________________
         Parameter                                                   params dict key                 units
         ______________________________________________________________________________________________________________
-        Voltage-Reactive Power Mode Enable                          qv_mode_enable_as               bool (True=Enabled)
-        Vref (0.95-1.05)                                            qv_vref_as                      V p.u.
-        Autonomous Vref Adjustment Enable                           qv_vref_auto_mode_as            str
-        Vref adjustment time Constant (300-5000)                    qv_vref_olrt_as                 s
+        Voltage-Reactive Power Mode Enable                          qv_mode_enable               bool (True=Enabled)
+        Vref (0.95-1.05)                                            qv_vref                      V p.u.
+        Autonomous Vref Adjustment Enable                           qv_vref_auto_mode            str
+        Vref adjustment time Constant (300-5000)                    qv_vref_olrt                 s
         Q(V) Curve Point V1-4 (list), [0.95, 0.99, 1.01, 1.05]      qv_curve_v_pts                  V p.u.
         Q(V) Curve Point Q1-4 (list), [1., 0., 0., -1.]             qv_curve_q_pts                  VAr p.u.
-        Q(V) Open Loop Response Time Setting  (1-90)                qv_olrt_as                      s
+        Q(V) Open Loop Response Time Setting  (1-90)                qv_olrt                      s
         """
 
         vv = self.sma.volt_var()
 
         ieee_dict = {}
         if vv.get('Ena') is not None:
-            ieee_dict['qv_mode_enable_as'] = vv['Ena']
+            ieee_dict['qv_mode_enable'] = vv['Ena']
         if vv.get('curve') is not None:
             if vv['curve'].get('v') is not None:
                 ieee_dict['qv_curve_v_pts'] = vv['curve'].get('v')
@@ -332,19 +332,19 @@ class DER1547(der1547.DER1547):
         ______________________________________________________________________________________________________________
         Parameter                                                   params dict key                 units
         ______________________________________________________________________________________________________________
-        Voltage-Reactive Power Mode Enable                          qv_mode_enable_as               bool (True=Enabled)
-        Vref (0.95-1.05)                                            qv_vref_as                      V p.u.
-        Autonomous Vref Adjustment Enable                           qv_vref_auto_mode_as            str
-        Vref adjustment time Constant (300-5000)                    qv_vref_olrt_as                 s
+        Voltage-Reactive Power Mode Enable                          qv_mode_enable               bool (True=Enabled)
+        Vref (0.95-1.05)                                            qv_vref                      V p.u.
+        Autonomous Vref Adjustment Enable                           qv_vref_auto_mode            str
+        Vref adjustment time Constant (300-5000)                    qv_vref_olrt                 s
         Q(V) Curve Point V1-4 (list), [0.95, 0.99, 1.01, 1.05]      qv_curve_v_pts                  V p.u.
         Q(V) Curve Point Q1-4 (list), [1., 0., 0., -1.]             qv_curve_q_pts                  VAr p.u.
-        Q(V) Open Loop Response Time Setting  (1-90)                qv_olrt_as                      s
+        Q(V) Open Loop Response Time Setting  (1-90)                qv_olrt                      s
         ______________________________________________________________________________________________________________
         """
 
         new_params = {'curve': {}}
-        if params.get('qv_mode_enable_as') is not None:
-            new_params['Ena'] = params['qv_mode_enable_as']
+        if params.get('qv_mode_enable') is not None:
+            new_params['Ena'] = params['qv_mode_enable']
         if params.get('qv_curve_v_pts') is not None:
             new_params['curve']['v'] = params['qv_curve_v_pts']
         if params.get('qv_curve_q_pts') is not None:
@@ -358,10 +358,10 @@ class DER1547(der1547.DER1547):
         ______________________________________________________________________________________________________________
         Parameter                                               params dict key                     units
         ______________________________________________________________________________________________________________
-        Constant Reactive Power Mode Enable                     const_q_mode_enable_as              bool (True=Enabled)
-        Constant Reactive Power Excitation (not specified in    const_q_mode_excitation_as          str ('inj', 'abs')
+        Constant Reactive Power Mode Enable                     const_q_mode_enable              bool (True=Enabled)
+        Constant Reactive Power Excitation (not specified in    const_q_mode_excitation          str ('inj', 'abs')
             1547)
-        Constant Reactive power setting (See Table 7)           const_q_as                          VAr p.u.
+        Constant Reactive power setting (See Table 7)           const_q                          VAr p.u.
         Constant Reactive Power (RofA not specified in 1547)    const_q_abs_er_max                  VAr p.u.
             Absorbing Reactive Power Setting.  Per unit value
             based on NP Qmax Abs. Negative signs should not be
@@ -372,7 +372,7 @@ class DER1547(der1547.DER1547):
             not be used but if present indicate Injecting VAr.
         Maximum Response Time to maintain constant reactive     const_q_olrt_er_min                 s
             power (not specified in 1547)
-        Maximum Response Time to maintain constant reactive     const_q_olrt_as                     s
+        Maximum Response Time to maintain constant reactive     const_q_olrt                     s
             power (not specified in 1547)
         Maximum Response Time to maintain constant reactive     const_q_olrt_er_max                 s
             power(not specified in 1547)
@@ -394,7 +394,7 @@ class DER1547(der1547.DER1547):
         """
         Get Connection
 
-        conn_as = bool for connection
+        conn = bool for connection
         """
 
         return {}
@@ -404,7 +404,7 @@ class DER1547(der1547.DER1547):
         This information is used to update functional and mode settings for the
         Constant Reactive Power Mode. This information may be written.
 
-        conn_as = bool for connection
+        conn = bool for connection
         """
 
         return {}
@@ -415,12 +415,12 @@ class DER1547(der1547.DER1547):
         ______________________________________________________________________________________________________________
         Parameter                                                   params dict key                 units
         ______________________________________________________________________________________________________________
-        Frequency-Active Power Mode Enable                          pf_mode_enable_as               bool (True=Enabled)
-        P(f) Overfrequency Droop dbOF Setting                       pf_dbof_as                      Hz
-        P(f) Underfrequency Droop dbUF Setting                      pf_dbuf_as                      Hz
-        P(f) Overfrequency Droop kOF  Setting                       pf_kof_as                       unitless
-        P(f) Underfrequency Droop kUF Setting                       pf_kuf_as                       unitless
-        P(f) Open Loop Response Time Setting                        pf_olrt_as                      s
+        Frequency-Active Power Mode Enable                          pf_mode_enable               bool (True=Enabled)
+        P(f) Overfrequency Droop dbOF Setting                       pf_dbof                      Hz
+        P(f) Underfrequency Droop dbUF Setting                      pf_dbuf                      Hz
+        P(f) Overfrequency Droop kOF  Setting                       pf_kof                       unitless
+        P(f) Underfrequency Droop kUF Setting                       pf_kuf                       unitless
+        P(f) Open Loop Response Time Setting                        pf_olrt                      s
 
         :return: dict with keys shown above.
         """
@@ -428,15 +428,15 @@ class DER1547(der1547.DER1547):
         ieee_dict = {}
         fw = self.sma.freq_droop()
         if fw.get('Ena') is not None:
-            ieee_dict['pf_mode_enable_as'] = fw.get('Ena')
+            ieee_dict['pf_mode_enable'] = fw.get('Ena')
         if fw.get('dbOF') is not None:
-            ieee_dict['pf_dbof_as'] = fw.get('dbOF')
+            ieee_dict['pf_dbof'] = fw.get('dbOF')
         if fw.get('dbUF') is not None:
-            ieee_dict['pf_dbuf_as'] = fw.get('dbUF')
+            ieee_dict['pf_dbuf'] = fw.get('dbUF')
         if fw.get('kOF') is not None:
-            ieee_dict['pf_kof_as'] = fw.get('kOF')
+            ieee_dict['pf_kof'] = fw.get('kOF')
         if fw.get('kUF') is not None:
-            ieee_dict['pf_kuf_as'] = fw.get('kUF')
+            ieee_dict['pf_kuf'] = fw.get('kUF')
 
         return ieee_dict
 
@@ -446,16 +446,16 @@ class DER1547(der1547.DER1547):
         """
 
         new_params = {}
-        if params.get('pf_mode_enable_as') is not None:
-            new_params['Ena'] = params['pf_mode_enable_as']
-        if params.get('pf_dbof_as') is not None:
-            new_params['dbOF'] = params['pf_dbof_as']
-        if params.get('pf_dbuf_as') is not None:
-            new_params['dbUF'] = params['pf_dbuf_as']
-        if params.get('pf_kof_as') is not None:
-            new_params['kOF'] = params['pf_kof_as']
-        if params.get('pf_kuf_as') is not None:
-            new_params['kUF'] = params['pf_kuf_as']
+        if params.get('pf_mode_enable') is not None:
+            new_params['Ena'] = params['pf_mode_enable']
+        if params.get('pf_dbof') is not None:
+            new_params['dbOF'] = params['pf_dbof']
+        if params.get('pf_dbuf') is not None:
+            new_params['dbUF'] = params['pf_dbuf']
+        if params.get('pf_kof') is not None:
+            new_params['kOF'] = params['pf_kof']
+        if params.get('pf_kuf') is not None:
+            new_params['kUF'] = params['pf_kuf']
 
         return self.sma.freq_droop(params=new_params)
 
@@ -465,18 +465,18 @@ class DER1547(der1547.DER1547):
         ______________________________________________________________________________________________________________
         Parameter                                                   params dict key                 units
         ______________________________________________________________________________________________________________
-        Frequency-Active Power Mode Enable                          p_lim_mode_enable_as         bool (True=Enabled)
+        Frequency-Active Power Mode Enable                          p_lim_mode_enable         bool (True=Enabled)
         Maximum Active Power Min                                    p_lim_w_er_min               P p.u.
-        Maximum Active Power                                        p_lim_w_as                   P p.u.
+        Maximum Active Power                                        p_lim_w                   P p.u.
         Maximum Active Power Max                                    p_lim_w_er_max               P p.u.
         """
 
         ieee_dict = {}
         p_lim = self.sma.limit_max_power()
         if p_lim.get('Ena') is not None:
-            ieee_dict['p_lim_mode_enable_as'] = p_lim.get('Ena')
+            ieee_dict['p_lim_mode_enable'] = p_lim.get('Ena')
         if p_lim.get('WMaxPct') is not None:
-            ieee_dict['p_lim_w_as'] = p_lim.get('WMaxPct')
+            ieee_dict['p_lim_w'] = p_lim.get('WMaxPct')
 
         return ieee_dict
 
@@ -486,16 +486,16 @@ class DER1547(der1547.DER1547):
         ______________________________________________________________________________________________________________
         Parameter                                                   params dict key                 units
         ______________________________________________________________________________________________________________
-        Frequency-Active Power Mode Enable                          p_lim_mode_enable_as         bool (True=Enabled)
+        Frequency-Active Power Mode Enable                          p_lim_mode_enable         bool (True=Enabled)
         Maximum Active Power Min                                    p_lim_w_er_min               P p.u.
-        Maximum Active Power                                        p_lim_w_as                   P p.u.
+        Maximum Active Power                                        p_lim_w                   P p.u.
         Maximum Active Power Max                                    p_lim_w_er_max               P p.u.
         """
         new_params = {}
-        if params.get('p_lim_mode_enable_as') is not None:
-            new_params['Ena'] = params['p_lim_mode_enable_as']
-        if params.get('p_lim_w_as') is not None:
-            new_params['WMaxPct'] = params['p_lim_w_as']
+        if params.get('p_lim_mode_enable') is not None:
+            new_params['Ena'] = params['p_lim_mode_enable']
+        if params.get('p_lim_w') is not None:
+            new_params['WMaxPct'] = params['p_lim_w']
 
         return self.sma.limit_max_power(new_params)
 
@@ -505,23 +505,23 @@ class DER1547(der1547.DER1547):
         _______________________________________________________________________________________________________________
         Parameter                                                   params dict key                     units
         _______________________________________________________________________________________________________________
-        Active Power-Reactive Power (Watt-VAr) Enable               qp_mode_enable_as                   bool
-        P-Q curve P1-3 Generation Setting (list)                    qp_curve_p_gen_pts_as               P p.u.
-        P-Q curve Q1-3 Generation Setting (list)                    qp_curve_q_gen_pts_as               VAr p.u.
-        P-Q curve P1-3 Load Setting (list)                          qp_curve_p_load_pts_as              P p.u.
-        P-Q curve Q1-3 Load Setting (list)                          qp_curve_q_load_pts_as              VAr p.u.
-        QP Open Loop Response Time Setting                          qp_olrt_as                          s
+        Active Power-Reactive Power (Watt-VAr) Enable               qp_mode_enable                   bool
+        P-Q curve P1-3 Generation Setting (list)                    qp_curve_p_gen_pts               P p.u.
+        P-Q curve Q1-3 Generation Setting (list)                    qp_curve_q_gen_pts               VAr p.u.
+        P-Q curve P1-3 Load Setting (list)                          qp_curve_p_load_pts              P p.u.
+        P-Q curve Q1-3 Load Setting (list)                          qp_curve_q_load_pts              VAr p.u.
+        QP Open Loop Response Time Setting                          qp_olrt                          s
         """
 
         ieee_dict = {}
         wv = self.sma.watt_var()
         if wv.get('Ena') is not None:
-            ieee_dict['qp_mode_enable_as'] = wv.get('Ena')
+            ieee_dict['qp_mode_enable'] = wv.get('Ena')
         if wv.get('curve') is not None:
             if wv['curve'].get('w') is not None:
-                ieee_dict['qp_curve_p_gen_pts_as'] = wv['curve'].get('w')
+                ieee_dict['qp_curve_p_gen_pts'] = wv['curve'].get('w')
             if wv['curve'].get('var') is not None:
-                ieee_dict['qp_curve_q_gen_pts_as'] = wv['curve'].get('var')
+                ieee_dict['qp_curve_q_gen_pts'] = wv['curve'].get('var')
 
         return ieee_dict
 
@@ -531,12 +531,12 @@ class DER1547(der1547.DER1547):
         """
 
         new_params = {'curve': {}}
-        if params('qp_mode_enable_as') is not None:
-            new_params['Ena'] = params('qp_mode_enable_as')
-        if params('qp_curve_p_gen_pts_as') is not None:
-            new_params['curve']['w'] = params('qp_curve_p_gen_pts_as')
-        if params('qp_curve_p_gen_pts_as') is not None:
-            new_params['curve']['var'] = params('qp_curve_q_gen_pts_as')
+        if params('qp_mode_enable') is not None:
+            new_params['Ena'] = params('qp_mode_enable')
+        if params('qp_curve_p_gen_pts') is not None:
+            new_params['curve']['w'] = params('qp_curve_p_gen_pts')
+        if params('qp_curve_p_gen_pts') is not None:
+            new_params['curve']['var'] = params('qp_curve_q_gen_pts')
 
         return self.sma.watt_var(new_params)
 
@@ -546,22 +546,22 @@ class DER1547(der1547.DER1547):
         ______________________________________________________________________________________________________________
         Parameter                                                   params dict key                         units
         ______________________________________________________________________________________________________________
-        Voltage-Active Power Mode Enable                            pv_mode_enable_as                       bool
-        P(V) Curve Point V1-2 Setting (list)                        pv_curve_v_pts_as                       V p.u.
-        P(V) Curve Point P1-2 Setting (list)                        pv_curve_p_pts_as                       P p.u.
-        P(V) Curve Point P1-P'2 Setting (list)                      pv_curve_p_bidrct_pts_as                P p.u.
-        P(V) Open Loop Response time Setting (0.5-60)               pv_olrt_as                              s
+        Voltage-Active Power Mode Enable                            pv_mode_enable                       bool
+        P(V) Curve Point V1-2 Setting (list)                        pv_curve_v_pts                       V p.u.
+        P(V) Curve Point P1-2 Setting (list)                        pv_curve_p_pts                       P p.u.
+        P(V) Curve Point P1-P'2 Setting (list)                      pv_curve_p_bidrct_pts                P p.u.
+        P(V) Open Loop Response time Setting (0.5-60)               pv_olrt                              s
         """
 
         ieee_dict = {}
         vw = self.sma.volt_watt()
         if vw.get('Ena') is not None:
-            ieee_dict['pv_mode_enable_as'] = vw.get('Ena')
+            ieee_dict['pv_mode_enable'] = vw.get('Ena')
         if vw.get('curve') is not None:
             if vw['curve'].get('v') is not None:
-                ieee_dict['pv_curve_v_pts_as'] = vw['curve'].get('v')
+                ieee_dict['pv_curve_v_pts'] = vw['curve'].get('v')
             if vw['curve'].get('w') is not None:
-                ieee_dict['pv_curve_p_pts_as'] = vw['curve'].get('w')
+                ieee_dict['pv_curve_p_pts'] = vw['curve'].get('w')
 
         return ieee_dict
 
@@ -571,21 +571,21 @@ class DER1547(der1547.DER1547):
         ______________________________________________________________________________________________________________
         Parameter                                                   params dict key                         units
         ______________________________________________________________________________________________________________
-        Voltage-Active Power Mode Enable                            pv_mode_enable_as                       bool
-        P(V) Curve Point V1-2 Setting (list)                        pv_curve_v_pts_as                       V p.u.
-        P(V) Curve Point P1-2 Setting (list)                        pv_curve_p_pts_as                       P p.u.
-        P(V) Curve Point P1-P'2 Setting (list)                      pv_curve_p_bidrct_pts_as                P p.u.
-        P(V) Open Loop Response time Setting (0.5-60)               pv_olrt_as                              s
+        Voltage-Active Power Mode Enable                            pv_mode_enable                       bool
+        P(V) Curve Point V1-2 Setting (list)                        pv_curve_v_pts                       V p.u.
+        P(V) Curve Point P1-2 Setting (list)                        pv_curve_p_pts                       P p.u.
+        P(V) Curve Point P1-P'2 Setting (list)                      pv_curve_p_bidrct_pts                P p.u.
+        P(V) Open Loop Response time Setting (0.5-60)               pv_olrt                              s
 
         :return: dict with keys shown above.
         """
         new_params = {'curve': {}}
-        if params('pv_mode_enable_as') is not None:
-            new_params['Ena'] = params('pv_mode_enable_as')
-        if params('pv_curve_v_pts_as') is not None:
-            new_params['curve']['v'] = params('pv_curve_v_pts_as')
-        if params('pv_curve_p_pts_as') is not None:
-            new_params['curve']['w'] = params('pv_curve_p_pts_as')
+        if params('pv_mode_enable') is not None:
+            new_params['Ena'] = params('pv_mode_enable')
+        if params('pv_curve_v_pts') is not None:
+            new_params['curve']['v'] = params('pv_curve_v_pts')
+        if params('pv_curve_p_pts') is not None:
+            new_params['curve']['w'] = params('pv_curve_p_pts')
 
         return self.sma.volt_watt(new_params)
 
@@ -595,25 +595,25 @@ class DER1547(der1547.DER1547):
         ______________________________________________________________________________________________________________
         Parameter                                               params dict key                 units
         ______________________________________________________________________________________________________________
-        Permit service                                          es_permit_service_as            bool (True=Enabled)
+        Permit service                                          es_permit_service            bool (True=Enabled)
         ES Voltage Low (RofA not specified in 1547)             es_v_low_er_min                 V p.u.
-        ES Voltage Low Setting                                  es_v_low_as                     V p.u.
+        ES Voltage Low Setting                                  es_v_low                     V p.u.
         ES Voltage Low (RofA not specified in 1547)             es_v_low_er_max                 V p.u.
         ES Voltage High (RofA not specified in 1547)            es_v_high_er_min                V p.u.
-        ES Voltage High Setting                                 es_v_high_as                    V p.u.
+        ES Voltage High Setting                                 es_v_high                    V p.u.
         ES Voltage High (RofA not specified in 1547)            es_v_high_er_max                V p.u.
         ES Frequency Low (RofA not specified in 1547)           es_f_low_er_min                 Hz
-        ES Frequency Low Setting                                es_f_low_as                     Hz
+        ES Frequency Low Setting                                es_f_low                     Hz
         ES Frequency Low (RofA not specified in 1547)           es_f_low_er_max                 Hz
         ES Frequency Low (RofA not specified in 1547)           es_f_high_er_min                Hz
-        ES Frequency High Setting                               es_f_high_as                    Hz
+        ES Frequency High Setting                               es_f_high                    Hz
         ES Frequency Low (RofA not specified in 1547)           es_f_high_er_max                Hz
-        ES Randomized Delay                                     es_randomized_delay_as          bool (True=Enabled)
+        ES Randomized Delay                                     es_randomized_delay          bool (True=Enabled)
         ES Delay (RofA not specified in 1547)                   es_delay_er_min                 s
-        ES Delay Setting                                        es_delay_as                     s
+        ES Delay Setting                                        es_delay                     s
         ES Delay (RofA not specified in 1547)                   es_delay_er_max                 s
         ES Ramp Rate Min (RofA not specified in 1547)           es_ramp_rate_er_min             %/s
-        ES Ramp Rate Setting                                    es_ramp_rate_as                 %/s
+        ES Ramp Rate Setting                                    es_ramp_rate                 %/s
         ES Ramp Rate Min (RofA not specified in 1547)           es_ramp_rate_er_max             %/s
 
         :return: dict with keys shown above.
@@ -632,7 +632,7 @@ class DER1547(der1547.DER1547):
         _______________________________________________________________________________________________________________
         Parameter                                                   params dict key                     units
         _______________________________________________________________________________________________________________
-        Unintentional Islanding Mode (enabled/disabled). This       ui_mode_enable_as                   bool
+        Unintentional Islanding Mode (enabled/disabled). This       ui_mode_enable                   bool
             function is enabled by default, and disabled only by
             request from the Area EPS Operator.
             UI is always on in 1547 BUT 1547.1 says turn it off
@@ -648,15 +648,13 @@ class DER1547(der1547.DER1547):
 
         :return: dict with keys shown above.
         """
-        # self.sma.ui()
-        params = {'ui_mode_enable_as': False, 'ui_capability_er': ['UI_BLRC']}
-        return params
+        return self.sma.ui()
 
     def set_ui(self, params=None):
         """
         Set Unintentional Islanding Parameters
         """
-        return self.ts.confirm('Set UI with params = %s' % params)
+        return self.ts.prompt('Set UI with params = %s' % params)
 
     def get_ov(self, params=None):
         """
@@ -666,11 +664,11 @@ class DER1547(der1547.DER1547):
         _______________________________________________________________________________________________________________
         HV Trip Curve Point OV_V1-3 (see Tables 11-13)              ov_trip_v_pts_er_min                V p.u.
             (RofA not specified in 1547)
-        HV Trip Curve Point OV_V1-3 Setting                         ov_trip_v_pts_as                    V p.u.
+        HV Trip Curve Point OV_V1-3 Setting                         ov_trip_v_pts                    V p.u.
         HV Trip Curve Point OV_V1-3 (RofA not specified in 1547)    ov_trip_v_pts_er_max                V p.u.
         HV Trip Curve Point OV_T1-3 (see Tables 11-13)              ov_trip_t_pts_er_min                s
             (RofA not specified in 1547)
-        HV Trip Curve Point OV_T1-3 Setting                         ov_trip_t_pts_as                    s
+        HV Trip Curve Point OV_T1-3 Setting                         ov_trip_t_pts                    s
         HV Trip Curve Point OV_T1-3 (RofA not specified in 1547)    ov_trip_t_pts_er_max                s
 
         :return: dict with keys shown above.
@@ -679,9 +677,9 @@ class DER1547(der1547.DER1547):
         vw = self.sma.vrt_trip_high()
         if vw.get('curve') is not None:
             if vw['curve'].get('v') is not None:
-                ieee_dict['ov_trip_v_pts_as'] = vw['curve'].get('V')
+                ieee_dict['ov_trip_v_pts'] = vw['curve'].get('V')
             if vw['curve'].get('t') is not None:
-                ieee_dict['ov_trip_t_pts_as'] = vw['curve'].get('t')
+                ieee_dict['ov_trip_t_pts'] = vw['curve'].get('t')
 
         return ieee_dict
 
@@ -690,10 +688,10 @@ class DER1547(der1547.DER1547):
         Set Overvoltage Trip Parameters - IEEE 1547 Table 35
         """
         new_params = {'curve': {}}
-        if params('ov_trip_v_pts_as') is not None:
-            new_params['curve']['V'] = params('ov_trip_v_pts_as')
-        if params('ov_trip_t_pts_as') is not None:
-            new_params['curve']['t'] = params('ov_trip_t_pts_as')
+        if params('ov_trip_v_pts') is not None:
+            new_params['curve']['V'] = params('ov_trip_v_pts')
+        if params('ov_trip_t_pts') is not None:
+            new_params['curve']['t'] = params('ov_trip_t_pts')
 
         return self.sma.vrt_trip_high(new_params)
 
@@ -705,11 +703,11 @@ class DER1547(der1547.DER1547):
         _______________________________________________________________________________________________________________
         LV Trip Curve Point UV_V1-3 (see Tables 11-13)              uv_trip_v_pts_er_min                V p.u.
             (RofA not specified in 1547)
-        LV Trip Curve Point UV_V1-3 Setting                         uv_trip_v_pts_as                    V p.u.
+        LV Trip Curve Point UV_V1-3 Setting                         uv_trip_v_pts                    V p.u.
         LV Trip Curve Point UV_V1-3 (RofA not specified in 1547)    uv_trip_v_pts_er_max                V p.u.
         LV Trip Curve Point UV_T1-3 (see Tables 11-13)              uv_trip_t_pts_er_min                s
             (RofA not specified in 1547)
-        LV Trip Curve Point UV_T1-3 Setting                         uv_trip_t_pts_as                    s
+        LV Trip Curve Point UV_T1-3 Setting                         uv_trip_t_pts                    s
         LV Trip Curve Point UV_T1-3 (RofA not specified in 1547)    uv_trip_t_pts_er_max                s
 
         :return: dict with keys shown above.
@@ -718,9 +716,9 @@ class DER1547(der1547.DER1547):
         vw = self.sma.vrt_trip_low()
         if vw.get('curve') is not None:
             if vw['curve'].get('v') is not None:
-                ieee_dict['uv_trip_v_pts_as'] = vw['curve'].get('V')
+                ieee_dict['uv_trip_v_pts'] = vw['curve'].get('V')
             if vw['curve'].get('t') is not None:
-                ieee_dict['uv_trip_t_pts_as'] = vw['curve'].get('t')
+                ieee_dict['uv_trip_t_pts'] = vw['curve'].get('t')
 
         return ieee_dict
 
@@ -729,10 +727,10 @@ class DER1547(der1547.DER1547):
         Set Undervoltage Trip Parameters - IEEE 1547 Table 35
         """
         new_params = {'curve': {}}
-        if params('uv_trip_v_pts_as') is not None:
-            new_params['curve']['V'] = params('uv_trip_v_pts_as')
-        if params('uv_trip_t_pts_as') is not None:
-            new_params['curve']['t'] = params('uv_trip_t_pts_as')
+        if params('uv_trip_v_pts') is not None:
+            new_params['curve']['V'] = params('uv_trip_v_pts')
+        if params('uv_trip_t_pts') is not None:
+            new_params['curve']['t'] = params('uv_trip_t_pts')
 
         return self.sma.vrt_trip_low(new_params)
 
@@ -744,11 +742,11 @@ class DER1547(der1547.DER1547):
         _______________________________________________________________________________________________________________
         OF Trip Curve Point OF_F1-3 (see Tables 11-13)              of_trip_f_pts_er_min                Hz
             (RofA not specified in 1547)
-        OF Trip Curve Point OF_F1-3 Setting                         of_trip_f_pts_as                    Hz
+        OF Trip Curve Point OF_F1-3 Setting                         of_trip_f_pts                    Hz
         OF Trip Curve Point OF_F1-3 (RofA not specified in 1547)    of_trip_f_pts_er_max                Hz
         OF Trip Curve Point OF_T1-3 (see Tables 11-13)              of_trip_t_pts_er_min                s
             (RofA not specified in 1547)
-        OF Trip Curve Point OF_T1-3 Setting                         of_trip_t_pts_as                    s
+        OF Trip Curve Point OF_T1-3 Setting                         of_trip_t_pts                    s
         OF Trip Curve Point OF_T1-3 (RofA not specified in 1547)    of_trip_t_pts_er_max                s
 
         :return: dict with keys shown above.
@@ -757,9 +755,9 @@ class DER1547(der1547.DER1547):
         vw = self.sma.frt_trip_high()
         if vw.get('curve') is not None:
             if vw['curve'].get('Hz') is not None:
-                ieee_dict['of_trip_f_pts_as'] = vw['curve'].get('Hz')
+                ieee_dict['of_trip_f_pts'] = vw['curve'].get('Hz')
             if vw['curve'].get('t') is not None:
-                ieee_dict['ov_trip_t_pts_as'] = vw['curve'].get('t')
+                ieee_dict['ov_trip_t_pts'] = vw['curve'].get('t')
 
         return ieee_dict
 
@@ -768,10 +766,10 @@ class DER1547(der1547.DER1547):
         Set Overfrequency Trip Parameters - IEEE 1547 Table 37
         """
         new_params = {'curve': {}}
-        if params('of_trip_f_pts_as') is not None:
-            new_params['curve']['Hz'] = params('of_trip_f_pts_as')
-        if params('of_trip_t_pts_as') is not None:
-            new_params['curve']['t'] = params('of_trip_t_pts_as')
+        if params('of_trip_f_pts') is not None:
+            new_params['curve']['Hz'] = params('of_trip_f_pts')
+        if params('of_trip_t_pts') is not None:
+            new_params['curve']['t'] = params('of_trip_t_pts')
 
         return self.sma.frt_trip_high(new_params)
 
@@ -783,11 +781,11 @@ class DER1547(der1547.DER1547):
         _______________________________________________________________________________________________________________
         UF Trip Curve Point UF_F1-3 (see Tables 11-13)              uf_trip_f_pts_er_min                Hz
             (RofA not specified in 1547)
-        UF Trip Curve Point UF_F1-3 Setting                         uf_trip_f_pts_as                    Hz
+        UF Trip Curve Point UF_F1-3 Setting                         uf_trip_f_pts                    Hz
         UF Trip Curve Point UF_F1-3 (RofA not specified in 1547)    uf_trip_f_pts_er_max                Hz
         UF Trip Curve Point UF_T1-3 (see Tables 11-13)              uf_trip_t_pts_er_min                s
             (RofA not specified in 1547)
-        UF Trip Curve Point UF_T1-3 Setting                         uf_trip_t_pts_as                    s
+        UF Trip Curve Point UF_T1-3 Setting                         uf_trip_t_pts                    s
         UF Trip Curve Point UF_T1-3 (RofA not specified in 1547)    uf_trip_t_pts_er_max                s
 
         :return: dict with keys shown above.
@@ -796,9 +794,9 @@ class DER1547(der1547.DER1547):
         vw = self.sma.frt_trip_low()
         if vw.get('curve') is not None:
             if vw['curve'].get('Hz') is not None:
-                ieee_dict['uf_trip_f_pts_as'] = vw['curve'].get('Hz')
+                ieee_dict['uf_trip_f_pts'] = vw['curve'].get('Hz')
             if vw['curve'].get('t') is not None:
-                ieee_dict['uf_trip_t_pts_as'] = vw['curve'].get('t')
+                ieee_dict['uf_trip_t_pts'] = vw['curve'].get('t')
 
         return ieee_dict
 
@@ -807,10 +805,10 @@ class DER1547(der1547.DER1547):
         Set Underfrequency Trip Parameters - IEEE 1547 Table 37
         """
         new_params = {'curve': {}}
-        if params('uf_trip_f_pts_as') is not None:
-            new_params['curve']['Hz'] = params('uf_trip_f_pts_as')
-        if params('uf_trip_t_pts_as') is not None:
-            new_params['curve']['t'] = params('uf_trip_t_pts_as')
+        if params('uf_trip_f_pts') is not None:
+            new_params['curve']['Hz'] = params('uf_trip_f_pts')
+        if params('uf_trip_t_pts') is not None:
+            new_params['curve']['t'] = params('uf_trip_t_pts')
 
         return self.sma.frt_trip_low(new_params)
 
@@ -822,11 +820,11 @@ class DER1547(der1547.DER1547):
         _______________________________________________________________________________________________________________
         HV MC Curve Point OV_V1-3 (see Tables 11-13)                ov_mc_v_pts_er_min                  V p.u.
             (RofA not specified in 1547)
-        HV MC Curve Point OV_V1-3 Setting                           ov_mc_v_pts_as                      V p.u.
+        HV MC Curve Point OV_V1-3 Setting                           ov_mc_v_pts                      V p.u.
         HV MC Curve Point OV_V1-3 (RofA not specified in 1547)      ov_mc_v_pts_er_max                  V p.u.
         HV MC Curve Point OV_T1-3 (see Tables 11-13)                ov_mc_t_pts_er_min                  s
             (RofA not specified in 1547)
-        HV MC Curve Point OV_T1-3 Setting                           ov_mc_t_pts_as                      s
+        HV MC Curve Point OV_T1-3 Setting                           ov_mc_t_pts                      s
         HV MC Curve Point OV_T1-3 (RofA not specified in 1547)      ov_mc_t_pts_er_max                  s
 
         :return: dict with keys shown above.
@@ -847,11 +845,11 @@ class DER1547(der1547.DER1547):
         _______________________________________________________________________________________________________________
         LV MC Curve Point UV_V1-3 (see Tables 11-13)                uv_mc_v_pts_er_min                V p.u.
             (RofA not specified in 1547)
-        LV MC Curve Point UV_V1-3 Setting                           uv_mc_v_pts_as                    V p.u.
+        LV MC Curve Point UV_V1-3 Setting                           uv_mc_v_pts                    V p.u.
         LV MC Curve Point UV_V1-3 (RofA not specified in 1547)      uv_mc_v_pts_er_max                V p.u.
         LV MC Curve Point UV_T1-3 (see Tables 11-13)                uv_mc_t_pts_er_min                s
             (RofA not specified in 1547)
-        LV MC Curve Point UV_T1-3 Setting                           uv_mc_t_pts_as                    s
+        LV MC Curve Point UV_T1-3 Setting                           uv_mc_t_pts                    s
         LV MC Curve Point UV_T1-3 (RofA not specified in 1547)      uv_mc_t_pts_er_max                s
 
         :return: dict with keys shown above.
@@ -875,4 +873,4 @@ class DER1547(der1547.DER1547):
         Cease to energize and trip                              cease_to_energize               bool (True=Enabled)
 
         """
-        return self.set_es_permit_service(params={'es_permit_service_as': params['cease_to_energize']})
+        return self.set_es_permit_service(params={'es_permit_service': params['cease_to_energize']})
