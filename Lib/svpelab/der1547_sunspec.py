@@ -896,8 +896,9 @@ class DER1547(der1547.DER1547):
         ________________________________________________________________________________________________________________
         Constant Power Factor Mode Select                       const_pf_mode_enable             bool (True=Enabled)
         Constant Power Factor Excitation                        const_pf_excitation              str ('inj', 'abs')
-        Constant Power Factor Absorbing Setting                 const_pf_abs                     decimal
-        Constant Power Factor Injecting Setting                 const_pf_inj                     decimal
+        Constant Power Factor Excitation Inj W                  const_pf_excitation_charging     str ('inj', 'abs')
+        Constant Power Factor Absorbing W Setting               const_pf_abs                     decimal
+        Constant Power Factor Injecting W Setting               const_pf_inj                     decimal
 
         SunSpec Points:
             Power Factor Enable (W Inj) Enable [PFWInjEna]: 0
@@ -913,7 +914,7 @@ class DER1547(der1547.DER1547):
 
                 --------------------------------------------------
                 Group: PFWInj
-                Power Factor (W Inj)  [PF]: 0.9500000000000001
+                Power Factor (W Inj)  [PF]: 0.950
                 Power Factor Excitation (W Inj) [Ext]: 1
                 --------------------------------------------------
                 Group: PFWInjRvrt
@@ -944,7 +945,7 @@ class DER1547(der1547.DER1547):
         if der_pts.PFWInj.PF.cvalue is not None:
             params['const_pf_inj'] = der_pts.PFWInj.PF.cvalue
         if der_pts.PFWInj.Ext.cvalue is not None:
-            if der_pts.PFWInj.Ext.cvalue == 0:  # todo check sign convension
+            if der_pts.PFWInj.Ext.cvalue == 0:
                 params['const_pf_excitation'] = 'inj'  # Over-excited
             else:
                 params['const_pf_excitation'] = 'abs'
@@ -952,10 +953,10 @@ class DER1547(der1547.DER1547):
         if der_pts.PFWAbs.PF.cvalue is not None:
             params['const_pf_abs'] = der_pts.PFWAbs.PF.cvalue
         if der_pts.PFWAbs.Ext.cvalue is not None:
-            if der_pts.PFWAbs.Ext.cvalue == 0:  # todo check sign convension
-                params['const_pf_excitation'] = 'inj'  # Over-excited
+            if der_pts.PFWAbs.Ext.cvalue == 0:
+                params['const_pf_excitation_charging'] = 'inj'  # Over-excited
             else:
-                params['const_pf_excitation'] = 'abs'
+                params['const_pf_excitation_charging'] = 'abs'
 
         return params
 
@@ -973,20 +974,20 @@ class DER1547(der1547.DER1547):
                 der_pts.PFWInjEna.cvalue = 0
 
         if params.get('const_pf_inj') is not None:
-            der_pts.PFWInj.PF.cvalue = params.get('const_pf_inj')
-        if params.get('const_pf_excitation') is not None:
-            if params.get('const_pf_excitation') == 'inj':  # todo check sign convension
-                der_pts.PFWInj.Ext.cvalue = 0  # Over-excited
-            else:
-                der_pts.PFWInj.Ext.cvalue = 1  # Under-excited
+            der_pts.PFWInj.PF.cvalue = abs(params.get('const_pf_inj'))  # uint16
+            if params.get('const_pf_excitation') is not None:  # assume PF and excit always written together
+                if params.get('const_pf_excitation') == 'inj':
+                    der_pts.PFWInj.Ext.cvalue = 0  # Over-excited
+                else:
+                    der_pts.PFWInj.Ext.cvalue = 1  # Under-excited
 
         if params.get('const_pf_abs') is not None:
             der_pts.PFWAbs.PF.cvalue = params.get('const_pf_abs')
-        if params.get('const_pf_excitation') is not None:
-            if params.get('const_pf_excitation') == 'inj':  # todo check sign convension
-                der_pts.PFWAbs.Ext.cvalue = 0  # Over-excited
-            else:
-                der_pts.PFWAbs.Ext.cvalue = 1  # Under-excited
+            if params.get('const_pf_excitation_charging') is not None:  # assume PF and excit always written together
+                if params.get('const_pf_excitation_charging') == 'inj':
+                    der_pts.PFWAbs.Ext.cvalue = 0  # Over-excited
+                else:
+                    der_pts.PFWAbs.Ext.cvalue = 1  # Under-excited
         der_pts.write()
 
         return params
@@ -2382,6 +2383,7 @@ class DER1547(der1547.DER1547):
         """
         return self.set_es_permit_service(params={'es_permit_service': params['cease_to_energize']})
 
+    '''
     # Additional functions outside of IEEE 1547-2018
     def get_conn(self):
         """
@@ -2406,4 +2408,5 @@ class DER1547(der1547.DER1547):
         error = set error
         """
         pass
-
+    
+    '''

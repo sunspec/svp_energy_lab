@@ -621,7 +621,18 @@ class DER1547(der1547.DER1547):
         AC voltage maximum rating                               np_ac_v_max_er_max                      Vac
         AC voltage minimum rating                               np_ac_v_min_er_min                      Vac
         Supported control mode functions                        np_supported_modes (dict)               str list
-            e.g., ['CONST_PF', 'QV', 'QP', 'PV', 'PF']
+            e.g., {'fixed_pf': True 'volt_var': False} with keys:
+            Supports Low Voltage Ride-Through Mode: 'lv_trip'
+            Supports High Voltage Ride-Through Mode: 'hv_trip'
+            Supports Low Freq Ride-Through Mode: 'lf_trip'
+            Supports High Freq Ride-Through Mode: 'hf_trip'
+            Supports Active Power Limit Mode: 'max_w'
+            Supports Volt-Watt Mode: 'volt_watt'
+            Supports Frequency-Watt Curve Mode: 'freq_watt'
+            Supports Constant VArs Mode: 'fixed_var'
+            Supports Fixed Power Factor Mode: 'fixed_pf'
+            Supports Volt-VAr Control Mode: 'volt_var'
+            Supports Watt-VAr Mode: 'watt_var'
         Reactive susceptance that remains connected to          np_reactive_susceptance                 Siemens
             the Area EPS in the cease to energize and trip
             state
@@ -660,9 +671,45 @@ class DER1547(der1547.DER1547):
         if nameplate_pts['np_apparent_power_charge_max'] is not None:
             nameplate_pts['np_apparent_power_charge_max'] /= 1000.  # kVA
 
+        #<0> unknown, <1> Category A, <2> Category B
+        if nameplate_pts['np_normal_op_cat'] == 1:
+            nameplate_pts['np_normal_op_cat'] = 'CAT_A'
+        elif nameplate_pts['np_normal_op_cat'] == 2:
+            nameplate_pts['np_normal_op_cat'] = 'CAT_B'
+        else:
+            nameplate_pts['np_normal_op_cat'] = 'Unknown'
+
         nameplate_pts = self.build_sub_dict(dictionary=nameplate_pts,
-                                            new_name='np_support',
+                                            new_name='np_support_dnp3',
                                             keys=list(nameplate_support.keys()))
+
+        ctrl_modes = {}  # rename points with abstraction layer names
+        ctrl_modes['max_w'] = nameplate_pts['np_support_dnp3']['np_support_limit_watt']
+        ctrl_modes['fixed_w'] = nameplate_pts['np_support_dnp3']['np_support_chg_dischg']
+        ctrl_modes['fixed_var'] = nameplate_pts['np_support_dnp3']['np_support_constant_vars']
+        ctrl_modes['fixed_pf'] = nameplate_pts['np_support_dnp3']['np_support_fixed_pf']
+        ctrl_modes['volt_var'] = nameplate_pts['np_support_dnp3']['np_support_volt_var_control']
+        ctrl_modes['freq_watt'] = nameplate_pts['np_support_dnp3']['np_support_freq_watt']
+        ctrl_modes['dyn_react_curr'] = nameplate_pts['np_support_dnp3']['np_support_dynamic_reactive_current']
+        ctrl_modes['lv_trip'] = nameplate_pts['np_support_dnp3']['np_support_volt_ride_through']
+        ctrl_modes['hv_trip'] = nameplate_pts['np_support_dnp3']['np_support_volt_ride_through']
+        ctrl_modes['watt_var'] = nameplate_pts['np_support_dnp3']['np_support_watt_var']
+        ctrl_modes['volt_watt'] = nameplate_pts['np_support_dnp3']['np_support_volt_watt']
+        ctrl_modes['lf_trip'] = nameplate_pts['np_support_dnp3']['np_support_freq_ride_through']
+        ctrl_modes['hf_trip'] = nameplate_pts['np_support_dnp3']['np_support_freq_ride_through']
+        nameplate_pts['np_supported_modes'] = ctrl_modes
+        del nameplate_pts['np_support_dnp3']  # remove dnp3 keys
+        # Unused points
+        # np_support_coordinated_chg_dischg
+        # np_support_active_pwr_response_1
+        # np_support_active_pwr_response_2
+        # np_support_active_pwr_response_3
+        # np_support_automation_generation_control
+        # np_support_active_pwr_smoothing
+        # np_support_dynamic_volt_watt
+        # np_support_freq_watt_curve
+        # np_support_pf_correction
+        # np_support_pricing
 
         return nameplate_pts
 
@@ -697,7 +744,7 @@ class DER1547(der1547.DER1547):
 
         # nameplate_pts = {**nameplate_data_write.copy(), **nameplate_support_write.copy()}
         # return self.write_dnp3_point_map(map_dict=nameplate_pts, write_pts=params)
-
+        self.ts.log_warning('NO DNP3 APP NOTE AO/BO CONFIGURATION POINTS EXIST!')
         return {}  # no write BO/AO for nameplate points in DNP3
 
     def get_monitoring(self):
@@ -715,8 +762,16 @@ class DER1547(der1547.DER1547):
             3-phase devices: [V1, V2, V3]
         Frequency                                                   mn_hz                              Hz
 
-        Operational State                                           mn_st                              dict of bools
-            {'mn_op_local': System in local/maintenance state
+        Operational State                                           mn_st                              bool
+            'On': True, DER operating (e.g., generating)
+            'Off': False, DER not operating
+
+        Connection State                                            mn_conn                            bool
+            'Connected': True, DER connected
+            'Disconnected': False, DER not connected
+
+        DER OP State (not in IEEE 1547.1)                           mn_der_op_details               dict of bools
+             'mn_op_local': System in local/maintenance state
              'mn_op_lockout': System locked out
              'mn_op_starting': Start command has been received
              'mn_op_stopping': Emergency Stop command has been received
@@ -725,8 +780,8 @@ class DER1547(der1547.DER1547):
              'mn_op_permission_to_start': Start Permission Granted
              'mn_op_permission_to_stop': Stop Permission Granted}
 
-        Connection State                                            mn_conn                            dict of bools
-            {'mn_conn_connected_idle': Idle-Connected
+        DER CONN State (not in IEEE 1547.1)                          mn_der_conn_details               dict of bools
+             'mn_conn_connected_idle': Idle-Connected
              'mn_conn_connected_generating': On-Connected
              'mn_conn_connected_charging': On-Charging-Connected
              'mn_conn_off_available': Off-Available
@@ -764,18 +819,32 @@ class DER1547(der1547.DER1547):
         monitoring_pts = self.read_dnp3_point_map(dnp3_pts)
 
         # Scaling
-        if monitoring_pts['mn_w'] is not None:
+        if monitoring_pts.get('mn_w') is not None:
             monitoring_pts['mn_w'] /= 1000.  # kW
-        if monitoring_pts['mn_var'] is not None:
+        if monitoring_pts.get('mn_var') is not None:
             monitoring_pts['mn_var'] /= 1000.  # kVar
-        if monitoring_pts['mn_v'] is not None:
-            monitoring_pts['mn_v'] /= 10.  # V
-        if monitoring_pts['mn_hz'] is not None:
+        if monitoring_pts.get('mn_v') is not None:
+            monitoring_pts['mn_v'] = [monitoring_pts['mn_v'] / 10.]  # V
+        if monitoring_pts.get('mn_hz') is not None:
             monitoring_pts['mn_hz'] /= 100.
 
         # Build hierarchy
-        monitoring_pts = self.build_sub_dict(monitoring_pts, new_name='mn_st', keys=list(operational_state.keys()))
-        monitoring_pts = self.build_sub_dict(monitoring_pts, new_name='mn_conn', keys=list(connection_state.keys()))
+        monitoring_pts = self.build_sub_dict(monitoring_pts, new_name='mn_der_op_details', keys=list(operational_state.keys()))
+        monitoring_pts = self.build_sub_dict(monitoring_pts, new_name='mn_der_conn_details', keys=list(connection_state.keys()))
+
+        if monitoring_pts['mn_der_op_details']['mn_op_started']:
+            monitoring_pts['mn_st'] = True
+        else:
+            monitoring_pts['mn_st'] = False
+
+        if monitoring_pts['mn_der_conn_details']['mn_conn_connected_idle'] or \
+                monitoring_pts['mn_der_conn_details']['mn_conn_connected_generating'] or \
+                monitoring_pts['mn_der_conn_details']['mn_conn_connected_charging'] or \
+                monitoring_pts['mn_der_conn_details']['mn_conn_switch_closed_status']:
+            monitoring_pts['mn_conn'] = True
+        else:
+            monitoring_pts['mn_conn'] = False
+
         monitoring_pts = self.build_sub_dict(monitoring_pts, new_name='mn_alrm', keys=list(alarm_state.keys()))
 
         return monitoring_pts
@@ -807,18 +876,34 @@ class DER1547(der1547.DER1547):
 
         # Scale and put values in 1547 keys
         if 'const_pf_excitation' in pf_pts:
-            if pf_pts['const_pf_excitation']:  # TODO: verify sign
-                pf_pts['const_pf_excitation'] = 'abs'
-                if 'const_pf' in pf_pts:
-                    # pf_pts['const_pf_abs'] = abs(pf_pts['const_pf']) / 100.  # pf
-                    pf_pts['const_pf_abs'] = abs(pf_pts['const_pf'])  # pf
-                    del pf_pts['const_pf']
+            if pf_pts['const_pf_excitation'] is None:
+                self.ts.log_warning('No excitation provided by DER. Using PF sign to determine excitation.')
+                der_excite = False
             else:
-                pf_pts['const_pf_excitation'] = 'inj'
-                if 'const_pf' in pf_pts:
-                    # pf_pts['const_pf_inj'] = abs(pf_pts['const_pf']) / 100.  # pf
-                    pf_pts['const_pf_inj'] = abs(pf_pts['const_pf'])  # pf
-                    del pf_pts['const_pf']
+                der_excite = True
+                if pf_pts['const_pf_excitation']:
+                    pf_pts['const_pf_excitation'] = 'abs'
+                else:
+                    pf_pts['const_pf_excitation'] = 'inj'
+
+            # get PFs and place in active power injection and absorption keys
+            if 'const_pf' in pf_pts:
+                # Generating PF
+                pf_pts['const_pf_inj'] = abs(pf_pts['const_pf'])  # pf (Q1 pos, Q4 neg)
+                if not der_excite:
+                    if pf_pts['const_pf'] > 0:
+                        pf_pts['const_pf_excitation'] = 'abs'
+                    else:
+                        pf_pts['const_pf_excitation'] = 'inj'
+                # TODO - Charging PF
+                # pf_pts['const_pf_abs'] = abs(pf_pts['const_pf'])  # pf (Q2 ?, Q3 ?)
+                # if not der_excite:
+                #     if pf_pts['const_pf'] > 0:
+                #         pf_pts['const_pf_excitation'] = 'abs'
+                #     else:
+                #         pf_pts['const_pf_excitation'] = 'inj'
+
+                del pf_pts['const_pf']
 
         return pf_pts
 
@@ -830,8 +915,8 @@ class DER1547(der1547.DER1547):
         ________________________________________________________________________________________________________________
         Constant Power Factor Mode Select                       const_pf_mode_enable             bool (True=Enabled)
         Constant Power Factor Excitation                        const_pf_excitation              str ('inj', 'abs')
-        Constant Power Factor Absorbing Setting                 const_pf_abs                     VAr p.u
-        Constant Power Factor Injecting Setting                 const_pf_inj                     VAr p.u
+        Constant Power Factor Absorbing W Setting               const_pf_abs                     VAr p.u
+        Constant Power Factor Injecting W Setting               const_pf_inj                     VAr p.u
         Maximum response time to maintain constant power        const_pf_olrt                    s
             factor. (Not in 1547)
 
@@ -1850,24 +1935,9 @@ Voltage (list)                                              mn_v                
     3-phase devices: [V1, V2, V3]
 Frequency                                                   mn_hz                              Hz
 
-Operational State                                           mn_st                              dict of bools
-    {'mn_op_local': System in local/maintenance state
-     'mn_op_lockout': System locked out
-     'mn_op_starting': Start command has been received
-     'mn_op_stopping': Emergency Stop command has been received
-     'mn_op_started': Started
-     'mn_op_stopped': Stopped
-     'mn_op_permission_to_start': Start Permission Granted
-     'mn_op_permission_to_stop': Stop Permission Granted}
+Operational State                                           mn_st                              bool
 
-Connection State                                            mn_conn                            dict of bools
-    {'mn_conn_connected_idle': Idle-Connected
-     'mn_conn_connected_generating': On-Connected
-     'mn_conn_connected_charging': On-Charging-Connected
-     'mn_conn_off_available': Off-Available
-     'mn_conn_off_not_available': Off-Not-Available
-     'mn_conn_switch_closed_status': Switch Closed
-     'mn_conn_switch_closed_movement': Switch Moving}
+Connection State                                            mn_conn                            bool
 
 Alarm Status                                                mn_alrm                            dict of bools
     Reported Alarm Status matches the device
