@@ -66,9 +66,7 @@ def params(info, group_name=None):
                      active_value=mode, glob=True)
 
     info.param(pname('target_name'), label='Target name in RT-LAB', default="RTServer")
-    info.param(pname('workspace_path'), label='RT-LAB Workspace', default="C:\OPAL-RT\WorkspaceFOREVERYONE")
-    info.param(pname('project_name'), label='RT-LAB project name (.llp)', default="IEEE_1547_Fast_Functions.llp")
-    info.param(pname('project_dir'), label='Project Directory', default="IEEE_1547_Fast_Functions")
+    info.param(pname('project_dir_path'), label='Project Directory Loacation', default="IEEE_1547_Fast_Functions")
     info.param(pname('rt_lab_model'), label='RT-LAB model name (.mdl or .slx)', default='IEEE_1547_Fast_Functions')
     info.param(pname('rt_mode'), label='Real-Time simulation mode', default='Hardware', values=["Software","Hardware"])
 
@@ -95,9 +93,11 @@ class HIL(hil.HIL):
     def __init__(self, ts, group_name):
         hil.HIL.__init__(self, ts, group_name)
         # Add REGEX or parser manipulation to get a good control over user entries.
-        self.project_name = self._param_value('project_name')
-        self.project_dir = self._param_value('project_dir')
-        self.workspace_path = self._param_value('workspace_path')
+        #self.project_name = self._param_value('project_dir_path')
+        self.project_dir_path = self._param_value('project_dir_path')
+
+        #self.project_dir = None
+        #self.workspace_path = self._param_value('workspace_path')
 
         self.target_name = self._param_value('target_name')
         self.rt_mode = self._param_value('rt_mode')
@@ -115,7 +115,7 @@ class HIL(hil.HIL):
             print(e)
 
         # self.ts.log_debug(self.info())
-        # self.open()
+        self.open()
 
         self.hil_config_open = self._param_value('hil_config_open')
         self.hil_config_compile = self._param_value('hil_config_compile')
@@ -233,28 +233,21 @@ class HIL(hil.HIL):
         """
         Open the communications resources associated with the HIL.
         """
-        self.ts.log('Opening Project: %s' % self.project_name)
-        if os.path.isfile(self.project_name):
-            self.ts.log('Assuming project name is an absolute path to .llp file')
-            proj_path = self.project_name
-        elif os.path.isdir(self.project_name) and os.path.isfile(self.project_name):
-            self.ts.log('Assuming project directory + project name is an absolute path to .llp file')
-            self.project_dir.rstrip('\\') + '\\' + self.project_name
-            proj_path = self.project_dir.rstrip('\\') + '\\' + self.project_name
-        elif os.path.isdir(self.workspace_path):
-            self.ts.log('Assuming workspace is use with Project Name and directory')
-            proj_path = os.path.join(self.workspace_path, self.project_dir,self.project_name) 
-        else:
-            self.ts.log('Assuming project directory and .llp file are located in svpelab directory')
-            svpelab_dir = os.path.abspath(os.path.dirname(__file__))
-            proj_path = svpelab_dir + self.project_dir.rstrip('\\') + '\\' + self.project_name
 
-        if proj_path[:-4] != '.llp':
-            proj_path += '.llp'
+
+        
+
+
+        if os.path.isdir(self.project_dir_path):
+            self.project_name = os.path.basename(self.project_dir_path)
+            proj_path = os.path.join(self.project_dir_path,self.project_name+'.llp')
+            self.ts.log('Opening Project: %s' % self.project_name)
+            self.ts.log('Assuming project location is giving. This should correspond to the location in RT-LAB project properties.')
+
         try:
             # projectId = RtlabApi.OpenProject(project='', functionalBlock=None,
             #                                  controlPriority=OP_CTRL_PRIO_NORMAL, returnOnAmbiguity=False)
-            self.ts.log('Opening project: %s' % proj_path)
+            self.ts.log('Opening project file: %s' % proj_path)
             RtlabApi.OpenProject(proj_path)
         except Exception as e:
             self.ts.log_warning('Could not open the project %s: %s' % (proj_path, e))
@@ -266,7 +259,7 @@ class HIL(hil.HIL):
         RtlabApi.GetParameterControl(parameterControl)
 
         pass
-
+    
     def close(self):
         """
         Close any open communications resources associated with the HIL.
@@ -471,7 +464,7 @@ class HIL(hil.HIL):
         if self.model_state() == 'Model Loadable':
             self.ts.log('Loading Model.  This may take a while...')
             if self.rt_mode == "Hardware":
-            realTimeMode = RtlabApi.HARD_SYNC_MODE
+                realTimeMode = RtlabApi.HARD_SYNC_MODE
             elif self.rt_mode == "Software":
                 realTimeMode = RtlabApi.SOFT_SIM_MODE 
             # Also possible to use SIM_MODE, SOFT_SIM_MODE, SIM_W_NO_DATA_LOSS_MODE or SIM_W_LOW_PRIO_MODE
@@ -526,6 +519,7 @@ class HIL(hil.HIL):
         if self.model_state() == 'Model Paused':
             # When in real-time mode, the execution rate is the model's sampling rate times the time factor.
             timeFactor = 1
+            self.ts.log('Simulation started.')
             RtlabApi.Execute(timeFactor)
         else:
             self.ts.log_warning('Model is not running because the status is:  %s' % self.model_state())
@@ -634,7 +628,7 @@ class HIL(hil.HIL):
         value = RtlabApi.GetAttribute(attributeNumber, RtlabApi.ATT_MATRIX_VALUE)
         if valueToSet != value:
             self.ts.log_debug(f'Setting matlab variable {variableName} to {valueToSet} instead of {value} ')
-            self.ts.sleep(0.5) 
+            self.ts.sleep(1.0) 
             RtlabApi.SetAttribute(attributeNumber, RtlabApi.ATT_MATRIX_VALUE, valueToSet)
             attributeNumber = RtlabApi.FindObjectId(RtlabApi.OP_TYPE_VARIABLE, self.rt_lab_model + '/' + variableName)
             value = RtlabApi.GetAttribute(attributeNumber, RtlabApi.ATT_MATRIX_VALUE)

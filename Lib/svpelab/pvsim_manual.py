@@ -95,7 +95,7 @@ GROUP_NAME = 'manual'
 
 class PVSim(pvsim.PVSim):
 
-    def __init__(self, ts, group_name):
+    def __init__(self, ts, group_name, support_interfaces):
         pvsim.PVSim.__init__(self, ts, group_name)
 
         self.ts = ts

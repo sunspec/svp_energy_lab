@@ -31,7 +31,8 @@ Questions can be directed to support@sunspec.org
 """
 import os
 from . import gridsim
-
+import math as m
+import pandas as pd
 opal_info = {
     'name': os.path.splitext(os.path.basename(__file__))[0],
     'mode': 'Opal'
@@ -103,7 +104,7 @@ class GridSim(gridsim.GridSim):
             gridsim.GridSimError('GridSim config requires a Opal HIL object')
         else:
             self.ts.log_debug(f'Configuring gridsim with Opal hil parameters...using {self.hil.info()}')
-            self.ts.log_debug('hil object : {self.hil}')
+            self.ts.log_debug(f'hil object : {self.hil}')
             self.model_name = self.hil.rt_lab_model
             self.rt_lab_model_dir = self.hil.rt_lab_model_dir
         # Remove the block name approach to us the matlab variables approach -Estefan
@@ -134,14 +135,24 @@ class GridSim(gridsim.GridSim):
         self.config_phase_angles()
         self.freq(freq=self.f_nom)
         self.voltage(voltage=self.v_nom)
-        
+
         # Saturation at the waveform level
         self.frequency_max(frequency=self.f_max)
         self.frequency_min(frequency=self.f_min)
         self.voltage_max(voltage=self.v_max)
         self.voltage_min(voltage=0.0)
+        self.config_voltage_output_scale()
+    def config_voltage_output_scale(self):
         
-    def config_phase_angles(self):
+        parameters = []
+
+        parameters.append(("VOLT_OUTPUT_SCALE_PHA",120.0*m.sqrt(2)))
+        parameters.append(("VOLT_OUTPUT_SCALE_PHB",120.0*m.sqrt(2)))
+        parameters.append(("VOLT_OUTPUT_SCALE_PHC",120.0*m.sqrt(2)))
+            
+    
+        self.hil.set_matlab_variables(parameters)
+    def config_phase_angles(self,angle = None):
         """
         Set the phase angles for the simulation
 
@@ -150,23 +161,23 @@ class GridSim(gridsim.GridSim):
 
         parameters = []
         # set the phase angles for the 3 phases
-        if self.phases == 1:
-            parameters.append(("PHASE_PHA",0))
+        if angle is None:
+            if self.phases == 1:
+                parameters.append(("PHASE",[0.0,0.0,0.0]))
 
-        elif self.phases == 2:
-            parameters.append(("PHASE_PHA",0))
-            parameters.append(("PHASE_PHB",180))
+            elif self.phases == 2:
+                parameters.append(("PHASE",[0.0,-180.0,0.0]))
 
-        elif self.phases == 3:
-            parameters.append(("PHASE_PHA",0))
-            parameters.append(("PHASE_PHB",-120))
-            parameters.append(("PHASE_PHC",120))
-            
-        else:
-            raise gridsim.GridSimError('Unsupported phase parameter: %s' % self.phases)
+            elif self.phases == 3:
+                parameters.append(("PHASE",[0.0,-120.0,120.0]))
+            else:
+                raise gridsim.GridSimError('Unsupported phase parameter: %s' % self.phases)
+        elif angle is not None and type(angle) is list and len(angle) == 3:
+            parameters.append(("PHASE",angle))
+
         self.hil.set_matlab_variables(parameters)
         parameters = []
-        parameters = self.hil.get_matlab_variables(["PHASE_PHA","PHASE_PHB","PHASE_PHC"])
+        parameters = self.hil.get_matlab_variables(["PHASE"])
         return parameters
 
     def config_asymmetric_phase_angles(self, mag=None, angle=None):
@@ -175,22 +186,9 @@ class GridSim(gridsim.GridSim):
         :param angle: list of phase angles for the imbalanced test, e.g., [0, 120, -120]
         :returns: voltage list and phase list
         """
-        parameters = []
-        i=0
-        # TODO : To be replace by sending a matlab variable list, else this code might create problems (current on neutral, etc.)
-        for volt_block in self.voltage_block_list:
-            #self.ts.log_debug('self.model_name = %s' % (self.model_name))
-            #self.ts.log_debug('volt_block = %s' % (volt_block))
-            parameters.append((self.model_name + '/SM_Source/SVP Commands/' + volt_block + '/Value', mag[i]))
-            i= i +1
-            # Phase A Switching times and Phase Angles
-        parameters.append((self.model_name + '/SM_Source/SVP Commands/phase_ph_a/Value', angle[0]))
-            # Phase B Switching times and Phase Angles
-        parameters.append((self.model_name + '/SM_Source/SVP Commands/phase_ph_b/Value', angle[1]))
-            # Phase C Switching times and Phase Angles
-        parameters.append((self.model_name + '/SM_Source/SVP Commands/phase_ph_c/Value', angle[2]))
-        
-        self.hil.set_parameters(parameters)
+        volt_param = self.voltage(voltage=mag)
+        angl_param = self.config_phase_angles(angle=angle)
+        self.ts.log(f"Asymetric phase angle parameters ; Voltage = {volt_param} ; Angle{angl_param}")
 
 
         return None, None
@@ -256,11 +254,11 @@ class GridSim(gridsim.GridSim):
         :param : "ROCOF_INIT" is for ROCOF initialisation value. Default value 60
         """
         if param is not None:
-        parameters = []
+            parameters = []
             parameters.append(("ROCOF_ENABLE", param["ROCOF_ENABLE"]))
             parameters.append(("ROCOF_VALUE", param["ROCOF_VALUE"]))
             parameters.append(("ROCOF_INIT", param["ROCOF_INIT"]))
-
+            
         self.hil.set_matlab_variables(parameters)
         parameters = []
         parameters = self.hil.get_matlab_variables(["ROCOF_ENABLE","ROCOF_VALUE","ROCOF_INIT"])
@@ -274,7 +272,7 @@ class GridSim(gridsim.GridSim):
         :param : "ROCOM_INIT" is for ROCOF initialisation value. Default value 60
         :param : "ROCOM_START_TIME" is for ROCOF initialisation value. Default value 60
         :param : "ROCOM_END_TIME" is for ROCOF initialisation value. Default value 60
-
+        
         """
         if param is not None:
             parameters = []
@@ -283,7 +281,7 @@ class GridSim(gridsim.GridSim):
             parameters.append(("ROCOF_INIT", param["ROCOF_INIT"]))
             parameters.append(("ROCOM_START_TIME", param["ROCOM_START_TIME"]))
             parameters.append(("ROCOM_END_TIME", param["ROCOM_END_TIME"]))
-
+            
         self.hil.set_matlab_variables(parameters)
         parameters = []
         parameters = self.hil.get_matlab_variables(["ROCOF_ENABLE","ROCOF_VALUE","ROCOF_INIT"
@@ -296,41 +294,35 @@ class GridSim(gridsim.GridSim):
 
         :param voltage: tuple of floats for voltages (to set voltage), None to read voltage
         :return: tuple of voltages
-        """
-        # Convert the parameter to P.U.
-        voltage /= self.v_nom
+        """  
+        parameters = []
+
         if voltage is not None and type(voltage) is not list:
             # single value case (not tuple voltages)
+            voltage /= self.v_nom
             parameters = []
             # set the phase angles for the 3 phases
             if self.phases == 1:
-                parameters.append(("VOLT_PHA",voltage))
-                parameters.append(("VOLT_PHB",0))
-                parameters.append(("VOLT_PHC",0))
+                parameters.append(("VOLTAGE",[voltage,0.0,0.0]))
 
             elif self.phases == 2:
-                parameters.append(("VOLT_PHA",voltage))
-                parameters.append(("VOLT_PHB",voltage))
-                parameters.append(("VOLT_PHC",0))
+                parameters.append(("VOLTAGE",[voltage,voltage,0.0]))
 
             elif self.phases == 3:
-                parameters.append(("VOLT_PHA",voltage))
-                parameters.append(("VOLT_PHB",voltage))
-                parameters.append(("VOLT_PHC",voltage))
-
+                parameters.append(("VOLTAGE",[voltage,voltage,voltage]))
+                
             else:
                 raise gridsim.GridSimError('Unsupported voltage parameter: %s' % voltage)
         elif voltage is not None and type(voltage) is list and len(voltage) == 3:
             # This consider the list contains three elements
-            parameters = []
             # set the phase angles for the 3 phases
-            parameters.append(("VOLT_PHA",voltage[0]))
-            parameters.append(("VOLT_PHB",voltage[1]))
-            parameters.append(("VOLT_PHC",voltage[2]))
+            # Convert the parameter to P.U.
+            voltage = (pd.Series(voltage)/self.v_nom).tolist()
+            parameters.append(("VOLTAGE", voltage))
 
         self.hil.set_matlab_variables(parameters)
         parameters = []
-        parameters = self.hil.get_matlab_variables(["VOLT_PHA","VOLT_PHB","VOLT_PHC"])
+        parameters = self.hil.get_matlab_variables(["VOLTAGE"])
 
         return parameters
 

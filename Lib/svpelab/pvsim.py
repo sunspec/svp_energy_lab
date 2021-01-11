@@ -52,7 +52,7 @@ def params(info, id=None, label='PV Simulator', group_name=None, active=None, ac
 
 PVSIM_DEFAULT_ID = 'pvsim'
 
-def pvsim_init(ts, id=None, group_name=None):
+def pvsim_init(ts, id=None, group_name=None,support_interfaces=None):
     """
     Function to create specific pv simulator implementation instances.
 
@@ -71,7 +71,7 @@ def pvsim_init(ts, id=None, group_name=None):
     if mode != 'Disabled':
         sim_module = pvsim_modules.get(mode)
         if sim_module is not None:
-            sim = sim_module.PVSim(ts, group_name)
+            sim = sim_module.PVSim(ts, group_name,support_interfaces=support_interfaces)
         else:
             raise PVSimError('Unknown PV simulation mode: %s' % mode)
 
@@ -83,10 +83,14 @@ class PVSimError(Exception):
 
 class PVSim(object):
 
-    def __init__(self, ts, group_name, params=None):
+    def __init__(self, ts, group_name, params=None, support_interfaces=None):
         self.ts = ts
         self.group_name = group_name
         self.params = params
+        self.hil = None
+        if support_interfaces is not None:
+            if support_interfaces.get('hil') is not None:
+                self.hil = support_interfaces.get('hil')
 
     def close(self):
         """

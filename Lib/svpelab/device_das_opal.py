@@ -60,9 +60,9 @@ WFM_CHANNELS = {'Generic': ['TIME', 'AC_V_1', 'AC_V_2', 'AC_V_3', 'AC_I_1', 'AC_
                                  'Total_RMS_Current', 'Time_Below_80pct_Current', 'Time_Phase_Misalignment'],
                 'IEEE1547_VRT': ['TIME', 
                 'AC_V_1', 'AC_V_2', 'AC_V_3', 
-                            'AC_I_1', 'AC_I_2', 'AC_I_3',
-                            'AC_P_1', 'AC_P_2', 'AC_P_3',
-                            'AC_Q_1', 'AC_Q_2', 'AC_Q_3',
+                'AC_I_1', 'AC_I_2', 'AC_I_3',
+                'AC_P_1', 'AC_P_2', 'AC_P_3', 
+                'AC_Q_1', 'AC_Q_2', 'AC_Q_3',
                 'AC_V_CMD_1', 'AC_V_CMD_2', 'AC_V_CMD_3',
                 "TRIGGER"]
                 }
@@ -87,7 +87,7 @@ class Device(object):
         self.dc_measurement_device = None
         self.wfm_channels = WFM_CHANNELS.get(self.params['wfm_chan_list'])
         # _, self.model_name = RtlabApi.GetCurrentModel()
-
+        
 
         # optional parameters for interfacing with other SVP devices
         self.hil = self.params['hil']
@@ -213,17 +213,17 @@ class Device(object):
         self.opal_fast_1547 = {  # data point : analog channel name
             'TIME': self.model_name + "/SM_Source/IEEE_1547_TESTING/Clock/port1",
             # Voltage
-            'AC_VRMS_1': self.model_name + '/SM_Source/IEEE_1547_TESTING/SignalConditionning/AC_VRMS_1/Switch/port1',
-            'AC_VRMS_2': self.model_name + '/SM_Source/IEEE_1547_TESTING/SignalConditionning/AC_VRMS_2/Switch/port1',
-            'AC_VRMS_3': self.model_name + '/SM_Source/IEEE_1547_TESTING/SignalConditionning/AC_VRMS_3/Switch/port1',
+            'AC_VRMS_1': self.model_name + '/SM_Source/IEEE_1547_TESTING/SignalConditionning/AC_VRMS_1/Total RMS/Sqrt/port1',
+            'AC_VRMS_2': self.model_name + '/SM_Source/IEEE_1547_TESTING/SignalConditionning/AC_VRMS_2/Total RMS/Sqrt/port1',
+            'AC_VRMS_3': self.model_name + '/SM_Source/IEEE_1547_TESTING/SignalConditionning/AC_VRMS_3/Total RMS/Sqrt/port1',
             # Current
-            'AC_IRMS_1': self.model_name + '/SM_Source/IEEE_1547_TESTING/SignalConditionning/AC_IRMS_1/Switch/port1',
-            'AC_IRMS_2': self.model_name + '/SM_Source/IEEE_1547_TESTING/SignalConditionning/AC_IRMS_2/Switch/port1',
-            'AC_IRMS_3': self.model_name + '/SM_Source/IEEE_1547_TESTING/SignalConditionning/AC_IRMS_3/Switch/port1',
+            'AC_IRMS_1': self.model_name + '/SM_Source/IEEE_1547_TESTING/SignalConditionning/AC_IRMS_1/Total RMS/Sqrt/port1',
+            'AC_IRMS_2': self.model_name + '/SM_Source/IEEE_1547_TESTING/SignalConditionning/AC_IRMS_2/Total RMS/Sqrt/port1',
+            'AC_IRMS_3': self.model_name + '/SM_Source/IEEE_1547_TESTING/SignalConditionning/AC_IRMS_3/Total RMS/Sqrt/port1',
             # Frequency
-            'AC_FREQ_1': self.model_name + '/SM_Source/IEEE_1547_TESTING/SignalConditionning/AC_FREQ_1/port1',
-            'AC_FREQ_2': self.model_name + '/SM_Source/IEEE_1547_TESTING/SignalConditionning/AC_FREQ_2/port1',
-            'AC_FREQ_3': self.model_name + '/SM_Source/IEEE_1547_TESTING/SignalConditionning/AC_FREQ_3/port1',
+            'AC_FREQ_1': self.model_name + '/SM_Source/IEEE_1547_TESTING/SignalConditionning/AC_FREQ/port1',
+            'AC_FREQ_2': self.model_name + '/SM_Source/IEEE_1547_TESTING/SignalConditionning/AC_FREQ/port1',
+            'AC_FREQ_3': self.model_name + '/SM_Source/IEEE_1547_TESTING/SignalConditionning/AC_FREQ/port1',
             # Active Power
             'AC_P_1': self.model_name + '/SM_Source/IEEE_1547_TESTING/SignalConditionning/AC_P_1/port1',
             'AC_P_2': self.model_name + '/SM_Source/IEEE_1547_TESTING/SignalConditionning/AC_P_2/port1',
@@ -331,7 +331,7 @@ class Device(object):
                 if signal is None:  # skip the signals that have no mapping to the simulink model
 
                     # search the dc measurement object for the data that isn't in the opal_points_map
-                    if self.dc_measurement_device is not None:
+                    if dc_meas is not None:
                         dc_value = dc_meas.get(chan)  # signal = 'DC_V', 'DC_I', or 'DC_P'
                         # if self.ts is not None:
                         #     self.ts.log_debug('Setting Chan = %s to dc_value = %s' % (chan, dc_value))
