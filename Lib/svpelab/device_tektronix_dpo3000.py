@@ -214,7 +214,7 @@ class Device(object):
             self.cmd('CH' + str(i + 1) + ':SCAle ' + str(self.vertical_scale[i]))
             if self.chan_types.get(i + 1) == 'Bus_Voltage':
                 self.cmd('CH' + str(i + 1) + ':POSition ' + str(-5))
-                self.cmd('CH' + str(i + 1) + ':OFFset ' + str(-415))
+                self.cmd('CH' + str(i + 1) + ':OFFset ' + str(430))
             else:
                 self.cmd('CH' + str(i + 1) + ':POSition ' + str(0))
                 self.cmd('CH' + str(i + 1) + ':OFFSet ' + str(0))
