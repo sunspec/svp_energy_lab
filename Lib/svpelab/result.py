@@ -52,7 +52,7 @@ XL_COL_WIDTH_DEFAULT = 10
 def xl_col(index):
     return chr(index + 65)
 
-def find_result(results_dir, result_dir):
+def find_result(results_dir, result_dir, ts=None):
     r_target = None
     rlt_name = os.path.split(results_dir)[1]
     rlt_file = os.path.join(results_dir, rlt_name) + '.rlt'
@@ -60,11 +60,13 @@ def find_result(results_dir, result_dir):
     path = path.split(os.sep)
     r = Result()
     r.from_xml(filename=rlt_file)
-    r_target = r.find(path)
+    r_target = r.find(path, ts)
     return r_target
 
 def result_workbook(file, results_dir, result_dir, index=True, ts=None):
-    r = find_result(results_dir, result_dir)
+
+    r = find_result(results_dir, result_dir, ts)
+
     if r is not None:
         r.to_xlsx(filename=os.path.join(results_dir, result_dir, file), results_dir=results_dir, index=index,
                   index_row=0, ts=ts)
@@ -97,12 +99,12 @@ class Result(object):
     def __str__(self):
         return self.to_str()
 
-    def find(self, path):
+    def find(self, path, ts=None):
         result = None
         for r in self.results:
-            if r.name == path[0]:
+            if r.name == path[0] or r.name== path[0].replace('__','/'):
                 if len(path) > 1:
-                    result = r.find(path[1:])
+                    result = r.find(path[1:],ts)
                 else:
                     result = r
         return result

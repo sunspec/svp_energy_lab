@@ -62,7 +62,7 @@ GROUP_NAME = 'manual'
 
 class DER(der.DER):
 
-    def __init__(self, ts, group_name):
+    def __init__(self, ts, group_name, support_interfaces):
         der.DER.__init__(self, ts, group_name)
         
     def param_value(self, name):

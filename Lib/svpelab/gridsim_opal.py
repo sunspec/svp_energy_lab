@@ -31,7 +31,8 @@ Questions can be directed to support@sunspec.org
 """
 import os
 from . import gridsim
-
+import math as m
+import pandas as pd
 opal_info = {
     'name': os.path.splitext(os.path.basename(__file__))[0],
     'mode': 'Opal'
@@ -100,7 +101,7 @@ class GridSim(gridsim.GridSim):
             gridsim.GridSimError('GridSim config requires a Opal HIL object')
         else:
             self.ts.log_debug(f'Configuring gridsim with Opal hil parameters...using {self.hil.info()}')
-            self.ts.log_debug('hil object : {self.hil}')
+            self.ts.log_debug(f'hil object : {self.hil}')
             self.model_name = self.hil.rt_lab_model
             self.rt_lab_model_dir = self.hil.rt_lab_model_dir
 
@@ -131,6 +132,7 @@ class GridSim(gridsim.GridSim):
         self.voltage_min(voltage=0.0)
 
     def config_phase_angles(self):
+
         """
         Set the phase angles for the simulation
 
@@ -156,6 +158,7 @@ class GridSim(gridsim.GridSim):
         self.hil.set_matlab_variables(parameters)
         parameters = []
         parameters = self.hil.get_matlab_variables(["PHASE_PHA", "PHASE_PHB", "PHASE_PHC"])
+
         return parameters
 
     def config_asymmetric_phase_angles(self, mag=None, angle=None):
@@ -178,6 +181,7 @@ class GridSim(gridsim.GridSim):
         parameters.append((self.model_name + '/SM_Source/SVP Commands/phase_ph_b/Value', angle[1]))
         # Phase C Switching times and Phase Angles
         parameters.append((self.model_name + '/SM_Source/SVP Commands/phase_ph_c/Value', angle[2]))
+
 
         self.hil.set_parameters(parameters)
 
@@ -250,7 +254,7 @@ class GridSim(gridsim.GridSim):
             parameters.append(("ROCOF_ENABLE", param["ROCOF_ENABLE"]))
             parameters.append(("ROCOF_VALUE", param["ROCOF_VALUE"]))
             parameters.append(("ROCOF_INIT", param["ROCOF_INIT"]))
-
+            
         self.hil.set_matlab_variables(parameters)
         parameters = []
         parameters = self.hil.get_matlab_variables(["ROCOF_ENABLE", "ROCOF_VALUE", "ROCOF_INIT"])
@@ -264,7 +268,7 @@ class GridSim(gridsim.GridSim):
         :param : "ROCOM_INIT" is for ROCOF initialisation value. Default value 60
         :param : "ROCOM_START_TIME" is for ROCOF initialisation value. Default value 60
         :param : "ROCOM_END_TIME" is for ROCOF initialisation value. Default value 60
-        """
+
 
         if param is not None:
             parameters = []
@@ -273,7 +277,7 @@ class GridSim(gridsim.GridSim):
             parameters.append(("ROCOF_INIT", param["ROCOF_INIT"]))
             parameters.append(("ROCOM_START_TIME", param["ROCOM_START_TIME"]))
             parameters.append(("ROCOM_END_TIME", param["ROCOM_END_TIME"]))
-
+            
         self.hil.set_matlab_variables(parameters)
         parameters = []
         parameters = self.hil.get_matlab_variables(["ROCOF_ENABLE", "ROCOF_VALUE", "ROCOF_INIT", "ROCOM_START_TIME",
@@ -286,11 +290,12 @@ class GridSim(gridsim.GridSim):
 
         :param voltage: tuple of floats for voltages (to set voltage), None to read voltage
         :return: tuple of voltages
-        """
-        # Convert the parameter to P.U.
-        voltage /= self.v_nom
+        """  
+        parameters = []
+
         if voltage is not None and type(voltage) is not list:
             # single value case (not tuple voltages)
+            voltage /= self.v_nom
             parameters = []
             # set the phase angles for the 3 phases
             if self.phases == 1:
@@ -308,11 +313,11 @@ class GridSim(gridsim.GridSim):
                 parameters.append(("VOLT_PHB", voltage))
                 parameters.append(("VOLT_PHC", voltage))
 
+
             else:
                 raise gridsim.GridSimError('Unsupported voltage parameter: %s' % voltage)
         elif voltage is not None and type(voltage) is list and len(voltage) == 3:
             # This consider the list contains three elements
-            parameters = []
             # set the phase angles for the 3 phases
             parameters.append(("VOLT_PHA", voltage[0]))
             parameters.append(("VOLT_PHB", voltage[1]))
@@ -321,6 +326,7 @@ class GridSim(gridsim.GridSim):
         self.hil.set_matlab_variables(parameters)
         parameters = []
         parameters = self.hil.get_matlab_variables(["VOLT_PHA", "VOLT_PHB", "VOLT_PHC"])
+
 
         return parameters
 

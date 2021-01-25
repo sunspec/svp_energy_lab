@@ -100,6 +100,7 @@ class Device(object):
         self.mat_location = ''
         self.csv_location = ''
 
+
         # optional parameters for interfacing with other SVP devices
         self.hil = self.params['hil']
         self.model_name = self.hil.rt_lab_model
@@ -384,6 +385,7 @@ class Device(object):
 
             # self.ts.log_debug('data_points %s' % self.data_points)
 
+
         # After the simulation the data is stored in a .mat file. Matlab is used to convert this to a .csv file.
         # Get the svpelab directory and then add the \OpalRT\...
         self.driver_path = os.path.dirname(os.path.realpath(__file__))
@@ -467,6 +469,7 @@ class Device(object):
                                 # self.ts.log_debug('Appending None for data point: %s' % chan)
                                 data.append(None)
                         else:  # DC Measurement Object missing
+
                             # self.ts.log_debug('Appending None for data point: %s' % chan)
                             data.append(None)
                         continue
