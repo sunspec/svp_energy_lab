@@ -39,8 +39,10 @@ dpo3000_info = {
     'mode': 'Tektronix DPO3000'
 }
 
+
 def das_info():
     return dpo3000_info
+
 
 def params(info, group_name):
     gname = lambda name: group_name + '.' + name
@@ -48,34 +50,35 @@ def params(info, group_name):
     mode = dpo3000_info['mode']
     info.param_add_value(gname('mode'), mode)
     info.param_group(gname(GROUP_NAME), label='%s Parameters' % mode,
-                     active=gname('mode'),  active_value=mode, glob=True)
+                     active=gname('mode'), active_value=mode, glob=True)
     info.param(pname('comm'), label='Communications Interface', default='Network', values=['VISA'])
     info.param(pname('visa_id'), label='visa_id',
-               active=pname('comm'),  active_value=['VISA'], default='TCPIP::10.1.2.87::INSTR')
+               active=pname('comm'), active_value=['VISA'], default='TCPIP::10.1.2.87::INSTR')
     info.param(pname('sample_interval'), label='Sample Interval (ms)', default=0)
 
-    info.param(pname('trigger_chan'), label='Trigger Channel', default='Chan 1', values=['Chan 1', 'Chan 2', 'Chan 3',
-                                                                                      'Chan 4'])
+    info.param(pname('trigger_chan'), label='Trigger Channel', default='Chan 1',
+               values=['Chan 1', 'Chan 2', 'Chan 3', 'Chan 4', 'Line'])
     info.param(pname('trigger_level'), label='Trigger Level', default=0.)
     info.param(pname('trigger_slope'), label='Rising or Falling Trigger', default='Rise', values=['Rise', 'Fall'])
 
     info.param(pname('chan_1'), label='Channel 1', default='Switch_Current',
-               values=['Switch_Current', 'Switch_Voltage', 'Bus_Voltage', 'None'])
+               values=['Switch_Current', 'Switch_Voltage', 'Bus_Voltage', 'Bus_Current', 'None'])
     info.param(pname('chan_2'), label='Channel 2', default='Switch_Voltage',
-               values=['Switch_Current', 'Switch_Voltage', 'Bus_Voltage', 'None'])
+               values=['Switch_Current', 'Switch_Voltage', 'Bus_Voltage', 'Bus_Current', 'None'])
     info.param(pname('chan_3'), label='Channel 3', default='Bus_Voltage',
-               values=['Switch_Current', 'Switch_Voltage', 'Bus_Voltage', 'None'])
+               values=['Switch_Current', 'Switch_Voltage', 'Bus_Voltage', 'Bus_Current', 'None'])
     info.param(pname('chan_4'), label='Channel 4', default='None',
-               values=['Switch_Current', 'Switch_Voltage', 'Bus_Voltage', 'None'])
+               values=['Switch_Current', 'Switch_Voltage', 'Bus_Voltage', 'Bus_Current', 'None'])
 
-    info.param(pname('vert_1'), label='Vertical Scale, Chan 1 (V/div)', default=5)
-    info.param(pname('vert_2'), label='Vertical Scale, Chan 2 (V/div)', default=5)
-    info.param(pname('vert_3'), label='Vertical Scale, Chan 3 (V/div)', default=5)
-    info.param(pname('vert_4'), label='Vertical Scale, Chan 4 (V/div)', default=5)
+    info.param(pname('vert_1'), label='Vertical Scale, Chan 1 (V/div)', default=5.)
+    info.param(pname('vert_2'), label='Vertical Scale, Chan 2 (V/div)', default=5.)
+    info.param(pname('vert_3'), label='Vertical Scale, Chan 3 (V/div)', default=0.5)
+    info.param(pname('vert_4'), label='Vertical Scale, Chan 4 (V/div)', default=0.5)
     info.param(pname('horiz'), label='Horizontal Scale (s/div)', default=20e-6)
     info.param(pname('sample_rate'), label='Sampling Rate (Hz)', default=2.5e9)
     info.param(pname('length'), label='Data Length', default='1k', values=['1k', '10k', '100k', '1M', '5M'])
     info.param(pname('save_wave'), label='Save Waveforms?', default='No', values=['Yes', 'No'])
+
 
 GROUP_NAME = 'dpo3000'
 
@@ -86,10 +89,11 @@ class DAS(das.DAS):
     independent data acquisition classes can be created containing the methods contained in this class.
     """
 
-    def __init__(self, ts, group_name, points=None, sc_points=None):
-        das.DAS.__init__(self, ts, group_name, points=points, sc_points=sc_points)
+    def __init__(self, ts, group_name, points=None, sc_points=None, support_interfaces=None):
+        das.DAS.__init__(self, ts, group_name, points=points, sc_points=sc_points, support_interfaces=None)
         self.sample_interval = self._param_value('sample_interval')
 
+        self.params['sample_interval'] = self.sample_interval
         self.params['visa_id'] = self._param_value('visa_id')
         self.params['comm'] = self._param_value('comm')
         self.params['ts'] = ts
@@ -128,12 +132,9 @@ class DAS(das.DAS):
         # initialize soft channel points
         self._init_sc_points()
 
-
-
     def _param_value(self, name):
         return self.ts.param_value(self.group_name + '.' + GROUP_NAME + '.' + name)
 
 
 if __name__ == "__main__":
-
     pass

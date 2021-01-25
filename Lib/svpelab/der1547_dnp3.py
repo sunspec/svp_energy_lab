@@ -7,7 +7,6 @@ from . import der1547
 import svpdnp3.device_der_dnp3 as dnp3_agent
 import subprocess
 import socket
-import subprocess
 
 dnp3_info = {
     'name': os.path.splitext(os.path.basename(__file__))[0],
@@ -178,10 +177,12 @@ def params(info, group_name):
     info.param(pname('path_to_py'), label='Path to SimController.py',
                default=r'C:\Users\DETLDAQ\Desktop\EPRISimulator\Setup\SimController.py',
                active=pname('sim_type'), active_value='EPRI DER Simulator')
-    info.param(pname('path_to_exe'), label='Path to DBUS_CMD.exe',
+    info.param(pname('path_to_exe'), label='Path to DERSimulator.exe',
                default=r'C:\Users\DETLDAQ\Desktop\EPRISimulator\Setup\epri-der-sim-0.1.0.6\
                epri-der-sim-0.1.0.6\DERSimulator.exe',
                active=pname('sim_type'), active_value='EPRI DER Simulator')
+    info.param(pname('irr_csv'), label='Irradiance csv filename. (Use "None" for no load.)',
+               default=r'None', active=pname('sim_type'), active_value='EPRI DER Simulator')
     info.param(pname('ipaddr'), label='Agent IP Address', default='127.0.0.1')
     info.param(pname('ipport'), label='Agent IP Port', default=10000)
     info.param(pname('out_ipaddr'), label='Outstation IP Address', default='127.0.0.1')
@@ -203,6 +204,8 @@ class DER1547(der1547.DER1547):
         if self.simulated_outstation == 'Yes':
             self.sim_type = self.param_value('sim_type')
             self.auto_config = self.param_value('auto_config')
+            self.irr_csv = self.param_value('irr_csv')
+
         self.ipaddr = self.param_value('ipaddr')
         self.ipport = self.param_value('ipport')
         self.out_ipaddr = self.param_value('out_ipaddr')
@@ -231,8 +234,8 @@ class DER1547(der1547.DER1547):
                     if self.param_value('dbus_ena') == 'Yes':
                         os.system(r'start cmd /k "' + self.param_value('path_to_dbus') + '"')
                         self.ts.sleep(1)
-                        # This currently runs in Python 2.7
-                        os.system(r'start cmd /k C:\Python27\python.exe "' + self.param_value('path_to_py') + '"')
+                        # This currently runs in Python 3.7
+                        os.system(r'start cmd /k C:\Python37\python.exe "' + self.param_value('path_to_py') + '"')
                         self.ts.sleep(1)
 
                     try:
@@ -252,40 +255,58 @@ class DER1547(der1547.DER1547):
                     self.ts.log('Clicking DERMS')
                     app['DER Simulator'].DERMS.click()  # click the DERMS button
 
-                    ''' To create irradiance profile
-                    self.ts.log('Clicking ENV')
-                    app['DER Simulator'].ENV.click()  # click into ENV button
-                    self.ts.log('Browsing to File')
-                    app['Environment Settings'].Browse.click()  # click Browse button
-                    # add csv file to File name: edit box; assumes this file will be local to Browse button default location
-                    self.ts.log('Entering File Name')
-                    app['Environment Settings'].Open.child_window(title="File name:", control_type="Edit").set_edit_text(
-                        r'EKHIV3_1PVSim1MIN.csv')
-                    self.ts.log('Confirming File Name')
-                    app['Environment Settings'].Open.OpenButton3.click()
-                    # check if Frequency and Voltage buttons are checked; if so, uncheck
-                    self.ts.log('Unchecking Freq Toggle')
-                    if app['Environment Settings'].Frequency.get_toggle_state():
-                        app['Environment Settings'].Frequency.toggle()
-                        self.ts.log('Unchecking Voltage Toggle')
-                    if app['Environment Settings'].Voltage.get_toggle_state():
-                        app['Environment Settings'].Voltage.toggle()
-                    self.ts.log('Clicking csv file import and closing')
-                    app['Environment Settings'].Import.click()  # import the CSV and close the dialog
-                    app['Environment Settings'].Close.click()  # import the CSV and close the dialog
-                    '''
+                    # create irradiance profile
+                    if self.irr_csv is not r'None':
+                        self.ts.log('Clicking ENV')
+                        app['DER Simulator'].ENV.click()  # click into ENV button
+                        self.ts.sleep(0.5)  # sleep to permit the stop to operate
 
-                    '''DBus connection for HIL environments
-                    self.ts.log('Clicking Co-Sim button')
-                    app['DER Simulator']['Co-Sim'].click()
-                    # set number of components to 3 and start DBus Client
-                    self.ts.log('Setting DBus Components to 3')
-                    app['DBus Settings']['Number of ComponentsEdit'].set_edit_text(r'3')
-                    self.ts.log('Starting DBus')
-                    app['DBus Settings']['Start DBus\r\nClientButton'].click()
-                    self.ts.log('Closing DBus')
-                    app['DBus Settings'].Close.click()
-                    '''
+                        self.ts.log('Browsing to File')
+                        app['Environment Settings'].Browse.click()  # click Browse button
+                        self.ts.sleep(0.5)  # sleep to permit the stop to operate
+
+                        # add csv file to File name: edit box; assumes this file will be local to Browse button
+                        # default location
+                        self.ts.log('Entering File Name')
+                        app['Environment Settings'].Open.child_window(title="File name:", control_type="Edit").\
+                            set_edit_text(self.irr_csv)
+                        self.ts.sleep(0.5)  # sleep to permit the stop to operate
+                        self.ts.log('Confirming File Name')
+                        app['Environment Settings'].Open.OpenButton3.click()
+                        self.ts.sleep(0.5)  # sleep to permit the stop to operate
+
+                        # check if Frequency and Voltage buttons are checked; if so, uncheck
+                        self.ts.log('Unchecking Freq Toggle')
+                        if app['Environment Settings'].Frequency.get_toggle_state():
+                            app['Environment Settings'].Frequency.toggle()
+                            self.ts.log('Unchecking Voltage Toggle')
+                        if app['Environment Settings'].Voltage.get_toggle_state():
+                            app['Environment Settings'].Voltage.toggle()
+                        self.ts.sleep(0.5)  # sleep to permit the stop to operate
+
+                        self.ts.log('Clicking csv file import and closing')
+                        app['Environment Settings'].Import.click()  # import the CSV and close the dialog
+                        app['Environment Settings'].Close.click()  # import the CSV and close the dialog
+                        self.ts.sleep(0.5)  # sleep to permit the stop to operate
+
+                    # DBus connection for HIL environments
+                    if self.param_value('dbus_ena') == 'Yes':
+                        self.ts.log('Clicking Co-Sim button')
+                        app['DER Simulator']['Co-Sim'].click()
+                        self.ts.sleep(0.5)  # sleep to permit the stop to operate
+
+                        # set number of components to 3 and start DBus Client
+                        self.ts.log('Setting DBus Components to 3')
+                        app['DBus Settings']['Number of ComponentsEdit'].set_edit_text(r'3')
+                        self.ts.sleep(0.5)  # sleep to permit the stop to operate
+
+                        self.ts.log('Starting DBus')
+                        app['DBus Settings']['Start DBus\r\nClientButton'].click()
+                        self.ts.sleep(0.5)  # sleep to permit the stop to operate
+
+                        self.ts.log('Closing DBus')
+                        app['DBus Settings'].Close.click()
+
 
     def add_out(self):
         agent = dnp3_agent.AgentClient(self.ipaddr, self.ipport)
@@ -600,7 +621,18 @@ class DER1547(der1547.DER1547):
         AC voltage maximum rating                               np_ac_v_max_er_max                      Vac
         AC voltage minimum rating                               np_ac_v_min_er_min                      Vac
         Supported control mode functions                        np_supported_modes (dict)               str list
-            e.g., ['CONST_PF', 'QV', 'QP', 'PV', 'PF']
+            e.g., {'fixed_pf': True 'volt_var': False} with keys:
+            Supports Low Voltage Ride-Through Mode: 'lv_trip'
+            Supports High Voltage Ride-Through Mode: 'hv_trip'
+            Supports Low Freq Ride-Through Mode: 'lf_trip'
+            Supports High Freq Ride-Through Mode: 'hf_trip'
+            Supports Active Power Limit Mode: 'max_w'
+            Supports Volt-Watt Mode: 'volt_watt'
+            Supports Frequency-Watt Curve Mode: 'freq_watt'
+            Supports Constant VArs Mode: 'fixed_var'
+            Supports Fixed Power Factor Mode: 'fixed_pf'
+            Supports Volt-VAr Control Mode: 'volt_var'
+            Supports Watt-VAr Mode: 'watt_var'
         Reactive susceptance that remains connected to          np_reactive_susceptance                 Siemens
             the Area EPS in the cease to energize and trip
             state
@@ -639,9 +671,45 @@ class DER1547(der1547.DER1547):
         if nameplate_pts['np_apparent_power_charge_max'] is not None:
             nameplate_pts['np_apparent_power_charge_max'] /= 1000.  # kVA
 
+        #<0> unknown, <1> Category A, <2> Category B
+        if nameplate_pts['np_normal_op_cat'] == 1:
+            nameplate_pts['np_normal_op_cat'] = 'CAT_A'
+        elif nameplate_pts['np_normal_op_cat'] == 2:
+            nameplate_pts['np_normal_op_cat'] = 'CAT_B'
+        else:
+            nameplate_pts['np_normal_op_cat'] = 'Unknown'
+
         nameplate_pts = self.build_sub_dict(dictionary=nameplate_pts,
-                                            new_name='np_support',
+                                            new_name='np_support_dnp3',
                                             keys=list(nameplate_support.keys()))
+
+        ctrl_modes = {}  # rename points with abstraction layer names
+        ctrl_modes['max_w'] = nameplate_pts['np_support_dnp3']['np_support_limit_watt']
+        ctrl_modes['fixed_w'] = nameplate_pts['np_support_dnp3']['np_support_chg_dischg']
+        ctrl_modes['fixed_var'] = nameplate_pts['np_support_dnp3']['np_support_constant_vars']
+        ctrl_modes['fixed_pf'] = nameplate_pts['np_support_dnp3']['np_support_fixed_pf']
+        ctrl_modes['volt_var'] = nameplate_pts['np_support_dnp3']['np_support_volt_var_control']
+        ctrl_modes['freq_watt'] = nameplate_pts['np_support_dnp3']['np_support_freq_watt']
+        ctrl_modes['dyn_react_curr'] = nameplate_pts['np_support_dnp3']['np_support_dynamic_reactive_current']
+        ctrl_modes['lv_trip'] = nameplate_pts['np_support_dnp3']['np_support_volt_ride_through']
+        ctrl_modes['hv_trip'] = nameplate_pts['np_support_dnp3']['np_support_volt_ride_through']
+        ctrl_modes['watt_var'] = nameplate_pts['np_support_dnp3']['np_support_watt_var']
+        ctrl_modes['volt_watt'] = nameplate_pts['np_support_dnp3']['np_support_volt_watt']
+        ctrl_modes['lf_trip'] = nameplate_pts['np_support_dnp3']['np_support_freq_ride_through']
+        ctrl_modes['hf_trip'] = nameplate_pts['np_support_dnp3']['np_support_freq_ride_through']
+        nameplate_pts['np_supported_modes'] = ctrl_modes
+        del nameplate_pts['np_support_dnp3']  # remove dnp3 keys
+        # Unused points
+        # np_support_coordinated_chg_dischg
+        # np_support_active_pwr_response_1
+        # np_support_active_pwr_response_2
+        # np_support_active_pwr_response_3
+        # np_support_automation_generation_control
+        # np_support_active_pwr_smoothing
+        # np_support_dynamic_volt_watt
+        # np_support_freq_watt_curve
+        # np_support_pf_correction
+        # np_support_pricing
 
         return nameplate_pts
 
@@ -676,7 +744,7 @@ class DER1547(der1547.DER1547):
 
         # nameplate_pts = {**nameplate_data_write.copy(), **nameplate_support_write.copy()}
         # return self.write_dnp3_point_map(map_dict=nameplate_pts, write_pts=params)
-
+        self.ts.log_warning('NO DNP3 APP NOTE AO/BO CONFIGURATION POINTS EXIST!')
         return {}  # no write BO/AO for nameplate points in DNP3
 
     def get_monitoring(self):
@@ -694,8 +762,16 @@ class DER1547(der1547.DER1547):
             3-phase devices: [V1, V2, V3]
         Frequency                                                   mn_hz                              Hz
 
-        Operational State                                           mn_st                              dict of bools
-            {'mn_op_local': System in local/maintenance state
+        Operational State                                           mn_st                              bool
+            'On': True, DER operating (e.g., generating)
+            'Off': False, DER not operating
+
+        Connection State                                            mn_conn                            bool
+            'Connected': True, DER connected
+            'Disconnected': False, DER not connected
+
+        DER OP State (not in IEEE 1547.1)                           mn_der_op_details               dict of bools
+             'mn_op_local': System in local/maintenance state
              'mn_op_lockout': System locked out
              'mn_op_starting': Start command has been received
              'mn_op_stopping': Emergency Stop command has been received
@@ -704,8 +780,8 @@ class DER1547(der1547.DER1547):
              'mn_op_permission_to_start': Start Permission Granted
              'mn_op_permission_to_stop': Stop Permission Granted}
 
-        Connection State                                            mn_conn                            dict of bools
-            {'mn_conn_connected_idle': Idle-Connected
+        DER CONN State (not in IEEE 1547.1)                          mn_der_conn_details               dict of bools
+             'mn_conn_connected_idle': Idle-Connected
              'mn_conn_connected_generating': On-Connected
              'mn_conn_connected_charging': On-Charging-Connected
              'mn_conn_off_available': Off-Available
@@ -743,18 +819,32 @@ class DER1547(der1547.DER1547):
         monitoring_pts = self.read_dnp3_point_map(dnp3_pts)
 
         # Scaling
-        if monitoring_pts['mn_w'] is not None:
+        if monitoring_pts.get('mn_w') is not None:
             monitoring_pts['mn_w'] /= 1000.  # kW
-        if monitoring_pts['mn_var'] is not None:
+        if monitoring_pts.get('mn_var') is not None:
             monitoring_pts['mn_var'] /= 1000.  # kVar
-        if monitoring_pts['mn_v'] is not None:
-            monitoring_pts['mn_v'] /= 10.  # V
-        if monitoring_pts['mn_hz'] is not None:
+        if monitoring_pts.get('mn_v') is not None:
+            monitoring_pts['mn_v'] = [monitoring_pts['mn_v'] / 10.]  # V
+        if monitoring_pts.get('mn_hz') is not None:
             monitoring_pts['mn_hz'] /= 100.
 
         # Build hierarchy
-        monitoring_pts = self.build_sub_dict(monitoring_pts, new_name='mn_st', keys=list(operational_state.keys()))
-        monitoring_pts = self.build_sub_dict(monitoring_pts, new_name='mn_conn', keys=list(connection_state.keys()))
+        monitoring_pts = self.build_sub_dict(monitoring_pts, new_name='mn_der_op_details', keys=list(operational_state.keys()))
+        monitoring_pts = self.build_sub_dict(monitoring_pts, new_name='mn_der_conn_details', keys=list(connection_state.keys()))
+
+        if monitoring_pts['mn_der_op_details']['mn_op_started']:
+            monitoring_pts['mn_st'] = True
+        else:
+            monitoring_pts['mn_st'] = False
+
+        if monitoring_pts['mn_der_conn_details']['mn_conn_connected_idle'] or \
+                monitoring_pts['mn_der_conn_details']['mn_conn_connected_generating'] or \
+                monitoring_pts['mn_der_conn_details']['mn_conn_connected_charging'] or \
+                monitoring_pts['mn_der_conn_details']['mn_conn_switch_closed_status']:
+            monitoring_pts['mn_conn'] = True
+        else:
+            monitoring_pts['mn_conn'] = False
+
         monitoring_pts = self.build_sub_dict(monitoring_pts, new_name='mn_alrm', keys=list(alarm_state.keys()))
 
         return monitoring_pts
@@ -765,11 +855,11 @@ class DER1547(der1547.DER1547):
         ________________________________________________________________________________________________________________
         Parameter                                               params dict key                     units
         ________________________________________________________________________________________________________________
-        Constant Power Factor Mode Select                       const_pf_mode_enable_as             bool (True=Enabled)
-        Constant Power Factor Excitation                        const_pf_excitation_as              str ('inj', 'abs')
-        Constant Power Factor Absorbing Setting                 const_pf_abs_as                     VAr p.u
-        Constant Power Factor Injecting Setting                 const_pf_inj_as                     VAr p.u
-        Maximum response time to maintain constant power        const_pf_olrt_as                    s
+        Constant Power Factor Mode Select                       const_pf_mode_enable             bool (True=Enabled)
+        Constant Power Factor Excitation                        const_pf_excitation              str ('inj', 'abs')
+        Constant Power Factor Absorbing Setting                 const_pf_abs                     decimal
+        Constant Power Factor Injecting Setting                 const_pf_inj                     decimal
+        Maximum response time to maintain constant power        const_pf_olrt                    s
             factor. (Not in 1547)
 
         :return: dict with keys shown above.
@@ -785,19 +875,35 @@ class DER1547(der1547.DER1547):
         # self.ts.log_debug('pf_pts = %s' % pf_pts)
 
         # Scale and put values in 1547 keys
-        if 'const_pf_excitation_as' in pf_pts:
-            if pf_pts['const_pf_excitation_as']:  # TODO: verify sign
-                pf_pts['const_pf_excitation_as'] = 'abs'
-                if 'const_pf_as' in pf_pts:
-                    # pf_pts['const_pf_abs_as'] = abs(pf_pts['const_pf_as']) / 100.  # pf
-                    pf_pts['const_pf_abs_as'] = abs(pf_pts['const_pf_as'])  # pf
-                    del pf_pts['const_pf_as']
+        if 'const_pf_excitation' in pf_pts:
+            if pf_pts['const_pf_excitation'] is None:
+                self.ts.log_warning('No excitation provided by DER. Using PF sign to determine excitation.')
+                der_excite = False
             else:
-                pf_pts['const_pf_excitation_as'] = 'inj'
-                if 'const_pf_as' in pf_pts:
-                    # pf_pts['const_pf_inj_as'] = abs(pf_pts['const_pf_as']) / 100.  # pf
-                    pf_pts['const_pf_inj_as'] = abs(pf_pts['const_pf_as'])  # pf
-                    del pf_pts['const_pf_as']
+                der_excite = True
+                if pf_pts['const_pf_excitation']:
+                    pf_pts['const_pf_excitation'] = 'abs'
+                else:
+                    pf_pts['const_pf_excitation'] = 'inj'
+
+            # get PFs and place in active power injection and absorption keys
+            if 'const_pf' in pf_pts:
+                # Generating PF
+                pf_pts['const_pf_inj'] = abs(pf_pts['const_pf'])  # pf (Q1 pos, Q4 neg)
+                if not der_excite:
+                    if pf_pts['const_pf'] > 0:
+                        pf_pts['const_pf_excitation'] = 'abs'
+                    else:
+                        pf_pts['const_pf_excitation'] = 'inj'
+                # TODO - Charging PF
+                # pf_pts['const_pf_abs'] = abs(pf_pts['const_pf'])  # pf (Q2 ?, Q3 ?)
+                # if not der_excite:
+                #     if pf_pts['const_pf'] > 0:
+                #         pf_pts['const_pf_excitation'] = 'abs'
+                #     else:
+                #         pf_pts['const_pf_excitation'] = 'inj'
+
+                del pf_pts['const_pf']
 
         return pf_pts
 
@@ -807,11 +913,11 @@ class DER1547(der1547.DER1547):
         ________________________________________________________________________________________________________________
         Parameter                                               params dict key                     units
         ________________________________________________________________________________________________________________
-        Constant Power Factor Mode Select                       const_pf_mode_enable_as             bool (True=Enabled)
-        Constant Power Factor Excitation                        const_pf_excitation_as              str ('inj', 'abs')
-        Constant Power Factor Absorbing Setting                 const_pf_abs_as                     VAr p.u
-        Constant Power Factor Injecting Setting                 const_pf_inj_as                     VAr p.u
-        Maximum response time to maintain constant power        const_pf_olrt_as                    s
+        Constant Power Factor Mode Select                       const_pf_mode_enable             bool (True=Enabled)
+        Constant Power Factor Excitation                        const_pf_excitation              str ('inj', 'abs')
+        Constant Power Factor Absorbing W Setting               const_pf_abs                     VAr p.u
+        Constant Power Factor Injecting W Setting               const_pf_inj                     VAr p.u
+        Maximum response time to maintain constant power        const_pf_olrt                    s
             factor. (Not in 1547)
 
         :return: dict with keys shown above.
@@ -824,32 +930,32 @@ class DER1547(der1547.DER1547):
         """
         pf_pts = {**fixed_pf_write.copy()}
 
-        if 'const_pf_excitation_as' in params:
-            if params['const_pf_excitation_as'] == 'inj':
-                params['const_pf_excitation_as'] = False
-            elif params['const_pf_excitation_as'] == 'abs':
-                params['const_pf_excitation_as'] = True
+        if 'const_pf_excitation' in params:
+            if params['const_pf_excitation'] == 'inj':
+                params['const_pf_excitation'] = False
+            elif params['const_pf_excitation'] == 'abs':
+                params['const_pf_excitation'] = True
             else:
-                self.ts.log_warning('const_pf_excitation_as is not "inj" or "abs"')
+                self.ts.log_warning('const_pf_excitation is not "inj" or "abs"')
         else:
-            if 'const_pf_mode_enable_as' in params:
-                if params['const_pf_mode_enable_as']:
-                    self.ts.log_warning('No const_pf_excitation_as provided. Assuming absorption (positive value).')
+            if 'const_pf_mode_enable' in params:
+                if params['const_pf_mode_enable']:
+                    self.ts.log_warning('No const_pf_excitation provided. Assuming absorption (positive value).')
 
         # Apply scaling and overload the PF value
-        if 'const_pf_abs_as' in params:
-            if params['const_pf_abs_as'] < -1. or params['const_pf_abs_as'] > 1.:  # should be 0.0 to 1.0
-                self.ts.log_warning('const_pf_abs_as value outside of -1 to 1 pf')
-            # overloading this parameter point (both const_pf_inj_as and const_pf_abs_as map here)
-            params['const_pf_as'] = int(params['const_pf_abs_as']*100.)  # from pf to pf*100, excit handles sign
-            del params['const_pf_abs_as']
+        if 'const_pf_abs' in params:
+            if params['const_pf_abs'] < -1. or params['const_pf_abs'] > 1.:  # should be 0.0 to 1.0
+                self.ts.log_warning('const_pf_abs value outside of -1 to 1 pf')
+            # overloading this parameter point (both const_pf_inj and const_pf_abs map here)
+            params['const_pf'] = int(params['const_pf_abs']*100.)  # from pf to pf*100, excit handles sign
+            del params['const_pf_abs']
 
-        if 'const_pf_inj_as' in params:
-            if params['const_pf_inj_as'] < -1. or params['const_pf_inj_as'] > 1.:  # should be 0.0 to 1.0
-                self.ts.log_warning('const_pf_inj_as value outside of -1 to 1 pf')
-            # overloading this parameter point (both const_pf_inj_as and const_pf_abs_as map here)
-            params['const_pf_as'] = int(params['const_pf_inj_as']*100.)  # from pf to pf*100, excit handles sign
-            del params['const_pf_inj_as']
+        if 'const_pf_inj' in params:
+            if params['const_pf_inj'] < -1. or params['const_pf_inj'] > 1.:  # should be 0.0 to 1.0
+                self.ts.log_warning('const_pf_inj value outside of -1 to 1 pf')
+            # overloading this parameter point (both const_pf_inj and const_pf_abs map here)
+            params['const_pf'] = int(params['const_pf_inj']*100.)  # from pf to pf*100, excit handles sign
+            del params['const_pf_inj']
 
         # self.ts.log_debug('pf_pts = %s, params = %s' % (pf_pts, params))
         return self.write_dnp3_point_map(map_dict=pf_pts, write_pts=params)
@@ -860,13 +966,13 @@ class DER1547(der1547.DER1547):
         ______________________________________________________________________________________________________________
         Parameter                                                   params dict key                 units
         ______________________________________________________________________________________________________________
-        Voltage-Reactive Power Mode Enable                          qv_mode_enable_as               bool (True=Enabled)
-        Vref (0.95-1.05)                                            qv_vref_as                      V p.u.
-        Autonomous Vref Adjustment Enable                           qv_vref_auto_mode_as            str
-        Vref adjustment time Constant (300-5000)                    qv_vref_olrt_as                 s
+        Voltage-Reactive Power Mode Enable                          qv_mode_enable               bool (True=Enabled)
+        Vref (0.95-1.05)                                            qv_vref                      V p.u.
+        Autonomous Vref Adjustment Enable                           qv_vref_auto_mode            bool (True=Enabled)
+        Vref adjustment time Constant (300-5000)                    qv_vref_olrt                 s
         Q(V) Curve Point V1-4 (list), [0.95, 0.99, 1.01, 1.05]      qv_curve_v_pts                  V p.u.
         Q(V) Curve Point Q1-4 (list), [1., 0., 0., -1.]             qv_curve_q_pts                  VAr p.u.
-        Q(V) Open Loop Response Time Setting  (1-90)                qv_olrt_as                      s
+        Q(V) Open Loop Response Time Setting  (1-90)                qv_olrt                      s
         """
 
         volt_var_pts = volt_var_data.copy()
@@ -893,13 +999,13 @@ class DER1547(der1547.DER1547):
         ______________________________________________________________________________________________________________
         Parameter                                                   params dict key                 units
         ______________________________________________________________________________________________________________
-        Voltage-Reactive Power Mode Enable                          qv_mode_enable_as               bool (True=Enabled)
-        Vref (0.95-1.05)                                            qv_vref_as                      V p.u.
-        Autonomous Vref Adjustment Enable                           qv_vref_auto_mode_as            str
-        Vref adjustment time Constant (300-5000)                    qv_vref_olrt_as                 s
+        Voltage-Reactive Power Mode Enable                          qv_mode_enable               bool (True=Enabled)
+        Vref (0.95-1.05)                                            qv_vref                      V p.u.
+        Autonomous Vref Adjustment Enable                           qv_vref_auto_mode            str
+        Vref adjustment time Constant (300-5000)                    qv_vref_olrt                 s
         Q(V) Curve Point V1-4 (list), [0.95, 0.99, 1.01, 1.05]      qv_curve_v_pts                  V p.u.
         Q(V) Curve Point Q1-4 (list), [1., 0., 0., -1.]             qv_curve_q_pts                  VAr p.u.
-        Q(V) Open Loop Response Time Setting  (1-90)                qv_olrt_as                      s
+        Q(V) Open Loop Response Time Setting  (1-90)                qv_olrt                      s
         ______________________________________________________________________________________________________________
         """
 
@@ -930,10 +1036,10 @@ class DER1547(der1547.DER1547):
         ______________________________________________________________________________________________________________
         Parameter                                               params dict key                     units
         ______________________________________________________________________________________________________________
-        Constant Reactive Power Mode Enable                     const_q_mode_enable_as              bool (True=Enabled)
-        Constant Reactive Power Excitation (not specified in    const_q_mode_excitation_as          str ('inj', 'abs')
+        Constant Reactive Power Mode Enable                     const_q_mode_enable              bool (True=Enabled)
+        Constant Reactive Power Excitation (not specified in    const_q_mode_excitation          str ('inj', 'abs')
             1547)
-        Constant Reactive power setting (See Table 7)           const_q_as                          VAr p.u.
+        Constant Reactive power setting (See Table 7)           const_q                          VAr p.u.
         Constant Reactive Power (RofA not specified in 1547)    const_q_abs_er_max                  VAr p.u.
             Absorbing Reactive Power Setting.  Per unit value
             based on NP Qmax Abs. Negative signs should not be
@@ -944,7 +1050,7 @@ class DER1547(der1547.DER1547):
             not be used but if present indicate Injecting VAr.
         Maximum Response Time to maintain constant reactive     const_q_olrt_er_min                 s
             power (not specified in 1547)
-        Maximum Response Time to maintain constant reactive     const_q_olrt_as                     s
+        Maximum Response Time to maintain constant reactive     const_q_olrt                     s
             power (not specified in 1547)
         Maximum Response Time to maintain constant reactive     const_q_olrt_er_max                 s
             power(not specified in 1547)
@@ -956,8 +1062,8 @@ class DER1547(der1547.DER1547):
         dnp3_pts = reactive_power_data.copy()
         reactive_power_pts = self.read_dnp3_point_map(dnp3_pts)
 
-        if reactive_power_pts['const_q_as'] is not None:
-            reactive_power_pts['const_q_as'] /= 1000.  # scaling from pct*10 to pu
+        if reactive_power_pts['const_q'] is not None:
+            reactive_power_pts['const_q'] /= 1000.  # scaling from pct*10 to pu
 
         return reactive_power_pts
 
@@ -974,7 +1080,7 @@ class DER1547(der1547.DER1547):
         """
         Get Connection
 
-        conn_as = bool for connection
+        conn = bool for connection
         """
 
         # Read Outstation Points
@@ -986,7 +1092,7 @@ class DER1547(der1547.DER1547):
         This information is used to update functional and mode settings for the
         Constant Reactive Power Mode. This information may be written.
 
-        conn_as = bool for connection
+        conn = bool for connection
         """
 
         dnp3_pts = conn_write.copy()
@@ -998,12 +1104,12 @@ class DER1547(der1547.DER1547):
         ______________________________________________________________________________________________________________
         Parameter                                                   params dict key                 units
         ______________________________________________________________________________________________________________
-        Frequency-Active Power Mode Enable                          pf_mode_enable_as               bool (True=Enabled)
-        P(f) Overfrequency Droop dbOF Setting                       pf_dbof_as                      Hz
-        P(f) Underfrequency Droop dbUF Setting                      pf_dbuf_as                      Hz
-        P(f) Overfrequency Droop kOF  Setting                       pf_kof_as                       unitless
-        P(f) Underfrequency Droop kUF Setting                       pf_kuf_as                       unitless
-        P(f) Open Loop Response Time Setting                        pf_olrt_as                      s
+        Frequency-Active Power Mode Enable                          pf_mode_enable               bool (True=Enabled)
+        P(f) Overfrequency Droop dbOF Setting                       pf_dbof                      Hz
+        P(f) Underfrequency Droop dbUF Setting                      pf_dbuf                      Hz
+        P(f) Overfrequency Droop kOF  Setting                       pf_kof                       unitless
+        P(f) Underfrequency Droop kUF Setting                       pf_kuf                       unitless
+        P(f) Open Loop Response Time Setting                        pf_olrt                      s
 
         :return: dict with keys shown above.
         """
@@ -1023,9 +1129,9 @@ class DER1547(der1547.DER1547):
         ______________________________________________________________________________________________________________
         Parameter                                                   params dict key                 units
         ______________________________________________________________________________________________________________
-        Frequency-Active Power Mode Enable                          p_lim_mode_enable_as         bool (True=Enabled)
+        Frequency-Active Power Mode Enable                          p_lim_mode_enable         bool (True=Enabled)
         Maximum Active Power Min                                    p_lim_w_er_min               P p.u.
-        Maximum Active Power                                        p_lim_w_as                   P p.u.
+        Maximum Active Power                                        p_lim_w                   P p.u.
         Maximum Active Power Max                                    p_lim_w_er_max               P p.u.
         """
 
@@ -1033,8 +1139,8 @@ class DER1547(der1547.DER1547):
         dnp3_pts = limit_max_power_data.copy()
         limit_max_power_pts = self.read_dnp3_point_map(dnp3_pts)
 
-        if limit_max_power_pts['p_lim_w_as'] is not None:
-            limit_max_power_pts['p_lim_w_as'] /= 1000.  # scaling from pct*10 to pu
+        if limit_max_power_pts['p_lim_w'] is not None:
+            limit_max_power_pts['p_lim_w'] /= 1000.  # scaling from pct*10 to pu
 
         return limit_max_power_pts
 
@@ -1044,19 +1150,19 @@ class DER1547(der1547.DER1547):
         ______________________________________________________________________________________________________________
         Parameter                                                   params dict key                 units
         ______________________________________________________________________________________________________________
-        Frequency-Active Power Mode Enable                          p_lim_mode_enable_as         bool (True=Enabled)
+        Frequency-Active Power Mode Enable                          p_lim_mode_enable         bool (True=Enabled)
         Maximum Active Power Min                                    p_lim_w_er_min               P p.u.
-        Maximum Active Power                                        p_lim_w_as                   P p.u.
+        Maximum Active Power                                        p_lim_w                   P p.u.
         Maximum Active Power Max                                    p_lim_w_er_max               P p.u.
         """
 
         limit_max_power_pts = limit_max_power_write.copy()
 
         # Apply scaling
-        if 'p_lim_w_as' in params:
-            if params['p_lim_w_as'] < -1. or params['p_lim_w_as'] > 1.:
-                self.ts.log_warning('p_lim_w_as value outside of -1 to 1 pu')
-            params['p_lim_w_as'] = int(params['p_lim_w_as']*1000.)  # from pu to pct*10
+        if 'p_lim_w' in params:
+            if params['p_lim_w'] < -1. or params['p_lim_w'] > 1.:
+                self.ts.log_warning('p_lim_w value outside of -1 to 1 pu')
+            params['p_lim_w'] = int(params['p_lim_w']*1000.)  # from pu to pct*10
 
         return self.write_dnp3_point_map(limit_max_power_pts, write_pts=params)
 
@@ -1066,12 +1172,12 @@ class DER1547(der1547.DER1547):
         _______________________________________________________________________________________________________________
         Parameter                                                   params dict key                     units
         _______________________________________________________________________________________________________________
-        Active Power-Reactive Power (Watt-VAr) Enable               qp_mode_enable_as                   bool
-        P-Q curve P1-3 Generation Setting (list)                    qp_curve_p_gen_pts_as               P p.u.
-        P-Q curve Q1-3 Generation Setting (list)                    qp_curve_q_gen_pts_as               VAr p.u.
-        P-Q curve P1-3 Load Setting (list)                          qp_curve_p_load_pts_as              P p.u.
-        P-Q curve Q1-3 Load Setting (list)                          qp_curve_q_load_pts_as              VAr p.u.
-        QP Open Loop Response Time Setting                          qp_olrt_as                          s
+        Active Power-Reactive Power (Watt-VAr) Enable               qp_mode_enable                   bool
+        P-Q curve P1-3 Generation Setting (list)                    qp_curve_p_gen_pts               P p.u.
+        P-Q curve Q1-3 Generation Setting (list)                    qp_curve_q_gen_pts               VAr p.u.
+        P-Q curve P1-3 Load Setting (list)                          qp_curve_p_load_pts              P p.u.
+        P-Q curve Q1-3 Load Setting (list)                          qp_curve_q_load_pts              VAr p.u.
+
         """
         watt_var_pts = watt_var_data.copy()
         watt_var_pts.update(curve_read.copy())
@@ -1079,16 +1185,16 @@ class DER1547(der1547.DER1547):
         resp = self.read_dnp3_point_map(watt_var_pts)
         resp = self.build_sub_dict(resp, new_name='qp_curve_dnp3_data', keys=list(curve_read.keys()))
 
-        resp['qp_curve_p_gen_pts_as'] = []
-        resp['qp_curve_q_gen_pts_as'] = []
-        resp['qp_curve_p_load_pts_as'] = []
-        resp['qp_curve_q_load_pts_as'] = []
+        resp['qp_curve_p_gen_pts'] = []
+        resp['qp_curve_q_gen_pts'] = []
+        resp['qp_curve_p_load_pts'] = []
+        resp['qp_curve_q_load_pts'] = []
         for pt in range(int(resp['qp_curve_dnp3_data']['no_of_points'])):
             # TODO: manage multiple curves
-            resp['qp_curve_p_gen_pts_as'].append(resp['qp_curve_dnp3_data']['x%d' % (pt + 1)] / 1000.)  # 10*pct to pu
-            resp['qp_curve_q_gen_pts_as'].append(resp['qp_curve_dnp3_data']['y%d' % (pt + 1)] / 1000.)  # 10*pct to pu
-            resp['qp_curve_p_load_pts_as'].append(resp['qp_curve_dnp3_data']['x%d' % (pt + 1)] / 1000.)  # 10*pct to pu
-            resp['qp_curve_q_load_pts_as'].append(resp['qp_curve_dnp3_data']['y%d' % (pt + 1)] / 1000.)  # 10*pct to pu
+            resp['qp_curve_p_gen_pts'].append(resp['qp_curve_dnp3_data']['x%d' % (pt + 1)] / 1000.)  # 10*pct to pu
+            resp['qp_curve_q_gen_pts'].append(resp['qp_curve_dnp3_data']['y%d' % (pt + 1)] / 1000.)  # 10*pct to pu
+            resp['qp_curve_p_load_pts'].append(resp['qp_curve_dnp3_data']['x%d' % (pt + 1)] / 1000.)  # 10*pct to pu
+            resp['qp_curve_q_load_pts'].append(resp['qp_curve_dnp3_data']['y%d' % (pt + 1)] / 1000.)  # 10*pct to pu
         resp['qp_curve_dnp3_data']['x_value'] = X_ENUM.get(resp['qp_curve_dnp3_data']['x_value'])
         resp['qp_curve_dnp3_data']['y_value'] = Y_ENUM.get(resp['qp_curve_dnp3_data']['y_value'])
         resp['qp_curve_dnp3_data']['curve_mode_type'] = CURVE_MODE.get(resp['qp_curve_dnp3_data']['curve_mode_type'])
@@ -1104,22 +1210,22 @@ class DER1547(der1547.DER1547):
         watt_var_curve_pts = curve_write.copy()
         watt_var_pts.update(watt_var_curve_pts)
 
-        if 'pv_curve_p_pts_as' in params or 'pv_curve_q_pts_as' in params:
+        if 'pv_curve_p_pts' in params or 'pv_curve_q_pts' in params:
             params['curve_index'] = '1'
             params['curve_edit_selector'] = '1'
             params['curve_mode_type'] = CURVE_MODE['WV']
-            params['no_of_points'] = len(params['pv_curve_v_pts_as'])
+            params['no_of_points'] = len(params['pv_curve_v_pts'])
             params['x_value'] = X_ENUM['Volt_Pct']  # Voltage
             params['y_value'] = Y_ENUM['WMaxPct']  # DNP3 App Note Table 53 for details
             # TODO: work with multiple curves
-            for pt in range(len(params['qp_curve_p_gen_pts_as'])):
-                params['x%d' % (pt + 1)] = params['qp_curve_p_gen_pts_as'][pt]*1000.  # from pu to 10*pct
-            for pt in range(len(params['qp_curve_q_gen_pts_as'])):
-                params['y%d' % (pt + 1)] = params['qp_curve_q_gen_pts_as'][pt]*1000.  # from pu to 10*pct
-            for pt in range(len(params['qp_curve_p_load_pts_as'])):
-                params['x%d' % (pt + 1)] = params['qp_curve_p_load_pts_as'][pt]*1000.  # from pu to 10*pct
-            for pt in range(len(params['qp_curve_q_load_pts_as'])):
-                params['y%d' % (pt + 1)] = params['qp_curve_q_load_pts_as'][pt]*1000.  # from pu to 10*pct
+            for pt in range(len(params['qp_curve_p_gen_pts'])):
+                params['x%d' % (pt + 1)] = params['qp_curve_p_gen_pts'][pt]*1000.  # from pu to 10*pct
+            for pt in range(len(params['qp_curve_q_gen_pts'])):
+                params['y%d' % (pt + 1)] = params['qp_curve_q_gen_pts'][pt]*1000.  # from pu to 10*pct
+            for pt in range(len(params['qp_curve_p_load_pts'])):
+                params['x%d' % (pt + 1)] = params['qp_curve_p_load_pts'][pt]*1000.  # from pu to 10*pct
+            for pt in range(len(params['qp_curve_q_load_pts'])):
+                params['y%d' % (pt + 1)] = params['qp_curve_q_load_pts'][pt]*1000.  # from pu to 10*pct
 
         # Write the P(V) points
         pv_write = self.write_dnp3_point_map(volt_watt_pts, params, debug=False)
@@ -1137,11 +1243,11 @@ class DER1547(der1547.DER1547):
         resp = self.read_dnp3_point_map(volt_watt_pts)
         resp = self.build_sub_dict(resp, new_name='pv_curve_dnp3_data', keys=list(curve_read.keys()))
 
-        resp['pv_curve_v_pts_as'] = []
-        resp['pv_curve_p_pts_as'] = []
+        resp['pv_curve_v_pts'] = []
+        resp['pv_curve_p_pts'] = []
         for pt in range(int(resp['pv_curve_dnp3_data']['no_of_points'])):
-            resp['pv_curve_v_pts_as'].append(resp['pv_curve_dnp3_data']['x%d' % (pt + 1)] / 1000.)  # from 10*pct to pu
-            resp['pv_curve_p_pts_as'].append(resp['pv_curve_dnp3_data']['y%d' % (pt + 1)] / 1000.)  # from 10*pct to pu
+            resp['pv_curve_v_pts'].append(resp['pv_curve_dnp3_data']['x%d' % (pt + 1)] / 1000.)  # from 10*pct to pu
+            resp['pv_curve_p_pts'].append(resp['pv_curve_dnp3_data']['y%d' % (pt + 1)] / 1000.)  # from 10*pct to pu
         resp['pv_curve_dnp3_data']['x_value'] = X_ENUM.get(resp['pv_curve_dnp3_data']['x_value'])
         resp['pv_curve_dnp3_data']['y_value'] = Y_ENUM.get(resp['pv_curve_dnp3_data']['y_value'])
         resp['pv_curve_dnp3_data']['curve_mode_type'] = CURVE_MODE.get(resp['pv_curve_dnp3_data']['curve_mode_type'])
@@ -1155,11 +1261,11 @@ class DER1547(der1547.DER1547):
         ______________________________________________________________________________________________________________
         Parameter                                                   params dict key                         units
         ______________________________________________________________________________________________________________
-        Voltage-Active Power Mode Enable                            pv_mode_enable_as                       bool
-        P(V) Curve Point V1-2 Setting (list)                        pv_curve_v_pts_as                       V p.u.
-        P(V) Curve Point P1-2 Setting (list)                        pv_curve_p_pts_as                       P p.u.
-        P(V) Curve Point P1-P'2 Setting (list)                      pv_curve_p_bidrct_pts_as                P p.u.
-        P(V) Open Loop Response time Setting (0.5-60)               pv_olrt_as                              s
+        Voltage-Active Power Mode Enable                            pv_mode_enable                       bool
+        P(V) Curve Point V1-2 Setting (list)                        pv_curve_v_pts                       V p.u.
+        P(V) Curve Point P1-2 Setting (list)                        pv_curve_p_pts                       P p.u.
+        P(V) Curve Point P1-P'2 Setting (list)                      pv_curve_p_bidrct_pts                P p.u.
+        P(V) Open Loop Response time Setting (0.5-60)               pv_olrt                              s
 
         :return: dict with keys shown above.
         """
@@ -1167,17 +1273,17 @@ class DER1547(der1547.DER1547):
         volt_watt_curve_pts = curve_write.copy()
         volt_watt_pts.update(volt_watt_curve_pts)
 
-        if 'pv_curve_v_pts_as' in params or 'pv_curve_p_pts_as' in params:
+        if 'pv_curve_v_pts' in params or 'pv_curve_p_pts' in params:
             params['curve_index'] = '1'
             params['curve_edit_selector'] = '1'
             params['curve_mode_type'] = CURVE_MODE['WV']
-            params['no_of_points'] = len(params['pv_curve_v_pts_as'])
+            params['no_of_points'] = len(params['pv_curve_v_pts'])
             params['x_value'] = X_ENUM['Volt_Pct']  # Voltage
             params['y_value'] = Y_ENUM['WMaxPct']  # DNP3 App Note Table 53 for details
-            for pt in range(len(params['pv_curve_v_pts_as'])):
-                params['x%d' % (pt + 1)] = params['pv_curve_v_pts_as'][pt]*1000.  # from pu to 10*pct
-            for pt in range(len(params['pv_curve_p_pts_as'])):
-                params['y%d' % (pt + 1)] = params['pv_curve_p_pts_as'][pt]*1000.  # from pu to 10*pct
+            for pt in range(len(params['pv_curve_v_pts'])):
+                params['x%d' % (pt + 1)] = params['pv_curve_v_pts'][pt]*1000.  # from pu to 10*pct
+            for pt in range(len(params['pv_curve_p_pts'])):
+                params['y%d' % (pt + 1)] = params['pv_curve_p_pts'][pt]*1000.  # from pu to 10*pct
 
         # Write the P(V) points
         pv_write = self.write_dnp3_point_map(volt_watt_pts, params, debug=False)
@@ -1469,25 +1575,25 @@ class DER1547(der1547.DER1547):
         ______________________________________________________________________________________________________________
         Parameter                                               params dict key                 units
         ______________________________________________________________________________________________________________
-        Permit service                                          es_permit_service_as            bool (True=Enabled)
+        Permit service                                          es_permit_service            bool (True=Enabled)
         ES Voltage Low (RofA not specified in 1547)             es_v_low_er_min                 V p.u.
-        ES Voltage Low Setting                                  es_v_low_as                     V p.u.
+        ES Voltage Low Setting                                  es_v_low                     V p.u.
         ES Voltage Low (RofA not specified in 1547)             es_v_low_er_max                 V p.u.
         ES Voltage High (RofA not specified in 1547)            es_v_high_er_min                V p.u.
-        ES Voltage High Setting                                 es_v_high_as                    V p.u.
+        ES Voltage High Setting                                 es_v_high                    V p.u.
         ES Voltage High (RofA not specified in 1547)            es_v_high_er_max                V p.u.
         ES Frequency Low (RofA not specified in 1547)           es_f_low_er_min                 Hz
-        ES Frequency Low Setting                                es_f_low_as                     Hz
+        ES Frequency Low Setting                                es_f_low                     Hz
         ES Frequency Low (RofA not specified in 1547)           es_f_low_er_max                 Hz
         ES Frequency Low (RofA not specified in 1547)           es_f_high_er_min                Hz
-        ES Frequency High Setting                               es_f_high_as                    Hz
+        ES Frequency High Setting                               es_f_high                    Hz
         ES Frequency Low (RofA not specified in 1547)           es_f_high_er_max                Hz
-        ES Randomized Delay                                     es_randomized_delay_as          bool (True=Enabled)
+        ES Randomized Delay                                     es_randomized_delay          bool (True=Enabled)
         ES Delay (RofA not specified in 1547)                   es_delay_er_min                 s
-        ES Delay Setting                                        es_delay_as                     s
+        ES Delay Setting                                        es_delay                     s
         ES Delay (RofA not specified in 1547)                   es_delay_er_max                 s
         ES Ramp Rate Min (RofA not specified in 1547)           es_ramp_rate_er_min             %/s
-        ES Ramp Rate Setting                                    es_ramp_rate_as                 %/s
+        ES Ramp Rate Setting                                    es_ramp_rate                 %/s
         ES Ramp Rate Min (RofA not specified in 1547)           es_ramp_rate_er_max             %/s
 
         :return: dict with keys shown above.
@@ -1506,7 +1612,7 @@ class DER1547(der1547.DER1547):
         _______________________________________________________________________________________________________________
         Parameter                                                   params dict key                     units
         _______________________________________________________________________________________________________________
-        Unintentional Islanding Mode (enabled/disabled). This       ui_mode_enable_as                   bool
+        Unintentional Islanding Mode (enabled/disabled). This       ui_mode_enable                   bool
             function is enabled by default, and disabled only by
             request from the Area EPS Operator.
             UI is always on in 1547 BUT 1547.1 says turn it off
@@ -1537,11 +1643,11 @@ class DER1547(der1547.DER1547):
         _______________________________________________________________________________________________________________
         HV Trip Curve Point OV_V1-3 (see Tables 11-13)              ov_trip_v_pts_er_min                V p.u.
             (RofA not specified in 1547)
-        HV Trip Curve Point OV_V1-3 Setting                         ov_trip_v_pts_as                    V p.u.
+        HV Trip Curve Point OV_V1-3 Setting                         ov_trip_v_pts                    V p.u.
         HV Trip Curve Point OV_V1-3 (RofA not specified in 1547)    ov_trip_v_pts_er_max                V p.u.
         HV Trip Curve Point OV_T1-3 (see Tables 11-13)              ov_trip_t_pts_er_min                s
             (RofA not specified in 1547)
-        HV Trip Curve Point OV_T1-3 Setting                         ov_trip_t_pts_as                    s
+        HV Trip Curve Point OV_T1-3 Setting                         ov_trip_t_pts                    s
         HV Trip Curve Point OV_T1-3 (RofA not specified in 1547)    ov_trip_t_pts_er_max                s
 
         :return: dict with keys shown above.
@@ -1562,11 +1668,11 @@ class DER1547(der1547.DER1547):
         _______________________________________________________________________________________________________________
         LV Trip Curve Point UV_V1-3 (see Tables 11-13)              uv_trip_v_pts_er_min                V p.u.
             (RofA not specified in 1547)
-        LV Trip Curve Point UV_V1-3 Setting                         uv_trip_v_pts_as                    V p.u.
+        LV Trip Curve Point UV_V1-3 Setting                         uv_trip_v_pts                    V p.u.
         LV Trip Curve Point UV_V1-3 (RofA not specified in 1547)    uv_trip_v_pts_er_max                V p.u.
         LV Trip Curve Point UV_T1-3 (see Tables 11-13)              uv_trip_t_pts_er_min                s
             (RofA not specified in 1547)
-        LV Trip Curve Point UV_T1-3 Setting                         uv_trip_t_pts_as                    s
+        LV Trip Curve Point UV_T1-3 Setting                         uv_trip_t_pts                    s
         LV Trip Curve Point UV_T1-3 (RofA not specified in 1547)    uv_trip_t_pts_er_max                s
 
         :return: dict with keys shown above.
@@ -1587,11 +1693,11 @@ class DER1547(der1547.DER1547):
         _______________________________________________________________________________________________________________
         OF Trip Curve Point OF_F1-3 (see Tables 11-13)              of_trip_f_pts_er_min                Hz
             (RofA not specified in 1547)
-        OF Trip Curve Point OF_F1-3 Setting                         of_trip_f_pts_as                    Hz
+        OF Trip Curve Point OF_F1-3 Setting                         of_trip_f_pts                    Hz
         OF Trip Curve Point OF_F1-3 (RofA not specified in 1547)    of_trip_f_pts_er_max                Hz
         OF Trip Curve Point OF_T1-3 (see Tables 11-13)              of_trip_t_pts_er_min                s
             (RofA not specified in 1547)
-        OF Trip Curve Point OF_T1-3 Setting                         of_trip_t_pts_as                    s
+        OF Trip Curve Point OF_T1-3 Setting                         of_trip_t_pts                    s
         OF Trip Curve Point OF_T1-3 (RofA not specified in 1547)    of_trip_t_pts_er_max                s
 
         :return: dict with keys shown above.
@@ -1612,11 +1718,11 @@ class DER1547(der1547.DER1547):
         _______________________________________________________________________________________________________________
         UF Trip Curve Point UF_F1-3 (see Tables 11-13)              uf_trip_f_pts_er_min                Hz
             (RofA not specified in 1547)
-        UF Trip Curve Point UF_F1-3 Setting                         uf_trip_f_pts_as                    Hz
+        UF Trip Curve Point UF_F1-3 Setting                         uf_trip_f_pts                    Hz
         UF Trip Curve Point UF_F1-3 (RofA not specified in 1547)    uf_trip_f_pts_er_max                Hz
         UF Trip Curve Point UF_T1-3 (see Tables 11-13)              uf_trip_t_pts_er_min                s
             (RofA not specified in 1547)
-        UF Trip Curve Point UF_T1-3 Setting                         uf_trip_t_pts_as                    s
+        UF Trip Curve Point UF_T1-3 Setting                         uf_trip_t_pts                    s
         UF Trip Curve Point UF_T1-3 (RofA not specified in 1547)    uf_trip_t_pts_er_max                s
 
         :return: dict with keys shown above.
@@ -1637,11 +1743,11 @@ class DER1547(der1547.DER1547):
         _______________________________________________________________________________________________________________
         HV MC Curve Point OV_V1-3 (see Tables 11-13)                ov_mc_v_pts_er_min                  V p.u.
             (RofA not specified in 1547)
-        HV MC Curve Point OV_V1-3 Setting                           ov_mc_v_pts_as                      V p.u.
+        HV MC Curve Point OV_V1-3 Setting                           ov_mc_v_pts                      V p.u.
         HV MC Curve Point OV_V1-3 (RofA not specified in 1547)      ov_mc_v_pts_er_max                  V p.u.
         HV MC Curve Point OV_T1-3 (see Tables 11-13)                ov_mc_t_pts_er_min                  s
             (RofA not specified in 1547)
-        HV MC Curve Point OV_T1-3 Setting                           ov_mc_t_pts_as                      s
+        HV MC Curve Point OV_T1-3 Setting                           ov_mc_t_pts                      s
         HV MC Curve Point OV_T1-3 (RofA not specified in 1547)      ov_mc_t_pts_er_max                  s
 
         :return: dict with keys shown above.
@@ -1662,11 +1768,11 @@ class DER1547(der1547.DER1547):
         _______________________________________________________________________________________________________________
         LV MC Curve Point UV_V1-3 (see Tables 11-13)                uv_mc_v_pts_er_min                V p.u.
             (RofA not specified in 1547)
-        LV MC Curve Point UV_V1-3 Setting                           uv_mc_v_pts_as                    V p.u.
+        LV MC Curve Point UV_V1-3 Setting                           uv_mc_v_pts                    V p.u.
         LV MC Curve Point UV_V1-3 (RofA not specified in 1547)      uv_mc_v_pts_er_max                V p.u.
         LV MC Curve Point UV_T1-3 (see Tables 11-13)                uv_mc_t_pts_er_min                s
             (RofA not specified in 1547)
-        LV MC Curve Point UV_T1-3 Setting                           uv_mc_t_pts_as                    s
+        LV MC Curve Point UV_T1-3 Setting                           uv_mc_t_pts                    s
         LV MC Curve Point UV_T1-3 (RofA not specified in 1547)      uv_mc_t_pts_er_max                s
 
         :return: dict with keys shown above.
@@ -1690,7 +1796,7 @@ class DER1547(der1547.DER1547):
         Cease to energize and trip                              cease_to_energize               bool (True=Enabled)
 
         """
-        return self.set_es_permit_service(params={'es_permit_service_as': params['cease_to_energize']})
+        return self.set_es_permit_service(params={'es_permit_service': params['cease_to_energize']})
 
 
     def get_curve_settings(self):
@@ -1829,24 +1935,9 @@ Voltage (list)                                              mn_v                
     3-phase devices: [V1, V2, V3]
 Frequency                                                   mn_hz                              Hz
 
-Operational State                                           mn_st                              dict of bools
-    {'mn_op_local': System in local/maintenance state
-     'mn_op_lockout': System locked out
-     'mn_op_starting': Start command has been received
-     'mn_op_stopping': Emergency Stop command has been received
-     'mn_op_started': Started
-     'mn_op_stopped': Stopped
-     'mn_op_permission_to_start': Start Permission Granted
-     'mn_op_permission_to_stop': Stop Permission Granted}
+Operational State                                           mn_st                              bool
 
-Connection State                                            mn_conn                            dict of bools
-    {'mn_conn_connected_idle': Idle-Connected
-     'mn_conn_connected_generating': On-Connected
-     'mn_conn_connected_charging': On-Charging-Connected
-     'mn_conn_off_available': Off-Available
-     'mn_conn_off_not_available': Off-Not-Available
-     'mn_conn_switch_closed_status': Switch Closed
-     'mn_conn_switch_closed_movement': Switch Moving}
+Connection State                                            mn_conn                            bool
 
 Alarm Status                                                mn_alrm                            dict of bools
     Reported Alarm Status matches the device
@@ -1976,17 +2067,17 @@ Constant Power Factor                       Unitless            AO210 - AO211   
 Constant Power Factor Excitation            Over/Under          BO10 - BO11         BI29 - BI30
 '''
 
-fixed_pf = {'const_pf_mode_enable_as': {'bi': {'80': None}},
-            # 'const_pf_abs_as': {'ai': {'288': None}},
-            # 'const_pf_inj_as': {'ai': {'288': None}},
-            'const_pf_as': {'ai': {'288': None}},
-            'const_pf_excitation_as': {'bi': {'29': None}}}
+fixed_pf = {'const_pf_mode_enable': {'bi': {'80': None}},
+            # 'const_pf_abs': {'ai': {'288': None}},
+            # 'const_pf_inj': {'ai': {'288': None}},
+            'const_pf': {'ai': {'288': None}},
+            'const_pf_excitation': {'bi': {'29': None}}}
 
-fixed_pf_write = {'const_pf_mode_enable_as': {'bo': {'28': None}},
-                  # 'const_pf_abs_as': {'ao': {'210': None}},
-                  # 'const_pf_inj_as': {'ao': {'210': None}},
-                  'const_pf_as': {'ao': {'210': None}},
-                  'const_pf_excitation_as': {'bo': {'10': None}}}
+fixed_pf_write = {'const_pf_mode_enable': {'bo': {'28': None}},
+                  # 'const_pf_abs': {'ao': {'210': None}},
+                  # 'const_pf_inj': {'ao': {'210': None}},
+                  'const_pf': {'ao': {'210': None}},
+                  'const_pf_excitation': {'bo': {'10': None}}}
 
 '''
 DNP3 App Note Table 63 - Mapping of IEC Std 1547 to The DNP3 DER Profile
@@ -2056,27 +2147,27 @@ der1547 Abstraction:
 ______________________________________________________________________________________________________________
 Parameter                                                   params dict key                 units
 ______________________________________________________________________________________________________________
-Voltage-Reactive Power Mode Enable                          qv_mode_enable_as               bool (True=Enabled)
-Vref (0.95-1.05)                                            qv_vref_as                      V p.u.
-Autonomous Vref Adjustment Enable                           qv_vref_auto_mode_as            str
-Vref adjustment time Constant (300-5000)                    qv_vref_olrt_as                 s
+Voltage-Reactive Power Mode Enable                          qv_mode_enable               bool (True=Enabled)
+Vref (0.95-1.05)                                            qv_vref                      V p.u.
+Autonomous Vref Adjustment Enable                           qv_vref_auto_mode            str
+Vref adjustment time Constant (300-5000)                    qv_vref_olrt                 s
 Q(V) Curve Point V1-4 (list, e.g., [95, 99, 101, 105])      qv_curve_v_pts                  V p.u.
 Q(V) Curve Point Q1-4 (list)                                qv_curve_q_pts                  VAr p.u.
-Q(V) Open Loop Response Time Setting  (1-90)                qv_olrt_as                      s
+Q(V) Open Loop Response Time Setting  (1-90)                qv_olrt                      s
 ______________________________________________________________________________________________________________
 '''
 
-volt_var_data = {'qv_mode_enable_as': {'bi': {'81': None}},
-                 'qv_vref_as': {'ai': {'29': None}},
-                 'qv_vref_auto_mode_as': {'bi': {'93': None}},
-                 'qv_vref_olrt_as': {'ai': {'300': None}},
-                 'qv_olrt_as': {'ai': {'298': None}}}
+volt_var_data = {'qv_mode_enable': {'bi': {'81': None}},
+                 'qv_vref': {'ai': {'29': None}},
+                 'qv_vref_auto_mode': {'bi': {'93': None}},
+                 'qv_vref_olrt': {'ai': {'300': None}},
+                 'qv_olrt': {'ai': {'298': None}}}
 
-volt_var_write = {'qv_mode_enable_as': {'bo': {'29': None}},
-                  'qv_vref_as': {'ao': {'0': None}},
-                  'qv_vref_auto_mode_as': {'bo': {'41': None}},
-                  'qv_vref_olrt_as': {'ao': {'220': None}},
-                  'qv_olrt_as': {'ao': {'218': None}}}
+volt_var_write = {'qv_mode_enable': {'bo': {'29': None}},
+                  'qv_vref': {'ao': {'0': None}},
+                  'qv_vref_auto_mode': {'bo': {'41': None}},
+                  'qv_vref_olrt': {'ao': {'220': None}},
+                  'qv_olrt': {'ao': {'218': None}}}
 
 '''
 DNP3 App Note Table 63 - Mapping of IEC Std 1547 to The DNP3 DER Profile
@@ -2094,10 +2185,10 @@ Get Constant Reactive Power Mode
 ______________________________________________________________________________________________________________
 Parameter                                               params dict key                     units
 ______________________________________________________________________________________________________________
-Constant Reactive Power Mode Enable                     const_q_mode_enable_as              bool (True=Enabled)
-Constant Reactive Power Excitation (not specified in    const_q_mode_excitation_as          str ('inj', 'abs')
+Constant Reactive Power Mode Enable                     const_q_mode_enable              bool (True=Enabled)
+Constant Reactive Power Excitation (not specified in    const_q_mode_excitation          str ('inj', 'abs')
     1547)
-Constant Reactive power setting (See Table 7)           const_q_as                          VAr p.u.
+Constant Reactive power setting (See Table 7)           const_q                          VAr p.u.
 Constant Reactive Power (RofA not specified in 1547)    const_q_abs_er_max                  VAr p.u.
     Absorbing Reactive Power Setting.  Per unit value
     based on NP Qmax Abs. Negative signs should not be
@@ -2108,7 +2199,7 @@ Constant Reactive Power (RofA not specified in 1547)    const_q_inj_er_max      
     not be used but if present indicate Injecting VAr.
 Maximum Response Time to maintain constant reactive     const_q_olrt_er_min                 s
     power (not specified in 1547)
-Maximum Response Time to maintain constant reactive     const_q_olrt_as                     s
+Maximum Response Time to maintain constant reactive     const_q_olrt                     s
     power (not specified in 1547)
 Maximum Response Time to maintain constant reactive     const_q_olrt_er_max                 s
     power(not specified in 1547)
@@ -2116,11 +2207,11 @@ Maximum Response Time to maintain constant reactive     const_q_olrt_er_max     
 :return: dict with keys shown above.
 """
 
-reactive_power_data = {'const_q_mode_enable_as': {'bi': {'79': None}},
-                       'const_q_as': {'ai': {'281': None}}}
+reactive_power_data = {'const_q_mode_enable': {'bi': {'79': None}},
+                       'const_q': {'ai': {'281': None}}}
 
-reactive_power_write = {'const_q_mode_enable_as': {'bo': {'27': None}},
-                        'const_q_as': {'ao': {'203': None}}}
+reactive_power_write = {'const_q_mode_enable': {'bo': {'27': None}},
+                        'const_q': {'ao': {'203': None}}}
 
 '''
 DNP3 App Note Table 63 - Mapping of IEC Std 1547 to The DNP3 DER Profile
@@ -2143,27 +2234,27 @@ Get P(f), Frequency-Active Power Mode Parameters - IEEE 1547 Table 38
 ______________________________________________________________________________________________________________
 Parameter                                                   params dict key                 units
 ______________________________________________________________________________________________________________
-Frequency-Active Power Mode Enable                          pf_mode_enable_as               bool (True=Enabled)
-P(f) Overfrequency Droop dbOF Setting                       pf_dbof_as                      Hz
-P(f) Underfrequency Droop dbUF Setting                      pf_dbuf_as                      Hz
-P(f) Overfrequency Droop kOF  Setting                       pf_kof_as                       unitless
-P(f) Underfrequency Droop kUF Setting                       pf_kuf_as                       unitless
-P(f) Open Loop Response Time Setting                        pf_olrt_as                      s
+Frequency-Active Power Mode Enable                          pf_mode_enable               bool (True=Enabled)
+P(f) Overfrequency Droop dbOF Setting                       pf_dbof                      Hz
+P(f) Underfrequency Droop dbUF Setting                      pf_dbuf                      Hz
+P(f) Overfrequency Droop kOF  Setting                       pf_kof                       unitless
+P(f) Underfrequency Droop kUF Setting                       pf_kuf                       unitless
+P(f) Open Loop Response Time Setting                        pf_olrt                      s
 '''
 
-freq_watt_data = {'pf_mode_enable_as': {'bi': {'78': None}},
-                  'pf_dbof_as': {'ai': {'121': None}},
-                  'pf_dbuf_as': {'ai': {'125': None}},
-                  'pf_kof_as': {'ai': {'123': None}},
-                  'pf_kuf_as': {'ai': {'127': None}},
-                  'pf_olrt_as': {'ai': {'131': None}}}
+freq_watt_data = {'pf_mode_enable': {'bi': {'78': None}},
+                  'pf_dbof': {'ai': {'121': None}},
+                  'pf_dbuf': {'ai': {'125': None}},
+                  'pf_kof': {'ai': {'123': None}},
+                  'pf_kuf': {'ai': {'127': None}},
+                  'pf_olrt': {'ai': {'131': None}}}
 
-freq_watt_write = {'pf_mode_enable_as': {'ao': {'121': None}},
-                  'pf_dbof_as': {'ao': {'62': None}},
-                  'pf_dbuf_as': {'ao': {'66': None}},
-                  'pf_kof_as': {'ao': {'64': None}},
-                  'pf_kuf_as': {'ao': {'68': None}},
-                  'pf_olrt_as': {'ao': {'72': None}}}
+freq_watt_write = {'pf_mode_enable': {'ao': {'121': None}},
+                  'pf_dbof': {'ao': {'62': None}},
+                  'pf_dbuf': {'ao': {'66': None}},
+                  'pf_kof': {'ao': {'64': None}},
+                  'pf_kuf': {'ao': {'68': None}},
+                  'pf_olrt': {'ao': {'72': None}}}
 
 '''
 DNP3 App Note Table 63 - Mapping of IEC Std 1547 to The DNP3 DER Profile
@@ -2176,11 +2267,11 @@ Limit Active Power Enable                   On/Off              BO17            
 Limit Mode Maximum Active Power             Watts (pct)         AO87 - AO88         AI148 - AI149
 '''
 
-limit_max_power_data = {'p_lim_mode_enable_as': {'bi': {'69': None}},
-                        'p_lim_w_as': {'ai': {'149': None}}}
+limit_max_power_data = {'p_lim_mode_enable': {'bi': {'69': None}},
+                        'p_lim_w': {'ai': {'149': None}}}
 
-limit_max_power_write = {'p_lim_mode_enable_as': {'bo': {'17': None}},
-                         'p_lim_w_as': {'ao': {'88': None}}}
+limit_max_power_write = {'p_lim_mode_enable': {'bo': {'17': None}},
+                         'p_lim_w': {'ao': {'88': None}}}
 
 
 '''
@@ -2277,19 +2368,19 @@ Open Loop Response Time                     Seconds             AO175 - AO176   
 ______________________________________________________________________________________________________________
 Parameter                                                   params dict key                         units
 ______________________________________________________________________________________________________________
-Voltage-Active Power Mode Enable                            pv_mode_enable_as                       bool
-P(V) Curve Point V1-2 Setting (list)                        pv_curve_v_pts_as                       V p.u.
-P(V) Curve Point P1-2 Setting (list)                        pv_curve_p_pts_as                       P p.u.
-P(V) Curve Point P1-P'2 Setting (list)                      pv_curve_p_bidrct_pts_as                P p.u.
-P(V) Open Loop Response time Setting (0.5-60)               pv_olrt_as                              s
+Voltage-Active Power Mode Enable                            pv_mode_enable                       bool
+P(V) Curve Point V1-2 Setting (list)                        pv_curve_v_pts                       V p.u.
+P(V) Curve Point P1-2 Setting (list)                        pv_curve_p_pts                       P p.u.
+P(V) Curve Point P1-P'2 Setting (list)                      pv_curve_p_bidrct_pts                P p.u.
+P(V) Open Loop Response time Setting (0.5-60)               pv_olrt                              s
 
 
 '''
-volt_watt_data = {'pv_mode_enable_as': {'bi': {'77': None}},
-                  'pv_olrt_as': {'ai': {'251': None}}}
+volt_watt_data = {'pv_mode_enable': {'bi': {'77': None}},
+                  'pv_olrt': {'ai': {'251': None}}}
 
-volt_watt_write = {'pv_mode_enable_as': {'bo': {'25': None}},
-                   'pv_olrt_as': {'ao': {'175': None}}}
+volt_watt_write = {'pv_mode_enable': {'bo': {'25': None}},
+                   'pv_olrt': {'ao': {'175': None}}}
 
 '''
 DNP3 App Note Table 63 - Mapping of IEC Std 1547 to The DNP3 DER Profile
@@ -2329,6 +2420,6 @@ response
 moving                                      Unsolicited Response
 '''
 
-conn_data = {'conn_as': {'bi': {'21': None}}}
-conn_write = {'conn_as': {'bo': {'5': None}}}
+conn_data = {'conn': {'bi': {'21': None}}}
+conn_write = {'conn': {'bo': {'5': None}}}
 

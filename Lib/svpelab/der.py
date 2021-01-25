@@ -36,6 +36,7 @@ import importlib
 
 der_modules = {}
 
+
 def params(info, id=None, label='DER', group_name=None, active=None, active_value=None):
     if group_name is None:
         group_name = DER_DEFAULT_ID
@@ -49,10 +50,11 @@ def params(info, id=None, label='DER', group_name=None, active=None, active_valu
     for mode, m in der_modules.items():
         m.params(info, group_name=group_name)
 
+
 DER_DEFAULT_ID = 'der'
 
 
-def der_init(ts, id=None, group_name=None,support_interfaces=None):
+def der_init(ts, id=None, group_name=None, support_interfaces=None):
     """
     Function to create specific der implementation instances.
     """
@@ -68,7 +70,10 @@ def der_init(ts, id=None, group_name=None,support_interfaces=None):
     if mode != 'Disabled':
         sim_module = der_modules.get(mode)
         if sim_module is not None:
-            sim = sim_module.DER(ts, group_name,support_interfaces=support_interfaces)
+            try:
+                sim = sim_module.DER(ts, group_name, support_interfaces=support_interfaces)
+            except TypeError as e:
+                sim = sim_module.DER(ts, group_name)
         else:
             raise DERError('Unknown DER system mode: %s' % mode)
 
@@ -427,27 +432,106 @@ class DER(object):
         pass
 
     def frt_stay_connected_high(self, params=None):
+        """ Get/set high frequency ride through (must stay connected curve)
+
+        Params:
+            curve:
+                t - Time point in the curve
+                Hz - Frequency point in the curve
+
+        :param params: Dictionary of parameters to be updated.
+        :return: Dictionary of active settings for HFRT control.
+        """
         pass
 
     def frt_stay_connected_low(self, params=None):
+        """ Get/set high frequency ride through (must stay connected curve)
+
+        Params:
+            curve:
+                t - Time point in the curve
+                Hz - Frequency point in the curve
+
+        :param params: Dictionary of parameters to be updated.
+        :return: Dictionary of active settings for LFRT control.
+        """
         pass
 
     def frt_trip_high(self, params=None):
+        """ Get/set high frequency ride through (trip curve)
+
+        Params:  params = {'curve': 't': [299., 10.], 'Hz': [61.0, 61.8]}
+            curve:
+                t - Time point in the curve
+                Hz - Frequency point in the curve
+
+        :param params: Dictionary of parameters to be updated.
+        :return: Dictionary of active settings for HFT control.
+        """
         pass
 
     def frt_trip_low(self, params=None):
+        """ Get/set lower frequency ride through (trip curve)
+
+        Params: params = {'curve': 't': [299., 10.], 'Hz': [59.0, 58.2]}
+            curve:
+                t - Time point in the curve
+                Hz - Frequency point in the curve
+
+        :param params: Dictionary of parameters to be updated.
+        :return: Dictionary of active settings for LFT control.
+        """
         pass
 
     def vrt_stay_connected_high(self, params=None):
+        """ Get/set high voltage ride through (must stay connected curve)
+
+        Params:
+            curve:
+                t - Time point in the curve
+                v - voltage point in the curve
+
+        :param params: Dictionary of parameters to be updated.
+        :return: Dictionary of active settings for HVRT control.
+        """
         pass
 
     def vrt_stay_connected_low(self, params=None):
-        pass
+        """ Get/set low voltage ride through (must stay connected curve)
+
+        Params:
+            curve:
+                t - Time point in the curve
+                v - voltage point in the curve
+
+        :param params: Dictionary of parameters to be updated.
+        :return: Dictionary of active settings for LVRT control.
+        """
 
     def vrt_trip_high(self, params=None):
+        """ Get/set high voltage ride through (trip curve)
+
+        Params:  params = {'curve': 't': [60., 10.], 'V': [110.0, 120.0]}
+            curve:
+                t - Time point in the curve
+                Hz - Voltage point in the curve % of Vnom
+
+        :param params: Dictionary of parameters to be updated.
+        :return: Dictionary of active settings for HVT control.
+        """
         pass
 
     def vrt_trip_low(self, params=None):
+        """ Get/set lower voltage ride through (trip curve)
+
+        Params:  params = {'curve': 't': [60., 10.], 'V': [110.0, 120.0]}
+            curve:
+                t - Time point in the curve
+                Hz - Voltage point in the curve % of Vnom
+
+        :param params: Dictionary of parameters to be updated.
+        :return: Dictionary of active settings for LVT control.
+        """
         pass
 
     def watt_var(self, params=None):
@@ -492,6 +576,7 @@ def der_scan():
             m = importlib.import_module(module_name)
             if hasattr(m, 'der_info'):
                 info = m.der_info()
+                print('DER Info %s' % info)
                 mode = info.get('mode')
                 # place module in module dict
                 if mode is not None:
@@ -502,7 +587,7 @@ def der_scan():
         except Exception as e:
             if module_name is not None and module_name in sys.modules:
                 del sys.modules[module_name]
-            raise DERError('Error scanning module %s: %s' % (module_name, str(e)))
+            print(DERError('Error scanning module %s: %s' % (module_name, str(e))))
 
 # scan for der modules on import
 der_scan()

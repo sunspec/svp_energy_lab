@@ -401,7 +401,7 @@ def gridsim_scan():
         except Exception as e:
             if module_name is not None and module_name in sys.modules:
                 del sys.modules[module_name]
-            raise GridSimError('Error scanning module %s: %s' % (module_name, str(e)))
+            print(GridSimError('Error scanning module %s: %s' % (module_name, str(e))))
 
 # scan for gridsim modules on import
 gridsim_scan()

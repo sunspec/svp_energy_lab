@@ -30,7 +30,12 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 Questions can be directed to support@sunspec.org
 """
 import os
-from . import hil
+try:
+    import hil
+except ImportError as e:
+    print("Could not import hil")
+    from . import hil
+
 import sys
 from time import sleep
 # import glob
@@ -71,12 +76,17 @@ def params(info, group_name=None):
     info.param(pname('rt_mode'), label='Real-Time simulation mode', default='Hardware', values=["Software","Hardware"])
 
     info.param(pname('hil_config'), label='Configure HIL in init', default='False', values=['True', 'False'])
-    info.param(pname('hil_config_open'), label='Open Project?', default="Yes", values=["Yes", "No"])
-    info.param(pname('hil_config_compile'), label='Compilation needed?', default="No", values=["Yes", "No"])
+    # info.param(pname('hil_config_open'), label='Open Project?', default="Yes", values=["Yes", "No"],
+    #            active=pname('hil_config'), active_value='True')
+    info.param(pname('hil_config_compile'), label='Compilation needed?', default="No", values=["Yes", "No"],
+               active=pname('hil_config'), active_value='True')
     info.param(pname('hil_config_stop_sim'), label='Stop the simulation before loading/execution?',
-               default="Yes", values=["Yes", "No"])
-    info.param(pname('hil_config_load'), label='Load the model to target?', default="Yes", values=["Yes", "No"])
-    info.param(pname('hil_config_execute'), label='Execute the model on target?', default="Yes", values=["Yes", "No"])
+               default="Yes", values=["Yes", "No"], active=pname('hil_config'), active_value='True')
+    info.param(pname('hil_config_load'), label='Load the model to target?', default="Yes", values=["Yes", "No"],
+               active=pname('hil_config'), active_value='True')
+    info.param(pname('hil_config_execute'), label='Execute the model on target?', default="Yes", values=["Yes", "No"],
+               active=pname('hil_config'), active_value='True')
+    info.param(pname('hil_stop_time'), label='Stop Time', default=3600.)
 
 
 GROUP_NAME = 'opal'
@@ -122,6 +132,7 @@ class HIL(hil.HIL):
         self.hil_config_stop_sim = self._param_value('hil_config_stop_sim')
         self.hil_config_load = self._param_value('hil_config_load')
         self.hil_config_execute = self._param_value('hil_config_execute')
+        self.hil_stop_time = self._param_value('hil_stop_time')
 
         if self._param_value('hil_config') == 'True':
             self.config()
@@ -138,16 +149,17 @@ class HIL(hil.HIL):
         provided parameters.
         """
         self.ts.log("{}".format(self.info()))
-        if self._param_value('hil_config_open') == 'Yes':
-            self.open()
-        self.ts.log('Setting the simulation stop time for 2 hours to run experiment.')
-        self.set_stop_time(3600 * 2)
+        self.open()
         if self.hil_config_compile == 'Yes':
             self.ts.sleep(1)
             self.ts.log("    Model ID: {}".format(self.compile_model().get("modelId")))
         if self.hil_config_stop_sim == 'Yes':
             self.ts.sleep(1)
             self.ts.log("    {}".format(self.stop_simulation()))
+
+        self.ts.log('Setting the simulation stop time for %0.1f to run experiment.' % self.hil_stop_time)
+        self.set_stop_time(self.hil_stop_time)
+
         if self.hil_config_load == 'Yes':
             self.ts.sleep(1)
             self.ts.log("    {}".format(self.load_model_on_hil()))
@@ -233,6 +245,22 @@ class HIL(hil.HIL):
         """
         Open the communications resources associated with the HIL.
         """
+        self.ts.log('Opening Project: %s' % self.project_name)
+        if os.path.isfile(self.project_name):
+            self.ts.log('Assuming project name is an absolute path to .llp file')
+            proj_path = self.project_name
+        elif os.path.isdir(self.project_name) and os.path.isfile(self.project_name):
+            self.ts.log('Assuming project directory + project name is an absolute path to .llp file')
+            self.project_dir.rstrip('\\') + '\\' + self.project_name
+            proj_path = self.project_dir.rstrip('\\') + '\\' + self.project_name
+        elif os.path.isdir(self.workspace_path):
+            self.ts.log('Assuming workspace is used with Project Name and directory')
+            proj_path = os.path.join(self.workspace_path, self.project_dir, self.project_name)
+        else:
+            self.ts.log('Assuming project directory and .llp file are located in svpelab directory')
+            svpelab_dir = os.path.abspath(os.path.dirname(__file__))
+            proj_path = svpelab_dir + self.project_dir.rstrip('\\') + '\\' + self.project_name
+
 
 
         
@@ -254,9 +282,12 @@ class HIL(hil.HIL):
             raise
         self.ts.log('Opened Project: %s' % self.project_name)
 
-        # Set parameter control for later
-        parameterControl = 1
-        RtlabApi.GetParameterControl(parameterControl)
+        # Set controls to the API
+        RtlabApi.GetParameterControl(1)
+        RtlabApi.GetSignalControl(1)
+        # RtlabApi.GetAcquisitionControl(1, 0)
+        RtlabApi.GetMonitoringControl(1)
+        self.control_panel_info(state=1)  # GetSystemControl
 
         pass
     
@@ -275,6 +306,7 @@ class HIL(hil.HIL):
         Return system information
         :return: Opal Information
         """
+        self.ts.log_debug('info(), self.target_name = %s' % self.target_name)
         system_info = RtlabApi.GetTargetNodeSystemInfo(self.target_name)
         opal_rt_info = "OPAL-RT - Platform version {0} (IP address : {1})".format(system_info[1], system_info[6])
         return opal_rt_info
@@ -587,6 +619,7 @@ class HIL(hil.HIL):
                   "Windows target, please select another target platform")
 
         pass
+
     def set_parameters(self, parameters):
         """
         Sets the parameters in the RT-Lab Model
@@ -599,6 +632,7 @@ class HIL(hil.HIL):
             for p, v in parameters:
                 self.ts.log_debug('Setting parameter %s = %s' % (p, v))
                 self.set_params(p, v)
+
     def get_parameters(self, verbose=False):
         """
         Get the parameters from the model
@@ -618,24 +652,242 @@ class HIL(hil.HIL):
                                                            model_parameters[param][2],
                                                            model_parameters[param][4]))
         return mdl_params
+
     def get_matlab_variable_value(self, variableName):
+        """
+        Get the matlab variable value
+
+        :param variableName: name of the variable
+        :return: value string
+        """
         attributeNumber = RtlabApi.FindObjectId(RtlabApi.OP_TYPE_VARIABLE, self.rt_lab_model + '/' + variableName)
         value = RtlabApi.GetAttribute(attributeNumber, RtlabApi.ATT_MATRIX_VALUE)
         return str(value)
 
-    def set_matlab_variable_value(self,variableName,valueToSet):
+    def set_matlab_variable_value(self, variableName, valueToSet):
+        """
+        Change matlab variable. Typically these are referenced in the simulink model, so these changes affect the
+        simulation.
+
+        :param variableName: Matlab variable
+        :param valueToSet: New matlab value
+        :return: value of variable as measured from the
+        """
+        # self.ts.log_debug('set_matlab_variable_value() variableName = %s, valueToSet = %s' %
+        #                   (variableName, valueToSet))
+
         attributeNumber = RtlabApi.FindObjectId(RtlabApi.OP_TYPE_VARIABLE, self.rt_lab_model + '/' + variableName)
         value = RtlabApi.GetAttribute(attributeNumber, RtlabApi.ATT_MATRIX_VALUE)
         if valueToSet != value:
             self.ts.log_debug(f'Setting matlab variable {variableName} to {valueToSet} instead of {value} ')
-            self.ts.sleep(1.0) 
+            self.ts.sleep(0.5)
+
             RtlabApi.SetAttribute(attributeNumber, RtlabApi.ATT_MATRIX_VALUE, valueToSet)
             attributeNumber = RtlabApi.FindObjectId(RtlabApi.OP_TYPE_VARIABLE, self.rt_lab_model + '/' + variableName)
             value = RtlabApi.GetAttribute(attributeNumber, RtlabApi.ATT_MATRIX_VALUE)
         else:
-            self.ts.log_debug(f'matlab variable {variableName} was already configure to {valueToSet} ')
+            self.ts.log_debug(f'matlab variable {variableName} was already configured to {valueToSet} ')
+        return value
 
-        return str(value)
+    def get_acq_signals_raw(self, signal_map=None, verbose=False):
+        """
+        Returns the acquisition signals sent to the console subsystem while the model is running. The acquisition
+        signals are the signals sent from the computation nodes to console subsystem in the same order that it was
+        specified at the input of the OpComm block for the specified acquisition group. The outputs contains two
+        arrays: acquisition signals + monitoring signals.
+
+        The user can activate the synchronization algorithm to synchronize the acquisition time with the simulation
+        time by inserting data during missed data intervals. The interpolation can be used in this case to get a
+        better result during missed data intervals. Threshold time between acquisition time and simulation time
+        exceeds the threshold, the acquisition (console) will be updated to overtake the difference. The acqtimestep
+        offers the user a way to change his console step size as in Simulink.
+
+        :param signal_map: list of  acquisition signals names
+        :param verbose: bool that indicates if the function prints results
+        :return: if a signal map is provided, returns a dict of the acq values mapped to the list'
+                 if no signal map, return list of data.
+        """
+
+        # SetAcqBlockLastVal -- Set the current settings for the blocking / non-blocking, and associated last value
+        # flag, for signal acquisition. This information is used by the API acquisition functions, which have the
+        # option not to wait for data, needed by some console's lack of multiple thread support. The ProbeControl
+        # panel sets these settings using this call.
+
+        # blockOnGroup: Acquisition group for which the API functions will wait for data (specify n for group n).
+        # If 0, API function will wait for data for all groups. If -1, API functions will not wait for any group's data.
+        BlockOnGroup = 0
+        # lastValues: Boolean, 1 means API functions will output the last values received while a group's data is
+        # not available. If 0, the API function will output zeroes. This paramater is ignored when blockOnGroup is
+        # not equal to -1.
+        lastValues = 1
+        RtlabApi.SetAcqBlockLastVal(BlockOnGroup, lastValues)
+
+        # acquisitionGroup: Acquisition group number, starts from 0.
+        # synchronization: synchronization 1/0 = Enable/Disable
+        # interpolation: interpolation 1/0 = Enable/Disable
+        # threshold: Threshold difference time between the simulation and the acquisition (console) time in seconds.
+        # acqTimeStep: Sample interval: acquisition (console) timestep must be equal or greater than the model time step
+        acquisitionGroup = 0
+        synchronization = 0
+        interpolation = 0
+        threshold = 0
+        acqTimeStep = 80e-6
+        values, monitoringInfo, simulationTimeStep, endFrame = \
+            RtlabApi.GetAcqGroupSyncSignals(acquisitionGroup, synchronization, interpolation, threshold, acqTimeStep)
+
+        # monitoringInfo: Monitoring information tuple. It contains the following values: Missed data, offset,
+        # simulationTime and sampleSec. See below for more details.
+        missedData, offset, simulationTime, sampleSec = monitoringInfo
+        # self.ts.log_debug('SimulationTime of data acquisition = %s' % simulationTime)
+
+        if missedData >= 1.0:
+            self.ts.log_warning('Missing data in last acquisition. Number of missing data points: %s' % missedData)
+
+        if verbose:
+            # values: Acquired signals from acquisition. It contains a tuple of values with one value for each signal in
+            # the acquisition group.
+            self.ts.log_debug('Acquired signals from acquisition: %s' % (str(values)))
+            # missedData: Number of values between two acquisition frame. If value is 0, there are no missing data
+            # between the two frames. Missing data may appear if network communication and display are too slow to
+            # refresh value generated by the model.
+            self.ts.log_debug('Number of values missing between two acquisition frames (missedData): %s' %
+                              (str(missedData)))
+            # offset: simulation time when the acquisition started.
+            self.ts.log_debug('Simulation time when the acquisition started (offset): %s' % (str(offset)))
+            # simulationTime: simulation time of the model when the acquisition has been done.
+            self.ts.log_debug('Simulation time at acquisition (simulationTime): %s' %
+                              (str(simulationTime)))
+            # sampleSec: Number of sample/sec received from target. Calculation is made for one sample. Ex: If model is
+            # running at 0.001s, sample/sec value should not exceed 1000 sample/sec.
+            self.ts.log_debug('Number of sample/sec received from target (sampleSec): %s' % (str(sampleSec)))
+            # simulationTimeStep: Simulation timestep of the acquired data.
+            self.ts.log_debug('Simulation timestep of the acquired data (simTimeStep): %s' % (str(simulationTimeStep)))
+            # endFrame: True when signals are the last in the acquisition buffer (next values will be in a next frame).
+            self.ts.log_debug('Number of values between two acquisition frames: %s' % (str(endFrame)))
+
+        if signal_map is not None:
+            idx = 0
+            for key, value in signal_map:
+                signal_map[key] = values[idx]
+                idx += 1
+            signal_map['TIME'] = simulationTime
+            return signal_map
+        else:
+            return list(values)
+
+    def get_acq_signals(self, verbose=False):
+        """
+        Get the data acquisition signals from the model
+
+        :return: list of tuples of data acq signals from SC_ outputs, (signalId, label, value)
+
+        """
+
+        signals = RtlabApi.GetSignalsDescription()
+        # array of tuples: (signalType, signalId, path, label, reserved, readonly, value)
+        # 0 signalType: Signal type. See OP_SIGNAL_TYPE.
+        # 1 signalId: Id of the signal.
+        # 2 path: Path of the signal.
+        # 3 label: Label or name of the signal.
+        # 4 reserved: unused?
+        # 5 readonly: True when the signal is read-only.
+        # 6 value: Current value of the signal.
+
+        acq_signals = []
+        for sig in range(len(signals)):
+            if str(signals[sig][0]) == 'OP_ACQUISITION_SIGNAL(0)':
+                acq_signals.append((signals[sig][1], signals[sig][3], signals[sig][6]))
+                if verbose:
+                    self.ts.log_debug('Sig #%d: Type: %s, Path: %s, Label: %s, value: %s' %
+                                      (signals[sig][1], signals[sig][0], signals[sig][2], signals[sig][3],
+                                       signals[sig][6]))
+
+        return acq_signals
+
+    def get_control_signals(self, details=False, verbose=False):
+        """
+        Get the control signals from the model
+
+        The control signals are the signals sent from the console to the computation nodes in the same order as
+        specified in the input of the OpComm of the specified computation nodes.
+
+        :return: list of control signals
+            if details == True, return a list of tuples (signalType, signalId, path, label, value)
+            if details == False, return list of values for the signals in the control
+        """
+
+        if details:
+            signals = RtlabApi.GetControlSignalsDescription()
+            # (signalType, signalId, path, label, reserved, readonly, value) = signalInfo1
+            # 0 signalType: Signal type. See OP_SIGNAL_TYPE.
+            # 1 id: Id of the signal.
+            # 2 path: Path of the signal.
+            # 3 label: Label or name of the signal.
+            # 4 reserved:
+            # 5 readonly: True when the signal is read-only.
+            # 6 value: Current value of the signal
+
+            control_signals = []
+            for sig in range(len(signals)):
+                control_signals.append((signals[sig][0], signals[sig][1], signals[sig][2], signals[sig][3],
+                                       signals[sig][6]))
+                if verbose:
+                    self.ts.log_debug('Sig #%d: Type: %s, Path: %s, Label: %s, value: %s' %
+                                      (signals[sig][1], signals[sig][0], signals[sig][2], signals[sig][3],
+                                       signals[sig][6]))
+
+        else:
+            control_signals = list(RtlabApi.GetControlSignals())
+            if verbose:
+                for param in range(len(control_signals)):
+                    self.ts.log_debug('Control Signal #%d = %s' % (param, control_signals[param]))
+
+        return control_signals
+
+    def set_control_signals(self, values=None):
+        """
+        Set the control signals from the model
+
+        The control signals are the signals sent from the console to the computation nodes in the same order as
+        specified in the input of the OpComm of the specified computation nodes.
+
+        :return: None
+        """
+
+        logical_id = 1  # SC_Subsystem
+        # A unique number associated with each subsystem of type SM, SC or SS in a model. This number is assigned during
+        # the compilation of the model and is independent of the target where the simulation is performed. The SM
+        # subsystem is always assigned Id 1, the SC subsystem is always assigned Id 2 and the SS subsystem is assigned
+        # Id 2 if there is no console and a value greater than 2 if there is a console. The logical Id can be obtained
+        # by calling the GetSubsystemList function. Note: Some API functions accept an Id of 0. This value means that
+        # the function will be applied to all subsystem.
+
+        subsystems = RtlabApi.GetSubsystemList()
+        # self.ts.log_debug(subsystems)
+        #  ('IEEE_P1547_TEST_V22/SM_SystemDynamics', 1, 'Target_3')
+        #  ('IEEE_P1547_TEST_V22/SC_InputsandOutputs', 2, '')
+        subsystem = 'None'
+        for sub in subsystems:
+            # self.ts.log_debug('sub = %s' % str(sub))
+            if sub[1] == logical_id:
+                subsystem = sub[0]
+        if subsystem == 'None':
+            self.ts.log_warning('No subsystem was found')
+
+        # self.ts.log_debug('Sending the following control signals: %s to %s' % (values, subsystem))
+        if values is not None:
+            if isinstance(values, list):
+                RtlabApi.SetControlSignals(logical_id, tuple(values))
+            elif isinstance(values, tuple):
+                RtlabApi.SetControlSignals(logical_id, values)
+            else:
+                self.ts.log_warning('No values set by RtlabApi.SetControlSignals() because values were not list '
+                                    'or tuple')
+        else:
+            self.ts.log_warning('No values set by RtlabApi.SetControlSignals()')
+
+        return None
+
     def set_params(self, param, value):
         """
         Set parameters in the model
@@ -655,6 +907,15 @@ class HIL(hil.HIL):
                               (type(param), type(value)))
         pass
 
+    def set_var(self, variable, value):
+        """
+        Set Matlab variable in the model
+        """
+        modelName = self.rt_lab_model
+        attributeNumber = RtlabApi.FindObjectId(RtlabApi.OP_TYPE_VARIABLE, modelName + '/' + variable)
+        RtlabApi.SetAttribute(attributeNumber, RtlabApi.ATT_MATRIX_VALUE, value)
+
+        # attributeNumber = RtlabApi.FindObjectId(RtlabApi.OP_TYPE_VARIABLE, self.rt_lab_model + '/' + variable)
 
     def set_matlab_variables(self, variables):
         """
@@ -697,9 +958,9 @@ class HIL(hil.HIL):
                                   signal_parameters[sig][6]))
             if verbose:
                 self.ts.log_debug('Signal #%s: %s [%s] = %s' % (signal_parameters[sig][1],
-                                                               signal_parameters[sig][2],
-                                                               signal_parameters[sig][3],
-                                                               signal_parameters[sig][6]))
+                                                                signal_parameters[sig][2],
+                                                                signal_parameters[sig][3],
+                                                                signal_parameters[sig][6]))
         return signal_params
 
     def get_sample_time(self):
@@ -763,52 +1024,101 @@ class HIL(hil.HIL):
 
 if __name__ == "__main__":
 
+    import time
     system_info = RtlabApi.GetTargetNodeSystemInfo("Target_3")
     for i in range(len(system_info)):
         print((system_info[i]))
     print(("OPAL-RT - Platform version {0} (IP address : {1})".format(system_info[1], system_info[6])))
 
-    '''
-    projectName = "C:\\Users\\DETLDAQ\\OPAL-RT\\RT-LABv2019.1_Workspace\\" \
-                  "IEEE_1547.1_Phase_Jump\\IEEE_1547.1_Phase_Jump.llp"
+    projectName = r"C:/Users/DETLDAQ/OPAL-RT/RT-LABv2020.1_Workspace_new/1547.1_UI_CatB_22/1547.1_UI_CatB_22.llp"
+
     RtlabApi.OpenProject(projectName)
-    parameterControl = 1
-    RtlabApi.GetParameterControl(parameterControl)
+    RtlabApi.GetParameterControl(1)
+    RtlabApi.GetSystemControl(1)
+    RtlabApi.GetAcquisitionControl(1)
 
-    status, _ = RtlabApi.GetModelState()
-    if status == RtlabApi.MODEL_LOADABLE:
-        realTimeMode = RtlabApi.HARD_SYNC_MODE
-        timeFactor = 1
-        RtlabApi.Load(realTimeMode, timeFactor)
-        print("The model is loaded.")
-    else:
-        print("The model is not loadable.")
+    RtlabApi.SetAcqBlockLastVal(0, 1)
+    print(RtlabApi.GetAcqBlockLastVal())
 
-    for loop in range(2):
-        print("Run times: %s" % loop)
+    acquisitionGroup = 0
+    synchronization = 0
+    interpolation = 0
+    threshold = 0
+    acqTimeStep = 0.001
 
-        status, _ = RtlabApi.GetModelState()
-        print('Status is: %s' % status)
-        if status == RtlabApi.MODEL_PAUSED:
-            RtlabApi.Execute(1)
-            modelState, realTimeMode = RtlabApi.GetModelState()
-            "The model state is now %s." % RtlabApi.OP_MODEL_STATE(modelState)
-        sleep(2)
+    for i in range(10):
 
-        model_parameters = RtlabApi.GetParametersDescription()
-        for param in range(len(model_parameters)):
-            print('Param: %s, %s is %s' % (model_parameters[param][1],
-                                           model_parameters[param][2],
-                                           model_parameters[param][4]))
+        values, (missedData, offset, simulationTime, sampleSec), simulationTimeStep, endFrame = \
+            RtlabApi.GetAcqGroupSyncSignals(acquisitionGroup, synchronization, interpolation,
+                                            threshold, acqTimeStep)
+        print('Simulation Time = %s, Acquired signals from acquisition: %s' %
+              (simulationTime, str(values)[0:80]))
 
-        # print('Simulation time is: %s' % [RtlabApi.GetTimeInfo()])
-        # print('Simulation time is: %s' % (RtlabApi.GetPauseTime()))
-        # print('Simulation time is: %s' % (RtlabApi.GetStopTime()))
-        # print('Simulation time is: %s' % (RtlabApi.GetAcqSampleTime()))
+        time.sleep(1)
 
-        RtlabApi.Pause()
-        sleep(2)
+    for i in range(10):
+        frames = 0  # the number of frames is configured in the probe control for the model in RT-Lab
+        while 1:
+            values, (missedData, offset, simulationTime, sampleSec), simulationTimeStep, endFrame = \
+                RtlabApi.GetAcqGroupSyncSignals(acquisitionGroup, synchronization, interpolation,
+                                                threshold, acqTimeStep)
 
+            frames += 1
+            if endFrame:  # if the frame is over
+                print('Simulation Time = %s, Acquired signals from acquisition: %s' %
+                      (simulationTime, str(values)[0:300]))
+                break  # stop loop
+
+        # print('Total frames: %s' % frames)
+        time.sleep(1)
+
+    # io_interface = RtlabApi.GetIOInterfaces()
+    # print('GetIOInterfaces: %s' % io_interface)
+    # print(type(io_interface[0]))
+    # io_name = io_interface[0]['name']
+    # print('io_name: %s' % io_name)
+    # io_points = RtlabApi.GetConnectionPointsForIO()
+    # for point in range(len(io_points)):
+    #     print(io_points[point])
+    #
+    # control_signals = RtlabApi.GetControlSignals()
+    # for sig in range(len(control_signals)):
+    #     print('GetControlSignals[%d]: %s' % (sig, control_signals[sig]))
+
+
+
+    # status, _ = RtlabApi.GetModelState()
+    # if status == RtlabApi.MODEL_LOADABLE:
+    #     realTimeMode = RtlabApi.HARD_SYNC_MODE
+    #     timeFactor = 1
+    #     RtlabApi.Load(realTimeMode, timeFactor)
+    #     print("The model is loaded.")
+    # else:
+    #     print("The model is not loadable.")
+    #
+    # status, _ = RtlabApi.GetModelState()
+    # print('Status is: %s' % status)
+    # if status == RtlabApi.MODEL_PAUSED:
+    #     RtlabApi.Execute(1)
+    #     modelState, realTimeMode = RtlabApi.GetModelState()
+    #     "The model state is now %s." % RtlabApi.OP_MODEL_STATE(modelState)
+    # sleep(2)
+    #
+    # model_parameters = RtlabApi.GetParametersDescription()
+    # for param in range(len(model_parameters)):
+    #     print('Param: %s, %s is %s' % (model_parameters[param][1],
+    #                                    model_parameters[param][2],
+    #                                    model_parameters[param][4]))
+
+    # print('Simulation time is: %s' % [RtlabApi.GetTimeInfo()])
+    # print('Simulation time is: %s' % (RtlabApi.GetPauseTime()))
+    # print('Simulation time is: %s' % (RtlabApi.GetStopTime()))
+    # print('Simulation time is: %s' % (RtlabApi.GetAcqSampleTime()))
+
+    # RtlabApi.Pause()
+    # sleep(2)
+
+    '''
     RtlabApi.CloseProject()
 
     RtlabApi.SetParametersByName("PF818072_test_model/sm_computation/Rocof/Value", 10.)
@@ -858,10 +1168,10 @@ if __name__ == "__main__":
             # Display compilation log into Python console
             _, _, msg = RtlabApi.DisplayInformation(100)
             while len(msg) > 0:
-                print msg,
+                print(msg)
                 _, _, msg = RtlabApi.DisplayInformation(100)
 
-        except Exception, exc:
+        except Exception as exc:
             # Ignore error 11 which is raised when RtlabApi.DisplayInformation is called whereas there is no
             # pending message
             info = sys.exc_info()
@@ -872,7 +1182,7 @@ if __name__ == "__main__":
 
     # Because we use a comma after print when forward compilation log into python log we have to ensure to
     # write a carriage return when finished.
-    print ''
+    print('')
 
     # Get project status to check is compilation succeeded
     status, _ = RtlabApi.GetModelState()
@@ -900,6 +1210,5 @@ if __name__ == "__main__":
 
     RtlabApi.CloseProject()
     '''
-
 
 

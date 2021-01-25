@@ -59,9 +59,19 @@ def params(info, group_name):
     info.param(pname('parity'), label='Parity', default='N', values=['N', 'E'], active=pname('ifc_type'),
                active_value=[client.RTU])
     # TCP parameters
-    info.param(pname('ipaddr'), label='IP Address', default='192.168.0.170', active=pname('ifc_type'),
+    info.param(pname('ipaddr'), label='IP Address', default='127.0.0.1', active=pname('ifc_type'),
                active_value=[client.TCP])
     info.param(pname('ipport'), label='IP Port', default=502, active=pname('ifc_type'), active_value=[client.TCP])
+    info.param(pname('tls'), label='TLS Client', default=False, active=pname('ifc_type'), active_value=[client.TCP],
+               desc='Enable TLS (Modbus/TCP Security).')
+    info.param(pname('cafile'), label='CA Certificate', default=None, active=pname('ifc_type'), active_value=[client.TCP],
+               desc='Path to certificate authority (CA) certificate to use for validating server certificates.')
+    info.param(pname('certfile'), label='Client TLS Certificate', default=None, active=pname('ifc_type'), active_value=[client.TCP],
+               desc='Path to client TLS certificate to use for client authentication.')
+    info.param(pname('keyfile'), label='Client TLS Key', default=None, active=pname('ifc_type'), active_value=[client.TCP],
+               desc='Path to client TLS key to use for client authentication.')
+    info.param(pname('insecure_skip_tls_verify'), label='Skip TLS Verification', default=False, active=pname('ifc_type'), active_value=[client.TCP],
+               desc='Skip Verification of Server TLS Certificate.')
     # Mapped parameters
     info.param(pname('map_name'), label='Map File', default='mbmap.xml',active=pname('ifc_type'),
                active_value=[client.MAPPED], ptype=script.PTYPE_FILE)
@@ -140,6 +150,7 @@ class DER(der.DER):
     def __init__(self, ts, group_name):
         der.DER.__init__(self, ts, group_name)
         self.inv = None
+        self.ts = ts
 
     def param_value(self, name):
         return self.ts.param_value(self.group_name + '.' + GROUP_NAME + '.' + name)
@@ -156,10 +167,25 @@ class DER(der.DER):
         parity = self.param_value('parity')
         ipaddr = self.param_value('ipaddr')
         ipport = self.param_value('ipport')
+        tls = self.param_value('tls')
+        cafile = self.param_value('cafile')
+        certfile = self.param_value('certfile')
+        keyfile = self.param_value('keyfile')
+        skip_verify = self.param_value('insecure_skip_tls_verify')
         slave_id = self.param_value('slave_id')
 
-        self.inv = client.SunSpecClientDevice(ifc_type, slave_id=slave_id, name=ifc_name, baudrate=baudrate,
-                                              parity=parity, ipaddr=ipaddr, ipport=ipport)
+        try:  # attempt to use pysunspec that supports TLS encryption
+            self.inv = client.SunSpecClientDevice(ifc_type, slave_id=slave_id, name=ifc_name, baudrate=baudrate,
+                                                  parity=parity, ipaddr=ipaddr, ipport=ipport,
+                                                  tls=tls, cafile=cafile, certfile=certfile, keyfile=keyfile,
+                                                  insecure_skip_tls_verify=skip_verify)
+        except Exception as e:  # fallback to old version
+            if self.ts is not None:
+                self.ts.log('Could not create Modbus client with encryption: %s.  Attempted unencrypted option.')
+            else:
+                print('Could not create Modbus client with encryption: %s.  Attempted unencrypted option.')
+            self.inv = client.SunSpecClientDevice(ifc_type, slave_id=slave_id, name=ifc_name, baudrate=baudrate,
+                                                  parity=parity, ipaddr=ipaddr, ipport=ipport)
 
     def close(self):
         if self.inv is not None:

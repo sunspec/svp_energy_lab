@@ -1,0 +1,704 @@
+{
+  "name": "device_1547",
+  "models": [
+    {
+      "ID": 1,
+      "Mn": "SunSpecTest",
+      "Md": "Test-1547-1",
+      "Opt": "opt_a_b_c",
+      "Vr": "1.2.3",
+      "SN": "sn-123456789",
+      "DA": 1,
+      "Pad": 0
+    },
+    {
+      "ID": 701,
+      "L": null,
+      "ACType": 3,
+      "St": 2,
+	  "InvSt": 4,
+	  "ConnSt": 2,
+      "Alrm": 11397,
+      "W": 9800,
+      "VA": 10000,
+      "Var": 200,
+      "PF": 985,
+      "A": 411,
+      "LLV": 2400,
+      "LNV": 2400,
+      "Hz": 60010,
+      "TotWhInj": 150,
+      "TotWhAbs": 0,
+      "TotVarhInj": 9,
+      "TotVarhAbs": 0,
+      "TmpAmb": 450,
+      "TmpCab": 550,
+      "TmpSnk": 650,
+      "TmpTrns": 500,
+      "TmpSw": 400,
+      "TmpOt": 420,
+      "WL1": 3200,
+      "VAL1": 3333,
+      "VarL1": 80,
+      "PFL1": 984,
+      "AL1": 137,
+      "VL1L2": 2080,
+      "VL1": 1200,
+      "TotWhInjL1": 49,
+      "TotWhAbsL1": 0,
+      "TotVarhInjL1": 2,
+      "TotVarhAbsL1": 0,
+      "WL2": 3300,
+      "VAL2": 3333,
+      "VarL2": 80,
+      "PFL2": 986,
+      "AL2": 136,
+      "VL2L3": 2080,
+      "VL2": 1200,
+      "TotWhInjL2": 50,
+      "TotWhAbsL2": 0,
+      "TotVarhInjL2": 3,
+      "TotVarhAbsL2": 0,
+      "WL3": 3500,
+      "VAL3": 3333,
+      "VarL3": 40,
+      "PFL3": 987,
+      "AL3": 138,
+      "VL3L1": 2080,
+      "VL3": 1200,
+      "TotWhInjL3": 51,
+      "TotWhAbsL3": 0,
+      "TotVarhInjL3": 4,
+      "TotVarhAbsL3": 0,
+      "A_SF": -1,
+      "V_SF": -1,
+      "Hz_SF": -3,
+      "W_SF": 0,
+      "PF_SF": -3,
+      "VA_SF": 0,
+      "Var_SF": 0,
+      "TotWh_SF": 3,
+      "TotVarh_SF": 3,
+      "Tmp_SF": -1,
+	  "MnAlrmInfo": "Sample Mfr Alarm"
+    },
+    {
+      "ID": 702,
+      "L": null,
+      "WMaxRtg": 10000,
+      "WOvrExtRtg": 10000,
+      "WOvrExtRtgPF": 1000,
+      "WUndExtRtg": 10000,
+      "WUndExtRtgPF": 1000,
+      "VAMaxRtg": 11000,
+      "VarMaxInjRtg": 2500,
+      "VarMaxAbsRtg": 0,
+      "WChaRteMaxRtg": 0,
+      "WDisChaRteMaxRtg": 0,
+      "VAChaRteMaxRtg": 0,
+      "VADisChaRteMaxRtg": 0,
+      "VNomRtg": 240,
+      "VMaxRtg": 270,
+      "VMinRtg": 210,
+      "AMaxRtg": 50,
+      "PFOvrExtRtg": 850,
+      "PFUndExtRtg": 850,
+      "ReactSusceptRtg": 0.5,
+      "NorOpCatRtg": 2,
+      "AbnOpCatRtg": 3,
+      "CtrlModes": 32767,
+      "IntIslandCatRtg": 14,
+      "WMax": 10000,
+      "WMaxOvrExt": null,
+      "WOvrExtPF": null,
+      "WMaxUndExt": null,
+      "WUndExtPF": null,
+      "VAMax": 10000,
+      "AMax": null,
+      "Vnom": 240,
+      "VRefOfs": null,
+      "VMax": 270,
+      "VMin": 210,
+      "VarMaxInj": 4400,
+      "VarMaxAbs": 4400,
+      "WChaRteMax": 8000,
+      "WDisChaRteMax": 8000,
+      "VAChaRteMax": 8000,
+      "VADisChaRteMax": 8000,
+      "IntIslandCat": 2,
+      "W_SF": 0,
+      "PF_SF": -3,
+      "VA_SF": 0,
+      "Var_SF": 0,
+      "V_SF": 0,
+      "A_SF": 0,
+      "S_SF": 0
+    },
+    {
+      "ID": 703,
+      "ES": 1,
+      "ESVHi": 1050,
+      "ESVLo": 917,
+      "ESHzHi": 6010,
+      "ESHzLo": 5950,
+      "ESDlyTms": 300,
+      "ESRndTms": 100,
+      "ESRmpTms": 60,
+      "V_SF": -3,
+      "Hz_SF": -2
+    },
+    {
+      "ID": 704,
+      "L": null,
+      "PFWInjEna": 0,
+      "PFWInjRvrtEna": 10,
+      "PFWInjRvrtTms": 10,
+      "PFWInjRvrtRem": null,
+      "PFWAbsEna": 0,
+      "PFWAbsRvrtEna": 1,
+      "PFWAbsRvrtTms": 100,
+      "PFWAbsRvrtRem": null,
+      "WMaxLimPctEna": 0,
+      "WMaxLimPct": 1000,
+      "WMaxLimPctRvrt": 100,
+      "WMaxLimPctRvrtEna": 0,
+      "WMaxLimPctRvrtTms": 10,
+      "WMaxLimPctRvrtRem": null,
+      "WSetEna": 0,
+      "WSetMod": 1,
+      "WSet": 5000,
+      "WSetRvrt": 4000,
+      "WSetPct": 100,
+      "WSetPctRvrt": 100,
+      "WSetRvrtEna": 1,
+      "WSetRvrtTms": 10,
+      "WSetRvrtRem": null,
+      "VarSetEna": 0,
+      "VarSetMod": null,
+      "VarSetPri": null,
+      "VarSet": null,
+      "VarSetRvrt": null,
+      "VarSetPct": null,
+      "VarSetPctRvrt": null,
+      "VarSetRvrtTms": null,
+      "VarSetRvrtRem": null,
+      "RGra": null,
+      "PF_SF": -3,
+      "WMaxLim_SF": -1,
+      "WSet_SF": 0,
+      "WSetPct_SF": 0,
+      "VarSet_SF": 0,
+      "VarSetPct_SF": 0,
+      "PFWInj": {
+        "PF": 950,
+        "Ext": 1
+      },
+      "PFWInjRvrt": {
+        "PF": 920,
+        "Ext": 0
+      },
+      "PFWAbs": {
+        "PF": 85,
+        "Ext": 1
+      },
+      "PFWAbsRvrt": {
+        "PF": 85,
+        "Ext": 0
+      }
+    },
+    {
+      "ID": 705,
+      "Ena": 1,
+      "AdptCrvReq": 0,
+      "AdptCrvRslt": 1,
+      "NPt": 4,
+      "NCrv": 3,
+      "RvrtTms": 0,
+      "RvrtRem": 0,
+      "RvrtCrv": 0,
+      "V_SF": -2,
+      "DeptRef_SF": -2,
+	  "RspTms_SF": -2,
+      "Crv": [
+        {
+          "ActPt": 4,
+          "DeptRef": 1,
+          "Pri": 1,
+          "VRef": 1,
+          "VRefAuto": 0,
+          "VRefTms": 5,
+          "RspTms": 6,
+          "ReadOnly": 1,
+          "Pt": [
+            {
+              "V": 9200,
+              "Var": 3000
+            },
+            {
+              "V": 9670,
+              "Var": 0
+            },
+            {
+              "V": 10300,
+              "Var": 0
+            },
+            {
+              "V": 10700,
+              "Var": -3000
+            }
+          ]
+        },
+        {
+          "ActPt": 4,
+          "DeptRef": 1,
+          "Pri": 1,
+          "VRef": 1,
+          "VRefAuto": 0,
+          "VRefTms": 5,
+          "RspTms": 6,
+          "ReadOnly": 0,
+          "Pt": [
+            {
+              "V": 9300,
+              "Var": 3000
+            },
+            {
+              "V": 9570,
+              "Var": 0
+            },
+            {
+              "V": 10200,
+              "Var": 0
+            },
+            {
+              "V": 10600,
+              "Var": -4000
+            }
+          ]
+        },
+        {
+          "ActPt": 4,
+          "DeptRef": 1,
+          "Pri": 1,
+          "VRef": 1,
+          "VRefAuto": 0,
+          "VRefTms": 5,
+          "RspTms": 6,
+          "ReadOnly": 0,
+          "Pt": [
+            {
+              "V": 9400,
+              "Var": 2000
+            },
+            {
+              "V": 9570,
+              "Var": 0
+            },
+            {
+              "V": 10500,
+              "Var": 0
+            },
+            {
+              "V": 10800,
+              "Var": -2000
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "ID": 706,
+      "Ena": 0,
+      "AdptCrvReq": 0,
+      "AdptCrvRslt": 1,
+      "NPt": 2,
+      "NCrv": 2,
+      "RvrtTms": null,
+      "RvrtRem": null,
+      "RvrtCrv": null,
+      "V_SF": 0,
+      "DeptRef_SF": 0,
+	  "RspTms_SF": -1,
+      "Crv": [
+        {
+          "ActPt": 2,
+          "DeptRef": 1,
+          "RspTms": 10,
+          "ReadOnly": 1,
+          "Pt": [
+            {
+              "V": 106,
+              "W": 100
+            },
+            {
+              "V": 110,
+              "W": 0
+            }
+          ]
+        },
+        {
+          "ActPt": 2,
+          "DeptRef": 1,
+          "RspTms": 5,
+          "ReadOnly": 0,
+          "Pt": [
+            {
+              "V": 105,
+              "W": 100
+            },
+            {
+              "V": 109,
+              "W": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "ID": 707,
+      "L": null,
+      "Ena": 1,
+      "AdptCrvReq": null,
+      "AdptCrvRslt": 1,
+      "NPt": 3,
+      "NCrvSet": 1,
+      "V_SF": -2,
+      "Tms_SF": 0,
+	  "RspTms_SF": -1,
+      "Crv": [
+        {
+          "MustTrip": {
+            "ActPt": 1,
+            "Pt": [
+              {
+                "V": 5000,
+                "Tms": 5
+              },
+			  {
+                "V": 5000,
+                "Tms": 5
+              },
+			  {
+                "V": 5000,
+                "Tms": 5
+              }
+            ]
+          },
+          "MayTrip": {
+            "ActPt": 1,
+            "Pt": [
+              {
+                "V": 7000,
+                "Tms": 5
+              },
+			  {
+                "V": 5000,
+                "Tms": 5
+              },
+			  {
+                "V": 5000,
+                "Tms": 5
+              }
+            ]
+          },
+          "MomCess": {
+            "ActPt": 1,
+            "Pt": [
+              {
+                "V": 6000,
+                "Tms": 5
+              },
+			  {
+                "V": 5000,
+                "Tms": 5
+              },
+			  {
+                "V": 5000,
+                "Tms": 5
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "ID": 708,
+      "L": null,
+      "Ena": 1,
+      "AdptCrvReq": null,
+      "AdptCrvRslt": 1,
+      "NPt": 3,
+      "NCrvSet": 1,
+      "V_SF": -2,
+      "Tms_SF": 0,
+      "Crv": [
+        {
+          "MustTrip": {
+            "ActPt": 1,
+            "Pt": [
+              {
+                "V": 12000,
+                "Tms": 5
+              },
+			  {
+                "V": 5000,
+                "Tms": 5
+              },
+			  {
+                "V": 5000,
+                "Tms": 5
+              }
+            ]
+          },
+          "MayTrip": {
+            "ActPt": 1,
+            "Pt": [
+              {
+                "V": 10000,
+                "Tms": 5
+              },
+			  {
+                "V": 5000,
+                "Tms": 5
+              },
+			  {
+                "V": 5000,
+                "Tms": 5
+              }
+            ]
+          },
+          "MomCess": {
+            "ActPt": 1,
+            "Pt": [
+              {
+                "V": 10000,
+                "Tms": 5
+              },
+			  {
+                "V": 5000,
+                "Tms": 5
+              },
+			  {
+                "V": 5000,
+                "Tms": 5
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "ID": 709,
+      "L": null,
+      "Ena": 1,
+      "AdptCrvReq": null,
+      "AdptCrvRslt": 1,
+      "NPt": 2,
+      "NCrvSet": 1,
+      "Freq_SF": -2,
+      "Tms_SF": -2,
+	  "Hz_SF": -3,
+      "Crv": [
+        {
+          "MustTrip": {
+            "ActPt": 1,
+            "Pt": [
+              {
+                "Hz": 53000,
+                "Tms": 5
+              },              
+			  {
+                "Hz": 53000,
+                "Tms": 5
+              }
+            ]
+          },
+          "MayTrip": {
+            "ActPt": 1,
+            "Pt": [
+              {
+                "Hz": 58500,
+                "Tms": 5
+              },              
+			  {
+                "Hz": 53000,
+                "Tms": 5
+              }
+            ]
+          },
+          "MomCess": {
+            "ActPt": 1,
+            "Pt": [
+              {
+                "Hz": 58500,
+                "Tms": 5
+              },              
+			  {
+                "Hz": 53000,
+                "Tms": 5
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "ID": 710,
+      "L": null,
+      "Ena": null,
+      "AdptCrvReq": null,
+      "AdptCrvRslt": 1,
+      "NPt": 2,
+      "NCrvSet": 1,
+      "Hz_SF": -3,
+      "Tms_SF": -2,
+      "Crv": [
+        {
+          "MustTrip": {
+            "ActPt": 1,
+            "Pt": [
+              {
+                "Hz": 65000,
+                "Tms": 5
+              },              
+			  {
+                "Hz": 53000,
+                "Tms": 5
+              }
+            ]
+          },
+          "MayTrip": {
+            "ActPt": 1,
+            "Pt": [
+              {
+                "Hz": 60500,
+                "Tms": 5
+              },              
+			  {
+                "Hz": 53000,
+                "Tms": 5
+              }
+            ]
+          },
+          "MomCess": {
+            "ActPt": 1,
+            "Pt": [
+              {
+                "Hz": 60500,
+                "Tms": 5
+              },              
+			  {
+                "Hz": 53000,
+                "Tms": 5
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "ID": 711,
+      "L": null,
+      "Ena": null,
+      "AdptCtlReq": null,
+      "AdptCtlRslt": 1,
+      "NCtl": 1,
+      "RvrtTms": 0,
+      "RvrtRem": 0,
+      "RvrtCrv": 0,
+      "Db_SF": -3,
+      "K_SF": -2,
+      "RspTms_SF": 0,
+      "Ctl": [
+        {
+          "DbOf": 60030,
+          "DbUf": 59970,
+          "KOf": 40,
+          "KUf": 40,
+          "RspTms": 600
+        }
+      ]
+    },
+    {
+      "ID": 712,
+      "L": null,
+      "Ena": 0,
+      "AdptCrvReq": null,
+      "AdptCrvRslt": 1,
+      "NPt": 6,
+      "NCrv": 1,
+      "RvrtTms": 0,
+      "RvrtRem": 0,
+      "RvrtCrv": 0,
+      "DeptRef_SF": -2,
+	  "W_SF": -2,
+      "Crv": [
+        {
+          "ActPt": 6,
+          "DeptRef": 1,
+          "Pri": null,
+          "ReadOnly": null,
+          "Pt": [
+            {
+              "W": -10000,
+              "Var": 4400
+            },
+			{
+              "W": -5000,
+              "Var": 0
+            },
+            {
+              "W": -2000,
+              "Var": 0
+            },
+            {
+              "W": 2000,
+              "Var": 0
+            },
+            {
+              "W": 5000,
+              "Var": 0
+            },
+            {
+              "W": 10000,
+              "Var": -4400
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "ID": 713,
+      "L": null,
+      "PrtAlrms": null,
+      "NPrt": 1,
+      "DCA": null,
+      "DCW": null,
+      "DCWhInj": null,
+      "DCWhAbs": null,
+      "DCA_SF": -2,
+      "DCV_SF": -1,
+      "DCW_SF": -1,
+      "DCWH_SF": -1,
+      "Prt": [
+        {
+          "PrtTyp": null,
+          "ID": null,
+          "IDStr": null,
+          "DCA": null,
+          "DCV": null,
+          "DCW": null,
+          "DCWhInj": null,
+          "DCWhAbs": null,
+          "Tmp": null,
+          "DCSt": null,
+          "DCAlrm": null
+        }
+      ]
+    },
+    {
+      "ID": 65535,
+      "L": 0
+    }
+  ]
+}
