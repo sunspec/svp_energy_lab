@@ -152,6 +152,10 @@ CURVE_MODE = {0: 'Disabled',
               'LFRT_Trip': 15,
               'LFRT_MO': 16}
 
+# TODO include the full 100 DNP3 points dynamically
+MAX_DNP_CURVE_PTS = 8  # needs to match the curve_read points
+CURVE_PT_NAMES = ['x%d' % (x+1) for x in range(MAX_DNP_CURVE_PTS)] + ['y%d' % (x+1) for x in range(MAX_DNP_CURVE_PTS)]
+
 
 def der1547_info():
     return dnp3_info
@@ -183,12 +187,14 @@ def params(info, group_name):
                active=pname('sim_type'), active_value='EPRI DER Simulator')
     info.param(pname('irr_csv'), label='Irradiance csv filename. (Use "None" for no load.)',
                default=r'None', active=pname('sim_type'), active_value='EPRI DER Simulator')
+
     info.param(pname('ipaddr'), label='Agent IP Address', default='127.0.0.1')
     info.param(pname('ipport'), label='Agent IP Port', default=10000)
     info.param(pname('out_ipaddr'), label='Outstation IP Address', default='127.0.0.1')
     info.param(pname('out_ipport'), label='Outstation IP Port', default=20000)
     info.param(pname('outstation_addr'), label='Outstation Local Address', default=100)
     info.param(pname('master_addr'), label='Master Local Address', default=101)
+    info.param(pname('scan_time'), label='Scan Time', default=2)
     info.param(pname('oid'), label='OID', default=1)
     info.param(pname('rid'), label='Request ID', default=1234)
 
@@ -212,6 +218,7 @@ class DER1547(der1547.DER1547):
         self.out_ipport = self.param_value('out_ipport')
         self.outstation_addr = self.param_value('outstation_addr')
         self.master_addr = self.param_value('master_addr')
+        self.scan_time = self.param_value('scan_time')
         self.oid = self.param_value('oid')
         self.rid = self.param_value('rid')
 
@@ -311,7 +318,8 @@ class DER1547(der1547.DER1547):
     def add_out(self):
         agent = dnp3_agent.AgentClient(self.ipaddr, self.ipport)
         agent.connect(self.ipaddr, self.ipport)
-        outstation = agent.add_outstation(self.out_ipaddr, self.out_ipport, self.outstation_addr, self.master_addr)
+        outstation = agent.add_outstation(self.out_ipaddr, self.out_ipport, self.outstation_addr,
+                                          self.master_addr, self.scan_time)
         return outstation
 
     def del_out(self):
@@ -528,7 +536,7 @@ class DER1547(der1547.DER1547):
         #                                  'bo': {'17': {'state': 'SUCCESS'}}}}}
 
         write_status = write_pts.copy()  # initialize with keys from params
-        write_status = dict.fromkeys(write_status, 'NOT WRITTEN')  # set all values to 'NOT WRITTEN'
+        write_status = dict.fromkeys(write_status, None)  # set all values to None
         # self.ts.log_debug('write_status: %s' % write_status)
 
         if 'params' in list(response.keys()):
@@ -549,14 +557,19 @@ class DER1547(der1547.DER1547):
                                                           (io, num, num_data[num]))
                                     if 'status' in num_data[num]:
                                         write_status[param_name] = num_data[num]['status']
-                                    elif 'state' in num_data[num]:
-                                        write_status[param_name] = num_data[num]['state']
+                                    # elif 'state' in num_data[num]:
+                                    #     write_status[param_name] = num_data[num]['state']
                                     else:
                                         write_status[param_name] = 'UNKNOWN'
                                 except KeyError as e:
                                     if debug:
                                         self.ts.log_debug('No Match! param_name=%s' % param_name)
                                     pass
+
+        # Remove None write statuses from unused write_points, e.g., lists like 'pv_curve_v_pts"
+        for k, v in list(write_status.items()):
+            if v is None:
+                del write_status[k]
 
         # self.ts.log_debug('OUTPUT write_status: %s' % write_status)
         return write_status
@@ -743,7 +756,7 @@ class DER1547(der1547.DER1547):
         """
 
         # nameplate_pts = {**nameplate_data_write.copy(), **nameplate_support_write.copy()}
-        # return self.write_dnp3_point_map(map_dict=nameplate_pts, write_pts=params)
+        # results = self.write_dnp3_point_map(map_dict=nameplate_pts, write_pts=params)
         self.ts.log_warning('NO DNP3 APP NOTE AO/BO CONFIGURATION POINTS EXIST!')
         return {}  # no write BO/AO for nameplate points in DNP3
 
@@ -958,7 +971,10 @@ class DER1547(der1547.DER1547):
             del params['const_pf_inj']
 
         # self.ts.log_debug('pf_pts = %s, params = %s' % (pf_pts, params))
-        return self.write_dnp3_point_map(map_dict=pf_pts, write_pts=params)
+        const_pf_results = self.write_dnp3_point_map(map_dict=pf_pts, write_pts=params)
+        self.ts.log_debug('PF results: %s' % const_pf_results)
+
+        return params
 
     def get_qv(self):
         """
@@ -986,6 +1002,10 @@ class DER1547(der1547.DER1547):
         for pt in range(int(resp['qv_curve_dnp3_data']['no_of_points'])):
             resp['qv_curve_v_pts'].append(resp['qv_curve_dnp3_data']['x%d' % (pt + 1)] / 1000.)  # from 10*pct to pu
             resp['qv_curve_q_pts'].append(resp['qv_curve_dnp3_data']['y%d' % (pt + 1)] / 1000.)  # from 10*pct to pu
+
+        # remove redundant or unused curve points
+        [resp['qv_curve_dnp3_data'].pop(key) for key in CURVE_PT_NAMES]
+
         resp['qv_curve_dnp3_data']['x_value'] = X_ENUM.get(resp['qv_curve_dnp3_data']['x_value'])
         resp['qv_curve_dnp3_data']['y_value'] = Y_ENUM.get(resp['qv_curve_dnp3_data']['y_value'])
         resp['qv_curve_dnp3_data']['curve_mode_type'] = CURVE_MODE.get(resp['qv_curve_dnp3_data']['curve_mode_type'])
@@ -1027,8 +1047,9 @@ class DER1547(der1547.DER1547):
 
         # Write the VV points
         vv_write = self.write_dnp3_point_map(volt_var_pts, params, debug=False)
+        self.ts.log_debug('VV results: %s' % vv_write)
 
-        return vv_write
+        return params
 
     def get_const_q(self):
         """
@@ -1096,7 +1117,10 @@ class DER1547(der1547.DER1547):
         """
 
         dnp3_pts = conn_write.copy()
-        return self.write_dnp3_point_map(dnp3_pts, write_pts=params)
+        conn_results = self.write_dnp3_point_map(dnp3_pts, write_pts=params)
+        self.ts.log_debug('Conn results: %s' % conn_results)
+
+        return params
 
     def get_pf(self):
         """
@@ -1121,7 +1145,10 @@ class DER1547(der1547.DER1547):
         Set Frequency-Active Power Mode.
         """
         freq_watt_pts = freq_watt_write.copy()
-        return self.write_dnp3_point_map(freq_watt_pts, params)
+        pf_results = self.write_dnp3_point_map(freq_watt_pts, params)
+        self.ts.log_debug('PF results: %s' % pf_results)
+
+        return params
 
     def get_p_lim(self):
         """
@@ -1164,7 +1191,10 @@ class DER1547(der1547.DER1547):
                 self.ts.log_warning('p_lim_w value outside of -1 to 1 pu')
             params['p_lim_w'] = int(params['p_lim_w']*1000.)  # from pu to pct*10
 
-        return self.write_dnp3_point_map(limit_max_power_pts, write_pts=params)
+        lap_results = self.write_dnp3_point_map(limit_max_power_pts, write_pts=params)
+        self.ts.log_debug('LAP write: %s' % lap_results)
+
+        return params
 
     def get_qp(self):
         """
@@ -1189,12 +1219,22 @@ class DER1547(der1547.DER1547):
         resp['qp_curve_q_gen_pts'] = []
         resp['qp_curve_p_load_pts'] = []
         resp['qp_curve_q_load_pts'] = []
+
+        if int(resp['qp_curve_dnp3_data']['no_of_points']) == 0:  # if no points, don't get the curves
+            return resp
+
         for pt in range(int(resp['qp_curve_dnp3_data']['no_of_points'])):
             # TODO: manage multiple curves
-            resp['qp_curve_p_gen_pts'].append(resp['qp_curve_dnp3_data']['x%d' % (pt + 1)] / 1000.)  # 10*pct to pu
-            resp['qp_curve_q_gen_pts'].append(resp['qp_curve_dnp3_data']['y%d' % (pt + 1)] / 1000.)  # 10*pct to pu
-            resp['qp_curve_p_load_pts'].append(resp['qp_curve_dnp3_data']['x%d' % (pt + 1)] / 1000.)  # 10*pct to pu
-            resp['qp_curve_q_load_pts'].append(resp['qp_curve_dnp3_data']['y%d' % (pt + 1)] / 1000.)  # 10*pct to pu
+            if resp['qp_curve_dnp3_data']['x%d' % (pt + 1)] > 0:
+                resp['qp_curve_p_gen_pts'].append(resp['qp_curve_dnp3_data']['x%d' % (pt + 1)] / 1000.)  # 10*pct to pu
+                resp['qp_curve_q_gen_pts'].append(resp['qp_curve_dnp3_data']['y%d' % (pt + 1)] / 1000.)  # 10*pct to pu
+            else:
+                resp['qp_curve_p_load_pts'].append(resp['qp_curve_dnp3_data']['x%d' % (pt + 1)] / 1000.)  # 10*pct to pu
+                resp['qp_curve_q_load_pts'].append(resp['qp_curve_dnp3_data']['y%d' % (pt + 1)] / 1000.)  # 10*pct to pu
+
+        # remove redundant or unused curve points
+        [resp['qp_curve_dnp3_data'].pop(key) for key in CURVE_PT_NAMES]
+
         resp['qp_curve_dnp3_data']['x_value'] = X_ENUM.get(resp['qp_curve_dnp3_data']['x_value'])
         resp['qp_curve_dnp3_data']['y_value'] = Y_ENUM.get(resp['qp_curve_dnp3_data']['y_value'])
         resp['qp_curve_dnp3_data']['curve_mode_type'] = CURVE_MODE.get(resp['qp_curve_dnp3_data']['curve_mode_type'])
@@ -1227,10 +1267,11 @@ class DER1547(der1547.DER1547):
             for pt in range(len(params['qp_curve_q_load_pts'])):
                 params['y%d' % (pt + 1)] = params['qp_curve_q_load_pts'][pt]*1000.  # from pu to 10*pct
 
-        # Write the P(V) points
-        pv_write = self.write_dnp3_point_map(volt_watt_pts, params, debug=False)
+        # Write the Q(P) points
+        qp_write = self.write_dnp3_point_map(watt_var_pts, params, debug=False)
+        self.ts.log_debug('Q(P) write: %s' % qp_write)
 
-        return pv_write
+        return params
 
     def get_pv(self, params=None):
         """
@@ -1245,9 +1286,17 @@ class DER1547(der1547.DER1547):
 
         resp['pv_curve_v_pts'] = []
         resp['pv_curve_p_pts'] = []
+
+        if int(resp['pv_curve_dnp3_data']['no_of_points']) == 0:  # if no points, don't get the curves
+            return resp
+
         for pt in range(int(resp['pv_curve_dnp3_data']['no_of_points'])):
             resp['pv_curve_v_pts'].append(resp['pv_curve_dnp3_data']['x%d' % (pt + 1)] / 1000.)  # from 10*pct to pu
             resp['pv_curve_p_pts'].append(resp['pv_curve_dnp3_data']['y%d' % (pt + 1)] / 1000.)  # from 10*pct to pu
+
+        # remove redundant or unused curve points
+        [resp['pv_curve_dnp3_data'].pop(key) for key in CURVE_PT_NAMES]
+
         resp['pv_curve_dnp3_data']['x_value'] = X_ENUM.get(resp['pv_curve_dnp3_data']['x_value'])
         resp['pv_curve_dnp3_data']['y_value'] = Y_ENUM.get(resp['pv_curve_dnp3_data']['y_value'])
         resp['pv_curve_dnp3_data']['curve_mode_type'] = CURVE_MODE.get(resp['pv_curve_dnp3_data']['curve_mode_type'])
@@ -1287,8 +1336,9 @@ class DER1547(der1547.DER1547):
 
         # Write the P(V) points
         pv_write = self.write_dnp3_point_map(volt_watt_pts, params, debug=False)
+        self.ts.log_debug('P(V) write: %s' % pv_write)
 
-        return pv_write
+        return params
 
     def set_volt_trip(self, params=None):
         agent = dnp3_agent.AgentClient(self.ipaddr, self.ipport)
@@ -1604,7 +1654,7 @@ class DER1547(der1547.DER1547):
         """
         Set Permit Service Mode Parameters
         """
-        pass
+        return params
 
     def get_ui(self):
         """
@@ -1630,10 +1680,12 @@ class DER1547(der1547.DER1547):
         """
         pass
 
-    def set_ui(self):
+    def set_ui(self, params=None):
         """
         Get Unintentional Islanding Parameters
         """
+
+        return params
 
     def get_ov(self, params=None):
         """
@@ -1658,7 +1710,7 @@ class DER1547(der1547.DER1547):
         """
         Set Overvoltage Trip Parameters - IEEE 1547 Table 35
         """
-        pass
+        return params
 
     def get_uv(self, params=None):
         """
@@ -1683,7 +1735,7 @@ class DER1547(der1547.DER1547):
         """
         Set Undervoltage Trip Parameters - IEEE 1547 Table 35
         """
-        pass
+        return params
 
     def get_of(self, params=None):
         """
@@ -1708,7 +1760,7 @@ class DER1547(der1547.DER1547):
         """
         Set Overfrequency Trip Parameters - IEEE 1547 Table 37
         """
-        pass
+        return params
 
     def get_uf(self, params=None):
         """
@@ -1733,7 +1785,7 @@ class DER1547(der1547.DER1547):
         """
         Set Underfrequency Trip Parameters - IEEE 1547 Table 37
         """
-        pass
+        return params
 
     def get_ov_mc(self, params=None):
         """
@@ -1758,7 +1810,7 @@ class DER1547(der1547.DER1547):
         """
         Set Overvoltage Momentary Cessation (MC) Parameters - IEEE 1547 Table 36
         """
-        pass
+        return params
 
     def get_uv_mc(self, params=None):
         """
@@ -1783,7 +1835,7 @@ class DER1547(der1547.DER1547):
         """
         Set Undervoltage Momentary Cessation (MC) Parameters - IEEE 1547 Table 36
         """
-        pass
+        return params
 
     def set_cease_to_energize(self, params=None):
         """
@@ -1798,24 +1850,30 @@ class DER1547(der1547.DER1547):
         """
         return self.set_es_permit_service(params={'es_permit_service': params['cease_to_energize']})
 
-
+    ''' Unused 
     def get_curve_settings(self):
         """
         Get DNP3 Curve Points
-        :return:
+        
+        :return: curve read dict
         """
         curve_read_pts = curve_read.copy()
         curve_setting_read = self.read_dnp3_point_map(curve_read_pts)
+        
         return curve_setting_read
 
     def set_curve_settings(self, params=None):
         """
         Set DNP3 Curve Points
-        :return:
+        
+        :return: write results dict
         """
         curve_write_pts = curve_write.copy()
         write = self.write_dnp3_point_map(curve_write_pts, params)
+        self.ts.log_debug('Curve write results: %s' % write)
+
         return write
+    '''
 
 
 """ ************** Dictionaries for different der1547_dnp3 methods **************** """
@@ -2267,7 +2325,9 @@ Limit Active Power Enable                   On/Off              BO17            
 Limit Mode Maximum Active Power             Watts (pct)         AO87 - AO88         AI148 - AI149
 '''
 
-limit_max_power_data = {'p_lim_mode_enable': {'bi': {'69': None}},
+limit_max_power_data = {#'p_lim_mode_enable_charging': {'bi': {'70': None}},
+                        'p_lim_mode_enable': {'bi': {'69': None}},
+                        #'p_lim_w_charging': {'ai': {'148': None}},
                         'p_lim_w': {'ai': {'149': None}}}
 
 limit_max_power_write = {'p_lim_mode_enable': {'bo': {'17': None}},
@@ -2322,7 +2382,16 @@ curve_read = {'curve_index': {'ai': {'297': None}},
               'x3': {'ai': {'337': None}},
               'y3': {'ai': {'338': None}},
               'x4': {'ai': {'339': None}},
-              'y4': {'ai': {'340': None}}}
+              'y4': {'ai': {'340': None}},
+              'x5': {'ai': {'341': None}},
+              'y5': {'ai': {'342': None}},
+              'x6': {'ai': {'343': None}},
+              'y6': {'ai': {'344': None}},
+              'x7': {'ai': {'345': None}},
+              'y7': {'ai': {'346': None}},
+              'x8': {'ai': {'347': None}},
+              'y8': {'ai': {'348': None}},
+              }
 
 curve_write = {'curve_index': {'ao': {'217': None}},
                'curve_edit_selector': {'ao': {'244': None}},
@@ -2337,7 +2406,16 @@ curve_write = {'curve_index': {'ao': {'217': None}},
                'x3': {'ao': {'253': None}},
                'y3': {'ao': {'254': None}},
                'x4': {'ao': {'255': None}},
-               'y4': {'ao': {'256': None}}}
+               'y4': {'ao': {'256': None}},
+               'x5': {'ao': {'257': None}},
+               'y5': {'ao': {'258': None}},
+               'x6': {'ao': {'259': None}},
+               'y6': {'ao': {'260': None}},
+               'x7': {'ao': {'261': None}},
+               'y7': {'ao': {'262': None}},
+               'x8': {'ao': {'263': None}},
+               'y8': {'ao': {'264': None}},
+               }
 
 '''
 DNP3 App Note Table 63 - Mapping of IEC Std 1547 to The DNP3 DER Profile

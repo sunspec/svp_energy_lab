@@ -73,13 +73,14 @@ class AgentClient():
 
         return resp
 
-    def add_outstation(self, ipaddr=None, ipport=None, outstation_addr=None, master_addr=None):
+    def add_outstation(self, ipaddr=None, ipport=None, outstation_addr=None, master_addr=None, scan_time=None):
         ''' Request to add an outstation with the given configuration '''
 
         params = {'ipaddr': ipaddr,
                   'ipport': ipport,
                   'outstation_addr': outstation_addr,
-                  'master_addr': master_addr}
+                  'master_addr': master_addr,
+                  'scan_time': scan_time}
         resp = self.request(op=OP_ADD, params=params)
 
         return resp
@@ -130,6 +131,6 @@ class AgentClient():
             self.socket.send(req_msg)
 
             data = self.socket.recv(32768)
-            print(('%s: received "%s"' % (self.socket.getsockname(), data)))
+            print('%s: received "%s"' % (self.socket.getsockname(), data))
 
         return data
