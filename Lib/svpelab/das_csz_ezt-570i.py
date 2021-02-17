@@ -155,25 +155,47 @@ class Device(object):
             page_items.append(format(link.text).lstrip('\n\r'))
 
         # dict with measurement name and value
-        datadict = OrderedDict({
-            'time': time.time(),
-            'temp': float(re.search(r"[+-]?\d+(?:\.\d+)?", page_items[1]).group()),
-            'temp_setpoint': float(re.search(r"[+-]?\d+(?:\.\d+)?", page_items[2]).group()),
-            'humidity': float(re.search(r"[+-]?\d+(?:\.\d+)?", page_items[4]).group()),
-            'humidity_setpoint': float(re.search(r"[+-]?\d+(?:\.\d+)?", page_items[5]).group()),
-            'product': float(re.search(r"[+-]?\d+(?:\.\d+)?", page_items[7]).group()),
-            'product_setpoint': float(re.search(r"[+-]?\d+(?:\.\d+)?", page_items[8]).group()),
-            'profile_status': page_items[10],
-            'profile_start': page_items[12],
-            'profile_end_estimate': page_items[14],
-            'profile_current_step': page_items[16],
-            'profile_step_time_left': page_items[18],
-            'profile_wait_for_input': page_items[20],
-            'profile_wait_setpoint': page_items[22],
-            'profile_temp_setpoint': page_items[24],
-            'profile_humidity_setpoint': page_items[26],
-            'profile_product_setpoint': page_items[28],
-        })
+        try:
+            datadict = OrderedDict({
+                'time': time.time(),
+                'temp': float(re.search(r"[+-]?\d+(?:\.\d+)?", page_items[1]).group()),
+                'temp_setpoint': float(re.search(r"[+-]?\d+(?:\.\d+)?", page_items[2]).group()),
+                'humidity': float(re.search(r"[+-]?\d+(?:\.\d+)?", page_items[4]).group()),
+                'humidity_setpoint': float(re.search(r"[+-]?\d+(?:\.\d+)?", page_items[5]).group()),
+                'product': float(re.search(r"[+-]?\d+(?:\.\d+)?", page_items[7]).group()),
+                'product_setpoint': float(re.search(r"[+-]?\d+(?:\.\d+)?", page_items[8]).group()),
+                'profile_status': page_items[10],
+                'profile_start': page_items[12],
+                'profile_end_estimate': page_items[14],
+                'profile_current_step': page_items[16],
+                'profile_step_time_left': page_items[18],
+                'profile_wait_for_input': page_items[20],
+                'profile_wait_setpoint': page_items[22],
+                'profile_temp_setpoint': page_items[24],
+                'profile_humidity_setpoint': page_items[26],
+                'profile_product_setpoint': page_items[28],
+            })
+        except Exception as e:
+            self.ts.log_warning('Error Parsing EZT Web Page. Error: %s' % e)
+            datadict = OrderedDict({
+                'time': time.time(),
+                'temp': None,
+                'temp_setpoint': None,
+                'humidity': None,
+                'humidity_setpoint': None,
+                'product': None,
+                'product_setpoint': None,
+                'profile_status': None,
+                'profile_start': None,
+                'profile_end_estimate': None,
+                'profile_current_step': None,
+                'profile_step_time_left': None,
+                'profile_wait_for_input': None,
+                'profile_wait_setpoint': None,
+                'profile_temp_setpoint': None,
+                'profile_humidity_setpoint': None,
+                'profile_product_setpoint': None,
+            })
 
         data = []
         for key, value in datadict.items():
