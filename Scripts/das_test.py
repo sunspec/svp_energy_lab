@@ -66,13 +66,13 @@ def test_run():
         # run data capture
         ts.log('Running capture 1')
         daq.data_capture(True)
-        ts.sleep(5)
+        ts.sleep(2)
         ts.log('current data: %s' % daq.data_capture_read())
-        ts.sleep(5)
+        ts.sleep(2)
         ts.log('current data: %s' % daq.data_capture_read())
-        ts.sleep(5)
+        ts.sleep(2)
         ts.log('current data: %s' % daq.data_capture_read())
-        ts.sleep(5)
+        ts.sleep(2)
         daq.data_capture(False)
         ds = daq.data_capture_dataset()
 
@@ -81,7 +81,8 @@ def test_run():
         ds.to_csv(ts.result_file_path(filename))
         ts.result_file(filename)
 
-        chil.stop_simulation()
+        if chil is not None:
+            chil.stop_simulation()
 
         result = script.RESULT_COMPLETE
 

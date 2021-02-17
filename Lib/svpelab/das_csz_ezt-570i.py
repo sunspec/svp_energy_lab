@@ -137,10 +137,13 @@ class Device(object):
     def data_read(self):
 
         http = urllib3.PoolManager()
-        url = 'http://%s:%s' % (self.ip_addr, self.ip_port)
+        url = 'http://%s:%s/ezt.html' % (self.ip_addr, self.ip_port)
         r = http.request('GET', url, preload_content=False)
         r.release_conn()
-        # print(r.data)
+        # if self.ts is not None:
+        #     self.ts.log(r.data)
+        # else:
+        #     print(r.data)
 
         # html parsing
         page_soup = soup(r.data, "html.parser")
