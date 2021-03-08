@@ -110,26 +110,45 @@ class PVCurve(object):
         self.curve = {}
         self.calc_curve()
 
+        self.p_mpp_index = np.argmax(self.curve['p'])
+        self.p_mpp = self.curve['p'][self.p_mpp_index]
+        self.v_mpp = self.curve['v'][self.p_mpp_index]
+        self.i_mpp = self.curve['i'][self.p_mpp_index]
+
     def calc_curve(self):
         """
         calculates new I-V curve based on updates to self.G and self.Tpv
         """
-        self.Io = self.Isc_stc*((1 - self.FFI)**(1/(1-self.FFU)))*(self.G/self.Gstc)  # Irradiance dependent current
-        self.Isc = self.Isc_stc*(self.G/self.Gstc)*(1 + self.alpha*(self.Tpv-self.Tstc))
-        self.Voc = self.Voc_stc*(1 + self.beta*(self.Tpv-self.Tstc)) * \
-                   (math.log((self.G/self.CG) + 1.)*self.CV - self.CR*self.G)
+        if self.G > 0:
+            self.Io = self.Isc_stc*((1 - self.FFI)**(1/(1-self.FFU)))*(self.G/self.Gstc)  # Irradiance dependent current
+            self.Isc = self.Isc_stc*(self.G/self.Gstc)*(1 + self.alpha*(self.Tpv-self.Tstc))
+            self.Voc = self.Voc_stc*(1 + self.beta*(self.Tpv-self.Tstc)) * \
+                       (math.log((self.G/self.CG) + 1.)*self.CV - self.CR*self.G)
+        else:
+            self.Io = 0.
+            self.Isc = 0.
+            self.Voc = self.Voc_stc*(1 + self.beta*(self.Tpv-self.Tstc)) * \
+                       (math.log((self.G/self.CG) + 1.)*self.CV - self.CR*self.G)
 
         # Generate I-V curve points
         self.i_points = []
         self.p_points = []
         for v in self.v_points:
-            current_pt = self.Isc - self.Io*(math.exp(v/(self.Voc*self.CAQ))-1.)
+            if self.G > 0:
+                current_pt = self.Isc - self.Io*(math.exp(v/(self.Voc*self.CAQ))-1.)
+            else:
+                current_pt = 0
             i_pt = max(current_pt, 0.)  # disallow negative current points
             self.i_points.append(i_pt)
             self.p_points.append(v*i_pt)
 
         # create curve dict
         self.curve = {'v': self.v_points, 'i': self.i_points, 'p': self.p_points}
+
+        self.p_mpp_index = np.argmax(self.curve['p'])
+        self.p_mpp = self.curve['p'][self.p_mpp_index]
+        self.v_mpp = self.curve['v'][self.p_mpp_index]
+        self.i_mpp = self.curve['i'][self.p_mpp_index]
 
     def get_voc(self):
         return self.Voc
@@ -142,8 +161,12 @@ class PVCurve(object):
 
     def irradiance(self, irradiance):
         if irradiance is not None:
-            self.G = irradiance
-            self.calc_curve()
+            if irradiance > 0:
+                self.G = irradiance
+                self.calc_curve()
+            else:
+                self.G = 0
+                self.calc_curve()
         return self.G
 
     def temperature(self, temp):
@@ -151,6 +174,7 @@ class PVCurve(object):
             self.Tpv = temp
             self.calc_curve()
         return self.Tpv
+
 
 if __name__ == "__main__":
 
@@ -161,23 +185,15 @@ if __name__ == "__main__":
     # plt.plot(iv.curve['v'], iv.curve['p'], label='1000 W/m^2')
     # plt.show()
 
+    irradiance_list = [1000, 900, 700, 500, 300, 100, 1000, 1000, -5, 0]
+    temperature_list = [25, 25, 25, 25, 25, 25, 15, 50, 25, 25]
     fig, ax = plt.subplots()
-    line1, = ax.plot(iv.curve['v'], iv.curve['i'], label='1000 W/m^2')
-    iv.irradiance(900)
-    line2, = ax.plot(iv.curve['v'], iv.curve['i'], label='900 W/m^2')
-    iv.irradiance(700)
-    line3, = ax.plot(iv.curve['v'], iv.curve['i'], label='700 W/m^2')
-    iv.irradiance(900)
-    line4, = ax.plot(iv.curve['v'], iv.curve['i'], label='500 W/m^2')
-    iv.irradiance(300)
-    line5, = ax.plot(iv.curve['v'], iv.curve['i'], label='300 W/m^2')
-    iv.irradiance(100)
-    line6, = ax.plot(iv.curve['v'], iv.curve['i'], label='100 W/m^2')
-    iv.irradiance(1000)
-    iv.temperature(50)
-    line7, = ax.plot(iv.curve['v'], iv.curve['i'], label='1000 W/m^2, T=50')
-    iv.temperature(15)
-    line8, = ax.plot(iv.curve['v'], iv.curve['i'], label='1000 W/m^2, T=15')
+    for i in range(len(irradiance_list)):
+        iv.irradiance(irradiance_list[i])
+        iv.temperature(temperature_list[i])
+        ax.plot(iv.curve['v'], iv.curve['i'], label='%0.1f W/m^2, T=%0.2f' % (irradiance_list[i], temperature_list[i]))
+        print('%0.1f W/m^2, T=%0.2f, Pmp=%0.1f, Vmp=%0.1f, Imp=%0.1f, '
+              % (irradiance_list[i], temperature_list[i],iv.p_mpp, iv.v_mpp, iv.i_mpp))
     ax.legend(loc='lower left')
     plt.show()
 
