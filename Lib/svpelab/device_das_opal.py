@@ -14,12 +14,6 @@ import sys
 import glob, os
 from collections import OrderedDict
 
-try:
-    sys.path.insert(0, "C://OPAL-RT//RT-LAB//2020.1//common//python")
-    import RtlabApi
-except Exception as e:
-    print(('Opal RT-Lab API not installed. %s' % e))
-
 # data_points = [  # 3 phase
 #     'TIME',
 #     'DC_V',
@@ -85,21 +79,35 @@ class Device(object):
 
     def __init__(self, params=None):
         self.params = params
+        self.ts = self.params['ts']
+
+        # import based on the version number
+        rt_version = self.params['rt_lab_version']
+        rt_import_path = "C://OPAL-RT//RT-LAB//%s//common//python" % rt_version
+        try:
+            sys.path.insert(0, rt_import_path)
+            import RtlabApi
+            import OpalApiPy
+            self.RtlabApi = RtlabApi
+            self.OpalApiPy = OpalApiPy
+        except ImportError as e:
+            ts.log('RtlabApi Import Error. Check the version number. Using path = %s. %s' % (import_path, e))
+            print('RtlabApi Import Error. Check the version number. Using path = %s' % import_path)
+            print(e)
+
         self.points = None
         self.point_indexes = []
 
-        self.ts = self.params['ts']
         self.map = self.params['map']
         self.sc_capture = self.params['sc_capture']
         self.sample_interval = self.params['sample_interval']
         self.wfm_dir = self.params['wfm_dir']
         self.data_name = self.params['data_name']
         self.dc_measurement_device = None
-        # _, self.model_name = RtlabApi.GetCurrentModel()
+        # _, self.model_name = self.RtlabApi.GetCurrentModel()
 
         self.mat_location = ''
         self.csv_location = ''
-
 
         # optional parameters for interfacing with other SVP devices
         self.hil = self.params['hil']
@@ -410,7 +418,7 @@ class Device(object):
 
         :return: Opal Information
         """
-        system_info = RtlabApi.GetTargetNodeSystemInfo(self.target_name)
+        system_info = self.RtlabApi.GetTargetNodeSystemInfo(self.target_name)
         opal_rt_info = "OPAL-RT - Platform version {0} (IP address : {1})".format(system_info[1], system_info[6])
         return opal_rt_info
 
@@ -475,9 +483,9 @@ class Device(object):
                         continue
 
                     # verify the model is running before getting the signal data.
-                    status, _ = RtlabApi.GetModelState()
-                    if status == RtlabApi.MODEL_RUNNING:
-                        signal_value = RtlabApi.GetSignalsByName(signal)
+                    status, _ = self.RtlabApi.GetModelState()
+                    if status == self.RtlabApi.MODEL_RUNNING:
+                        signal_value = self.RtlabApi.GetSignalsByName(signal)
                         # self.ts.log_warning('signal_value is %s from Opal' % signal_value)
                     else:
                         signal_value = None
@@ -506,7 +514,7 @@ class Device(object):
         :return: dict with "label" keys and "value" values
 
         """
-        signals = RtlabApi.GetSignalsDescription()
+        signals = self.RtlabApi.GetSignalsDescription()
         # array of tuples: (signalType, signalId, path, label, reserved, readonly, value)
         # 0 signalType: Signal type. See OP_SIGNAL_TYPE.
         # 1 signalId: Id of the signal.
@@ -657,8 +665,8 @@ class Device(object):
 
         :return: list of parameter tuples with (signalID, path, label, value)
         """
-        # (signalType, signalId, path, label, reserved, readonly, value) = signalInfo = RtlabApi.GetSignalsDescription()
-        signal_parameters = RtlabApi.GetSignalsDescription()
+        # (signalType, signalId, path, label, reserved, readonly, value) = self.RtlabApi.GetSignalsDescription()
+        signal_parameters = self.RtlabApi.GetSignalsDescription()
         signal_params = []
         for sig in range(len(signal_parameters)):
             signal_params.append((signal_parameters[sig][1],
@@ -673,7 +681,7 @@ class Device(object):
 
     def matlab_cmd(self, cmd):
         try:
-            result = RtlabApi.ExecuteMatlabCmd(cmd)
+            result = self.RtlabApi.ExecuteMatlabCmd(cmd)
             return result
         except Exception as e:
             self.ts.log_warning('Cannot execute Matlab command: %s' % e)
@@ -696,14 +704,24 @@ class Device(object):
 
 if __name__ == "__main__":
 
+    import_path = "C://OPAL-RT//RT-LAB//2020.4//common//python" % rt_version
+    try:
+        sys.path.insert(0, import_path)
+        import RtlabApi
+        import OpalApiPy
+    except ImportError as e:
+        print('RtlabApi Import Error. Check the version number. Using path = %s' % import_path)
+        print(e)
+
     system_info = RtlabApi.GetTargetNodeSystemInfo("RTServer")
     
-    projectName = os.path.abspath(r"C:\OPAL-RT\WorkspaceFOREVERYONE\1547_fast_functions\1547_fast_functions.llp")
+    projectName = os.path.abspath("C:\\Users\\DETLDAQ\\OPAL-RT\\RT-LABv2019.1_Workspace\\IEEE_1547.1_Phase_Jump\\"
+                                  "models\\Phase_Jump_A_B_A\\Phase_Jump_A_B_A.llp")
     RtlabApi.OpenProject(projectName)
     print("The connection with '%s' is completed." % projectName)
 
     modelState, realTimeMode = RtlabApi.GetModelState()
-    print(modelState,realTimeMode)
+    print(modelState, realTimeMode)
  
 
 
