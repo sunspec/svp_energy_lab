@@ -223,7 +223,7 @@ class GridSim(gridsim.GridSim):
         elif self.comm == 'VISA':
             try:
                 # sys.path.append(os.path.normpath(self.visa_path))
-                import visa
+                import pyvisa as visa
                 self.rm = visa.ResourceManager()
                 self.conn = self.rm.open_resource(self.visa_device)
 

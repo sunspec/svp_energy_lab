@@ -36,7 +36,7 @@ import socket
 import re
 
 import serial
-import visa
+import pyvisa as visa
 
 from . import grid_profiles
 from . import gridsim

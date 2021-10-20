@@ -67,7 +67,7 @@ class Device(object):
             elif self.params['comm'] == 'VISA':
                 try:
                     # sys.path.append(os.path.normpath(self.visa_path))
-                    import visa
+                    import pyvisa as visa
                     self.rm = visa.ResourceManager()
                     self.conn = self.rm.open_resource(self.params['visa_address'])
 

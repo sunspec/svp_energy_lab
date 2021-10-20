@@ -114,7 +114,7 @@ class ChromaGridSim(object):
         """
         try:
             # sys.path.append(os.path.normpath(self.visa_path))
-            import visa
+            import pyvisa as visa
             self.rm = visa.ResourceManager(self.visa_path)
             self.conn = self.rm.open_resource(self.visa_device)
             # set terminator in pyvisa

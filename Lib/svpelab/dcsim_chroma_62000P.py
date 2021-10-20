@@ -34,7 +34,7 @@ import os
 import time
 import socket
 import serial
-import visa
+import pyvisa as visa
 from . import dcsim
 
 chroma_info = {

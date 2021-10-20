@@ -157,7 +157,7 @@ class Device(object):
         if self.params.get('comm') == 'VISA':
             try:
                 # sys.path.append(os.path.normpath(self.visa_path))
-                import visa
+                import pyvisa as visa
                 self.rm = visa.ResourceManager()
                 self.conn = self.rm.open_resource(params.get('visa_id'))
                 self.conn.encoding = 'latin_1'
@@ -909,7 +909,7 @@ class Device(object):
 if __name__ == "__main__":
     import time
     import ftplib
-    import visa
+    import pyvisa as visa
 
     params = {'comm': 'VISA'}
     ip_addr = '10.1.2.87'

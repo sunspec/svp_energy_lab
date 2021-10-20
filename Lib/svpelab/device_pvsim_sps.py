@@ -63,7 +63,7 @@ class SPS(object):
         # if using VISA, configure the connection
         if self.comm == 'VISA':
             try:
-                import visa
+                import pyvisa as visa
                 self.rm = visa.ResourceManager()
                 self.conn = self.rm.open_resource(visa_id)
                 # the default pyvisa write termination is '\r\n' which does not work with the SPS

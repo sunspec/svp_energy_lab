@@ -78,7 +78,7 @@ class ChromaRLC(object):
     def open(self):
 
         try:
-            import visa
+            import pyvisa as visa
             self.rm = visa.ResourceManager(self.visa_path)
             self.conn = self.rm.open_resource(self.visa_device)
             self.conn.write_termination = TERMINATOR

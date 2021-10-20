@@ -178,7 +178,7 @@ class Device(object):
         elif self.params.get('comm') == 'VISA':
             try:
                 # sys.path.append(os.path.normpath(self.visa_path))
-                import visa
+                import pyvisa as visa
                 self.rm = visa.ResourceManager()
                 self.conn = self.rm.open_resource(params.get('visa_id'))
 
@@ -349,7 +349,7 @@ if __name__ == "__main__":
 
     import time
     import ftplib
-    import visa
+    import pyvisa as visa
 
     '''
     params = {'ts': None, 'visa_id': "GPIB0::13::INSTR", 'comm': "visa", 'comm': "visa"}
