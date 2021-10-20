@@ -9,7 +9,6 @@ try:
 except Exception as e:
     print('Missing pysunspec2 package. %s' % e)
 from . import der1547
-import script
 
 sunspec_info = {
     'name': os.path.splitext(os.path.basename(__file__))[0],
@@ -47,21 +46,23 @@ def params(info, group_name):
         info.param(pname('ipaddr'), label='IP Address', default='127.0.0.1', active=pname('ifc_type'),
                    active_value=[TCP])
         info.param(pname('ipport'), label='IP Port', default=502, active=pname('ifc_type'), active_value=[TCP])
-        info.param(pname('tls'), label='TLS Client', default=False, active=pname('ifc_type'), active_value=[TCP],
-                   desc='Enable TLS (Modbus/TCP Security).')
-        info.param(pname('cafile'), label='CA Certificate', default=None, active=pname('ifc_type'),
-                   active_value=[TCP],
+        info.param(pname('tls'), label='Use TLS', default='No', values=['Yes', 'No'], active=pname('ifc_type'),
+                   active_value=[TCP], desc='Enable TLS (Modbus/TCP Security).')
+        info.param(pname('cafile'), label='CA Certificate', default='root.pem',
+                   active=pname('tls'), active_value=['Yes'],
                    desc='Path to certificate authority (CA) certificate to use for validating server certificates.')
-        info.param(pname('certfile'), label='Client TLS Certificate', default=None, active=pname('ifc_type'),
-                   active_value=[TCP], desc='Path to client TLS certificate to use for client authentication.')
-        info.param(pname('keyfile'), label='Client TLS Key', default=None, active=pname('ifc_type'),
-                   active_value=[TCP], desc='Path to client TLS key to use for client authentication.')
-        info.param(pname('insecure_skip_tls_verify'), label='Skip TLS Verification', default=False,
-                   active=pname('ifc_type'), active_value=[TCP],
-                   desc='Skip Verification of Server TLS Certificate.')
+        info.param(pname('certfile'), label='Client TLS Certificate', default='client-test-cert.pem',
+                   active=pname('tls'), active_value=['Yes'],
+                   desc='Path to client TLS certificate to use for client authentication.')
+        info.param(pname('keyfile'), label='Client TLS Key', default='client-test-key.pem',
+                   active=pname('tls'), active_value=['Yes'],
+                   desc='Path to client TLS key to use for client authentication.')
+        info.param(pname('insecure_skip_tls_verify'), label='Skip TLS Verification', default='Yes',
+                   values=['Yes', 'No'],
+                   active=pname('tls'), active_value=['Yes'], desc='Skip Verification of Server TLS Certificate.')
         # Mapped parameters
         info.param(pname('map_name'), label='Map File', default='device_1547.json', active=pname('ifc_type'),
-                   active_value=[MAPPED], ptype=script.PTYPE_FILE)
+                   active_value=[MAPPED])
     except NameError as e:
         print('pysunspec2 package is likely missing. %s' % e)
 
@@ -90,22 +91,26 @@ class DER1547(der1547.DER1547):
             ipaddr = self.param_value('ipaddr')
             ipport = self.param_value('ipport')
 
-            tls = self.param_value('tls')
-            cafile = self.param_value('cafile')
-            certfile = self.param_value('certfile')
-            keyfile = self.param_value('keyfile')
-            skip_verify = self.param_value('insecure_skip_tls_verify')
+            tls = self.param_value('tls') == 'Yes'  # bool
+            cafile = self.param_value('cafile')  # path
+            certfile = self.param_value('certfile')  # path
+            keyfile = self.param_value('keyfile')  # path
+            skip_verify = self.param_value('insecure_skip_tls_verify') == 'Yes'  # bool
 
-            try:  # attempt to use pysunspec2 that supports TLS encryption
-                self.inv = client.SunSpecClientDeviceTCP(self.ifc_type, slave_id=slave_id, ipaddr=ipaddr, ipport=ipport,
-                                                         tls=tls, cafile=cafile, certfile=certfile, keyfile=keyfile,
-                                                         insecure_skip_tls_verify=skip_verify)
-            except Exception as e:  # fallback to old version
-                if self.ts is not None:
-                    self.ts.log('Could not create Modbus client with TLS encryption: %s. Attempted unencrypted option.')
-                else:
-                    print('Could not create Modbus client with TLS encryption: %s.  Attempted unencrypted option.')
-                self.inv = client.SunSpecClientDeviceTCP(self.ifc_type, slave_id=slave_id, ipaddr=ipaddr, ipport=ipport)
+            if tls:
+                try:  # attempt to use pysunspec2 that supports TLS encryption - untested - TODO
+                    self.inv = client.SunSpecModbusClientDeviceTCP(slave_id=slave_id, ipaddr=ipaddr, ipport=ipport,
+                                                                   tls=tls, cafile=cafile, certfile=certfile,
+                                                                   keyfile=keyfile, insecure_skip_tls_verify=skip_verify)
+                except Exception as e:  # fallback to old version
+                    if self.ts is not None:
+                        self.ts.log('Could not create Modbus client with TLS encryption: %s. '
+                                    'Attempted unencrypted option.')
+                    else:
+                        print('Could not create Modbus client with TLS encryption: %s.  Attempted unencrypted option.')
+                    self.inv = client.SunSpecModbusClientDeviceTCP(slave_id=slave_id, ipaddr=ipaddr, ipport=ipport)
+            else:  # don't use TLS
+                self.inv = client.SunSpecModbusClientDeviceTCP(slave_id=slave_id, ipaddr=ipaddr, ipport=ipport)
 
         elif self.ifc_type == MAPPED:
             ifc_name = self.param_value('map_name')
@@ -114,8 +119,8 @@ class DER1547(der1547.DER1547):
             ifc_name = self.param_value('ifc_name')
             baudrate = self.param_value('baudrate')
             parity = self.param_value('parity')
-            self.inv = client.SunSpecClientDeviceTCP(self.ifc_type, slave_id=slave_id, name=ifc_name,
-                                                     baudrate=baudrate, parity=parity)
+            self.inv = client.SunSpecModbusClientDeviceRTU(slave_id=slave_id, name=ifc_name,
+                                                           baudrate=baudrate, parity=parity)
         else:
             raise der1547.DER1547Error('Unknown connection type. Not MAPPED, RTU, or TCP.')
 
@@ -184,25 +189,30 @@ class DER1547(der1547.DER1547):
                 for pt in eval('self.inv.%s[0].points.keys()' % m):
                     # self.ts.log_debug('pt: %s' % pt)
                     if pt != 'Pad':
-                        label = eval('self.inv.%s[0].points[pt].pdef["label"]' % m)
-                        val = eval('self.inv.%s[0].points[pt].cvalue' % m)
+                        try:
+                            label = eval('self.inv.%s[0].points[pt].pdef["label"]' % m)
+                            val = eval('self.inv.%s[0].points[pt].cvalue' % m)
 
-                        if val is not None and eval('self.inv.%s[0].points[pt].pdef.get("symbols")' % m) is not None:
-                            symbol = eval('self.inv.%s[0].points[pt].pdef.get("symbols")' % m)
-                            # self.ts.log('Symbols: %s' % symbol)
-                            symb = None
-                            if symbol is not None:
-                                if isinstance(symbol, list):
-                                    for s in symbol:
-                                        # self.ts.log('s: %s' % s)
-                                        if val == s.get('value'):
-                                            symb = s.get("label")
-                                else:
-                                    if symbol.get(val) is not None:
-                                        symb = eval('self.inv.%s[0].points[pt].pdef["symbols"][val]["label"]' % m)
-                            self.ts.log('%s [%s]: %s [%s]' % (label, pt, val, symb))
-                        else:
-                            self.ts.log('%s [%s]: %s' % (label, pt, val))
+                            if val is not None and \
+                                    eval('self.inv.%s[0].points[pt].pdef.get("symbols")' % m) is not None:
+                                symbol = eval('self.inv.%s[0].points[pt].pdef.get("symbols")' % m)
+                                # self.ts.log('Symbols: %s' % symbol)
+                                symb = None
+                                if symbol is not None:
+                                    if isinstance(symbol, list):
+                                        for s in symbol:
+                                            # self.ts.log('s: %s' % s)
+                                            if val == s.get('value'):
+                                                symb = s.get("label")
+                                    else:
+                                        if symbol.get(val) is not None:
+                                            symb = eval('self.inv.%s[0].points[pt].pdef["symbols"][val]["label"]' % m)
+                                self.ts.log('%s [%s]: %s [%s]' % (label, pt, val, symb))
+                            else:
+                                self.ts.log('%s [%s]: %s' % (label, pt, val))
+                        except Exception as e:
+                            if not pt[-3:] == '_SF':  # Ignore the SF values from ac_meter and other legacy models
+                                self.ts.log_debug('No data for pt %s' % pt)
 
                 # Cycle through groups
                 self.print_group(group_obj=eval('self.inv.%s[0]' % m))
