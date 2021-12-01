@@ -393,7 +393,6 @@ class Device(object):
 
             # self.ts.log_debug('data_points %s' % self.data_points)
 
-
         # After the simulation the data is stored in a .mat file. Matlab is used to convert this to a .csv file.
         # Get the svpelab directory and then add the \OpalRT\...
         self.driver_path = os.path.dirname(os.path.realpath(__file__))
@@ -452,7 +451,7 @@ class Device(object):
         data = []
         try:
             if self.sc_capture == 'Yes':
-                # self.ts.log_debug('Collecting data from the console\'s aqcuisition signals.')
+                # self.ts.log_debug('Collecting data from the console\'s acquisition signals.')
                 try:
                     data = self.hil.get_acq_signals_raw(verbose=False)
                 except Exception as e:
