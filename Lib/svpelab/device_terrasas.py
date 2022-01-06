@@ -184,7 +184,7 @@ class TerraSAS(object):
 
         return curve_name  # return IV curve name
 
-    def curve_en50530(self, tech='CSI', sim_type='STA', pmp=1000, vmp=100):
+    def curve_en50530(self, tech='CSI', sim_type='DYN', pmp=1000, vmp=100):
         self.cmd('CURVe:EN50530:SIMtype %s, %s\r' % (tech, sim_type))
         self.cmd('CURVe:EN50530:MPPparms %s, %s\r' % (pmp, vmp))
         self.cmd('CURVe:EN50530:ADD\r')
