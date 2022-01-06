@@ -184,7 +184,7 @@ class TerraSAS(object):
 
         return curve_name  # return IV curve name
 
-    def curve_en50530(self, tech='CSI', sim_type='DYN', pmp=1000, vmp=100):
+    def curve_en50530(self, tech='CSI', sim_type='STA', pmp=1000, vmp=100):
         self.cmd('CURVe:EN50530:SIMtype %s, %s\r' % (tech, sim_type))
         self.cmd('CURVe:EN50530:MPPparms %s, %s\r' % (pmp, vmp))
         self.cmd('CURVe:EN50530:ADD\r')
@@ -297,23 +297,23 @@ class Channel(object):
     def measurements_get(self):
         """
         Measure the voltage, current, and power of the channel
-        :return: dictionary with power data with keys: 'DC_V', 'DC_I', and 'DC_P'
+        :return: dictionary with power data with keys: 'DC_V', 'DC_I', 'DC_P', 'MPPT_Accuracy'
         """
         meas = {'DC_V': float(self.tsas.query('MEASure:SCALar:VOLTage:DC? (@%s)\r' % self.index)),
                 'DC_I': float(self.tsas.query('MEASure:SCALar:CURRent:DC? (@%s)\r' % self.index)),
-                # 'MPPT_Accuracy': float(self.tsas.query('MEASure:SCALar:MPPaccuracy:DC? (@%s)\r' % self.index)),
+                'MPPT_Accuracy': float(self.tsas.query('MEASure:SCALar:MPPaccuracy? (@%s)\r' % self.index)),
                 'DC_P': float(self.tsas.query('MEASure:SCALar:POWer:DC? (@%s)\r' % self.index))}
         return meas
+
 
 if __name__ == "__main__":
 
     try:
-        tsas = TerraSAS(ipaddr='127.0.0.1')
-        # tsas = TerraSAS(ipaddr='192.168.0.196')
+        # tsas = TerraSAS(ipaddr='127.0.0.1')
+        tsas = TerraSAS(ipaddr='192.168.0.167')
         # tsas = TerraSAS(ipaddr='10.10.10.10')
 
         tsas.scan()
-
         tsas.reset()
 
         tsas.curve_en50530(pmp=3000, vmp=460)

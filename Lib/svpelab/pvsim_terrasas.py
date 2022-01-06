@@ -95,12 +95,11 @@ GROUP_NAME = 'terrasas'
 
 class PVSim(pvsim.PVSim):
 
-    def __init__(self, ts, group_name, support_interfaces=None):
-        pvsim.PVSim.__init__(self, ts, group_name, support_interfaces=support_interfaces)
+    def __init__(self, ts, group_name):
+        pvsim.PVSim.__init__(self, ts, group_name)
 
         self.ts = ts
         self.tsas = None
-        self.support_interfaces = support_interfaces
 
         try:
             self.ipaddr = self._param_value('ipaddr')
@@ -172,9 +171,11 @@ class PVSim(pvsim.PVSim):
 
     def iv_curve_config(self, pmp, vmp):
         if self.tsas is not None:
+            self.pmp = pmp  # total power
+            self.vmp = vmp
             count = len(self.channel)
             if count > 1:
-                pmp = pmp/count
+                pmp = self.pmp/count  # power per output
             for c in self.channel:
                 channel = self.tsas.channels[c]
                 if channel.profile_is_active():
@@ -183,8 +184,8 @@ class PVSim(pvsim.PVSim):
                 if self.curve_type == 'EN50530':
                     # re-add EN50530 curve with active parameters
                     self.ts.log('Initializing PV Simulator (Channel %s) with Pmp = %d and Vmp = %d.' %
-                                (c, self.pmp, self.vmp))
-                    self.tsas.curve_en50530(pmp=pmp, vmp=vmp)
+                                (c, pmp, self.vmp))
+                    self.tsas.curve_en50530(pmp=pmp, vmp=self.vmp)
                     channel.curve_set(terrasas.EN_50530_CURVE)
                 else:
                     raise pvsim.PVSimError('Invalid curve type: %s' % self.curve_type)
@@ -220,12 +221,13 @@ class PVSim(pvsim.PVSim):
         Measure the voltage, current, and power of all channels - calculate the average voltage, total current, and
         total power
 
-        :return: dictionary with dc power data with keys: 'DC_V', 'DC_I', and 'DC_P'
+        :return: dictionary with dc power data with keys: 'DC_V', 'DC_I', 'DC_P', 'MPPT_Accuracy'
         """
 
         voltage = 0.
         current = 0.
         power = 0.
+        mppt_accuracy = 0.
         n_channels = 0
 
         if self.tsas is not None:
@@ -238,13 +240,14 @@ class PVSim(pvsim.PVSim):
                     voltage += meas['DC_V']
                     current += meas['DC_I']
                     power += meas['DC_P']
+                    mppt_accuracy += meas['MPPT_Accuracy']/n_channels
                 else:
                     raise pvsim.PVSimError('No measurement data because there is no channel specified.')
             avg_voltage = voltage/float(n_channels)
         else:
             raise pvsim.PVSimError('Could not collect the current, voltage, or power from the TerraSAS.')
 
-        total_meas = {'DC_V': avg_voltage, 'DC_I': current, 'DC_P': power}
+        total_meas = {'DC_V': avg_voltage, 'DC_I': current, 'DC_P': power, 'MPPT_Accuracy': mppt_accuracy}
         return total_meas
 
     def power_set(self, power):
@@ -261,7 +264,7 @@ class PVSim(pvsim.PVSim):
                 if c is not None:
                     channel = self.tsas.channels[c]
                     channel.irradiance_set(irradiance=irradiance)
-                    self.ts.log('TerraSAS power output changed to %0.2f on channel %d.' % (power, c))
+                    # self.ts.log('TerraSAS power output changed to %0.2f on channel %d.' % (power, c))
         else:
             raise pvsim.PVSimError('Power was not changed.')
 
