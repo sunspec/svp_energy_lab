@@ -30,10 +30,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 Questions can be directed to support@sunspec.org
 """
 
-import time
-
-import vxi11
-
+import pyvisa as visa
 
 class DeviceError(Exception):
     """
@@ -51,124 +48,191 @@ class Device(object):
         self.rm = None
         # Connection to instrument for VISA-GPIB
         self.conn = None
-        self.open()
-
 
     def open(self):
 
         try:
+            self.rm = visa.ResourceManager()
             if self.params['comm'] == 'Network':
                 try:
-                    self.vx = vxi11.Instrument(self.params['ip_addr'])
-                except Exception, e:
+                    self._host = self.params['ip_addr']
+                    self._port = 4000
+                    self.conn = self.rm.open_resource("TCPIP::{0}::{1}::SOCKET".format(self._host,self._port),read_termination='\n')
+                except Exception as e:
                     raise DeviceError('AWG400 communication error: %s' % str(e))
             elif self.params['comm'] == 'GPIB':
                 raise NotImplementedError('The driver for plain GPIB is not implemented yet. ' +
                                           'Please use VISA which supports also GPIB devices')
             elif self.params['comm'] == 'VISA':
                 try:
-                    # sys.path.append(os.path.normpath(self.visa_path))
-                    import visa
-                    self.rm = visa.ResourceManager()
                     self.conn = self.rm.open_resource(self.params['visa_address'])
 
-                except Exception, e:
+                except Exception as e:
                     raise DeviceError('AWG400 communication error: %s' % str(e))
 
             else:
                 raise ValueError('Unknown communication type %s. Use GPIB or VISA' % self.params['comm'])
 
-        except Exception, e:
+        except Exception as e:
             raise DeviceError(str(e))
+
+        self.funcgen_mode()
+
         pass
 
     def close(self):
         if self.params['comm'] == 'Network':
-            if self.vx is not None:
-                self.vx.close()
-                self.vx = None
+            try:
+                if self.conn is not None:
+                    self.conn.close()
+            except Exception as e:
+                raise DeviceError('AWG400 communication error: %s' % str(e))
         elif self.params['comm'] == 'GPIB':
             raise NotImplementedError('The driver for plain GPIB is not implemented yet.')
         elif self.params['comm'] == 'VISA':
             try:
-                if self.rm is not None:
-                    if self.conn is not None:
-                        self.conn.close()
-                    self.rm.close()
-            except Exception, e:
+                if self.conn is not None:
+                    self.conn.close()
+            except Exception as e:
                 raise DeviceError('AWG400 communication error: %s' % str(e))
         else:
             raise ValueError('Unknown communication type %s. Use Serial, GPIB or VISA' % self.params['comm'])
 
     def cmd(self, cmd_str):
-        if self.params['comm'] == 'Network':
-            try:
-                self.vx.write(cmd_str)
-            except Exception, e:
-                raise DeviceError('AWG400 communication error: %s' % str(e))
-
-        elif self.params['comm'] == 'VISA':
-            try:
-                self.conn.write(cmd_str)
-            except Exception, e:
-                raise DeviceError('AWG400 communication error: %s' % str(e))
+        if self.params['comm'] == 'VISA' or self.params['comm'] == 'Network':
+            self.conn.write(cmd_str)
 
     def query(self, cmd_str):
-        resp = ''
-        if self.params['comm'] == 'Network':
-            try:
-                resp = self.vx.ask(cmd_str)
-            except Exception, e:
-                raise DeviceError('AWG400 communication error: %s' % str(e))
-        elif self.params['comm'] == 'VISA':
+        if self.params['comm'] == 'VISA' or self.params['comm'] == 'Network':
             self.cmd(cmd_str)
             resp = self.conn.read()
 
         return resp
 
     def info(self):
-        return self.query('*IDN?')
+        try:
+            resp = self.conn.query("*IDN?")
+        except Exception as e:
+            raise DeviceError('AWG400 communication error: %s' % str(e))
+        return resp
 
-    def load_config(self, params):
+    def load_config(self,sequence = None):
         """
         Enable channels
         :param params: dict containing following possible elements:
           'sequence_filename': <sequence file name>
         :return:
         """
-        pass
+
+        # Load configuration settings from sequence file textbox
+        self.cmd("AWGControl:SREStore '{}','MAIN'".format(sequence))
+        
+    def funcgen_mode(self):
+        """
+        Set the AWG in function generator
+        :return: The generator mode
+        """
+
+        if self.params['gen_mode'] == 'ON':
+            self.cmd("AWGControl:FG ON")
+        else:
+            self.cmd("AWGControl:FG OFF")
+
+
 
     def start(self):
         """
         Start sequence execution
         :return:
         """
+        # self.conn.write("AWGControl:RUN:IMMediate")
+        self.conn.write("AWGControl:EVENt:LOGic:IMMediate")
         pass
 
     def stop(self):
         """
-        Start sequence execution
+        Stop sequence execution
         :return:
         """
+
+        self.conn.write("AWGControl:STOP:IMMediate")
+        # Turn off all channel
+        for i in range(1,4):
+            self.conn.write("OUTput{}:STATe OFF".format(i))
+
         pass
 
-    def chan_enable(self, chans):
+    def trigger(self):
+        """
+        Info : This command is equivalent to pressing the FORCE TRIGGER button front panel
+        Send trigger event execution 
+        :return:
+        """
+        self.cmd("*TRG")
+
+    def next_event(self):
+        """
+        Send event transient execution 
+        :return:
+        """
+        self.conn.write("AWGControl:EVENt:LOGic:IMMediate")
+
+    def chan_state(self, chans):
         """
         Enable channels
         :param chans: list of channels to enable
         :return:
         """
+        i = 1
+        for chan in chans:
+            if chan == True :
+                self.cmd("OUTput{}:STATe ON".format(i))
+            elif chan == False :
+                self.cmd("OUTput{}:STATe OFF".format(i))
+            i = i + 1
         pass
 
-    def chan_disable(self, chans):
+
+
+    def error(self):
         """
-        Disable channels
-        :param chans: list of channels to disable
-        :return:
+        This only to have a feedback of the last operation
+        :return: The error of last operation
         """
-        pass
+        return self.query("SYSTem:ERRor:NEXT?")
+
+    def voltage(self, voltage, channel):
+        """
+        This command adjusts peak to peak voltage of the function waveform on selected channel.
+        :param voltage: The amplitude of the waveform in step of 1mV withing the range of 0.020Vpp to 2.000Vpp
+        :param channel: Channel to configure
+        """
+        if self.params['gen_mode'] == 'ON':
+            if channel == 1:
+                voltage *=0.005941
+            elif channel == 2:
+                voltage *= 0.005925
+            elif channel == 3:
+                voltage *= 0.005891
+            print(("AWGControl:FG{}:VOLTage {}".format(channel, voltage)))
+            self.cmd("AWGControl:FG{}:VOLTage {}".format(channel, voltage))
+
+    def frequency(self, frequency):
+        """
+        This command adjusts peak to peak voltage of the function waveform on selected channel.
+        :param frequency: The frequency of the waveform on all channels
+        """
+        self.cmd("AWGControl:FG:FREQuency {}".format(frequency))
+
+    def phase(self, phase, channel):
+        """
+        This command adjusts peak to peak voltage of the function waveform on selected channel.
+        :param phase: The amplitude of the waveform in step of 1mV withing the range of 0.020Vpp to 2.000Vpp
+        :param channel: Channel to configure
+        """
+        self.cmd("AWGControl:FG{}:PHASe {}DEGree".format(channel, phase))
+
 
 
 if __name__ == "__main__":
-
     pass

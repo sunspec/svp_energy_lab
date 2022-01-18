@@ -30,9 +30,36 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 Questions can be directed to support@sunspec.org
 """
 
-import os
 import time
-import dataset
+import random
+import numpy as np
+import datetime
+
+query_points = {
+    'AC_VRMS': 'UTRMS',
+    'AC_IRMS': 'ITRMS',
+    'AC_P': 'P',
+    'AC_S': 'S',
+    'AC_Q': 'Q',
+    'AC_PF': 'PF',
+    'AC_FREQ': 'FCYC',
+    'AC_INC': 'INCA',
+    'DC_V': 'UDC',
+    'DC_I': 'IDC',
+    'DC_P': 'P'
+}
+
+initiale_average_values = {
+    'U': 120.00,
+    'I': 12.00,
+    'PF': 0.12,
+    'FCYC': 67.00,
+    'P': 12345.00,
+    'Q': 11111.00,
+    'S': 16609.00,
+    'INCA': 1.00,
+    'Unset': 9991.00
+}
 
 
 class DeviceError(Exception):
@@ -45,21 +72,36 @@ class DeviceError(Exception):
 class Device(object):
 
     def __init__(self, params=None):
-        self.ts = params['ts']
-        self.points = params['points']
-        self.data_points = []
-        self.data_file = params['data_file']
-        self.at_end = params['at_end']
-        self.file_= None
-        self.use_timestamp = params['use_timestamp']
-        self.ds = dataset.Dataset()
-        self.index = 0
+        self.params = params
+        self.channels = params.get('channels')
+        self.sample_interval = params.get('sample_interval')
+        self.data_points = ['TIME']
+        self.average = initiale_average_values
+        # Connection object
+        self.start_time = None
+        self.current_time = None
+        self.query_chan_str = ""
+        item = 0
 
-        if self.data_file:
-            self.ds.from_csv(self.data_file)
-            self.data_points = list(self.ds.points)
-        else:
-            raise DeviceError('No data file specified')
+        for i in range(1, 4):
+            chan = self.channels[i]
+            if chan is not None:
+                chan_type = chan.get('type')
+                points = chan.get('points')
+                if points is not None:
+                    chan_label = chan.get('label')
+                    if chan_type is None:
+                        raise DeviceError('No channel type specified')
+                    if points is None:
+                        raise DeviceError('No points specified')
+                    for p in points:
+                        item += 1
+                        point_str = '%s_%s' % (chan_type, p)
+                        chan_str = query_points.get(point_str)
+                        self.query_chan_str += '%s%d?; ' % (chan_str, i)
+                        if chan_label:
+                            point_str = '%s_%s' % (point_str, chan_label)
+                        self.data_points.append(point_str)
 
     def info(self):
         return 'DAS Simulator - 1.0'
@@ -71,49 +113,58 @@ class Device(object):
         pass
 
     def data_capture(self, enable=True):
-        pass
+        self.start_time = None
 
     def data_read(self):
+
+        if self.start_time is None:
+            self.start_time = np.datetime64(datetime.datetime.utcnow(), 'us')
+        else :
+            self.current_time = np.datetime64(datetime.datetime.utcnow(), 'us')
         data = []
-        if len(self.ds.points) > 0:
-            count = len(self.ds.data[0])
-            if count > 0:
-                if self.index >= count:
-                    if self.at_end == 'Loop to start':
-                        self.index = 0
-                    elif self.at_end == 'Repeat last record':
-                        self.index = count - 1
-                    else:
-                        raise DeviceError('End of data reached')
-
-            for i in range(len(self.ds.points)):
-                data.append(self.ds.data[i][self.index])
-
+        points = self.query_chan_str.split(";")[:-1]
+        for point in points:
+            if 'U' in point:
+                data.append(self._gen_data('U'))
+            elif 'I' in point and 'INCA' not in point:
+                data.append(self._gen_data('I'))
+            elif 'PF' in point:
+                data.append(self._gen_data('PF'))
+            elif 'FCYC' in point:
+                data.append(self._gen_data('FCYC'))
+            elif 'P' in point and 'PF' not in point:
+                data.append(self._gen_data('P'))
+            elif 'Q' in point:
+                data.append(self._gen_data('Q'))
+            elif 'S' in point and 'RMS' not in point:
+                data.append(self._gen_data('S'))
+            elif 'INCA' in point:
+                data.append(self._gen_data('INCA'))
+            else:
+                data.append(self._gen_data('Unset'))
+        data.insert(0, time.clock())
         return data
 
-    def waveform_config(self, params):
-        pass
+    def _gen_data(self, key):
+        delta = random.uniform(-0.5, 0.5)
+        r = random.random()
 
-    def waveform_capture(self, enable=True, sleep=None):
-        """
-        Enable/disable waveform capture.
-        """
-        pass
-
-    def waveform_status(self):
-        # mm-dd-yyyy hh_mm_ss waveform trigger.txt
-        # mm-dd-yyyy hh_mm_ss.wfm
-        # return INACTIVE, ACTIVE, COMPLETE
-        return 'COMPLETE'
-
-    def waveform_force_trigger(self):
-        pass
-
-    def waveform_capture_dataset(self):
-        return self.ds
-
-if __name__ == "__main__":
-
-    pass
+        if key == 'INCA':
+            if r > 0.9:
+                self.average[key] = -1
+            elif r > 0.8:
+                self.average[key] = 0
+            else:
+                self.average[key] = 1
+        else:
+            if r > 0.9:
+                self.average[key] += delta * 0.33*self.average[key]
+            elif r > 0.8:
+                # attraction to the initial value
+                delta += (0.5 if initiale_average_values[key] > self.average[key] else -0.5)
+                self.average[key] += delta*0.01*self.average[key]
+            else:
+                self.average[key] += delta*0.01*self.average[key]
+        return self.average[key]
 
 

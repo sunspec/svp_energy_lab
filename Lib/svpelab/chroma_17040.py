@@ -71,7 +71,7 @@ class ChromaBattSim(object):
             
             
     def open(self):
-        import visa
+        import pyvisa as visa
         """
         Open the communications resources associated with the device.
         """

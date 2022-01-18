@@ -38,7 +38,7 @@ import traceback
 lib_path = os.path.join(os.path.dirname(__file__), '..', 'Lib')
 if lib_path not in sys.path:
     sys.path.append(lib_path)
-print sys.path
+print(sys.path)
 
 # place script library imports here
 from svpelab import das
@@ -66,13 +66,13 @@ def test_run():
         # run data capture
         ts.log('Running capture 1')
         daq.data_capture(True)
-        ts.sleep(5)
+        ts.sleep(2)
         ts.log('current data: %s' % daq.data_capture_read())
-        ts.sleep(5)
+        ts.sleep(2)
         ts.log('current data: %s' % daq.data_capture_read())
-        ts.sleep(5)
+        ts.sleep(2)
         ts.log('current data: %s' % daq.data_capture_read())
-        ts.sleep(5)
+        ts.sleep(2)
         daq.data_capture(False)
         ds = daq.data_capture_dataset()
 
@@ -81,11 +81,12 @@ def test_run():
         ds.to_csv(ts.result_file_path(filename))
         ts.result_file(filename)
 
-        chil.stop_simulation()
+        if chil is not None:
+            chil.stop_simulation()
 
         result = script.RESULT_COMPLETE
 
-    except script.ScriptFail, e:
+    except script.ScriptFail as e:
         reason = str(e)
         if reason:
             ts.log_error(reason)
@@ -114,7 +115,7 @@ def run(test_script):
         if result == script.RESULT_FAIL:
             rc = 1
 
-    except Exception, e:
+    except Exception as e:
         ts.log_error('Test script exception: %s' % traceback.format_exc())
         rc = 1
 

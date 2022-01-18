@@ -35,7 +35,7 @@ import os
 import glob
 import importlib
 
-import dataset
+from . import dataset
 
 '''
 The DAS module supports collecting time series data records in a dataset. Each time series data record is comprised
@@ -83,7 +83,7 @@ WFM_STATUS_ACTIVE = 'inactive'
 WFM_STATUS_COMPLETE = 'complete'
 
 points_default = {
-    'AC': ('VRMS', 'IRMS', 'P', 'S', 'Q', 'PF', 'FREQ'),
+    'AC': ('VRMS', 'IRMS', 'P', 'S', 'Q', 'PF', 'FREQ','INC'),
     'DC': ('V', 'I', 'P')
 }
 
@@ -103,12 +103,13 @@ def params(info, id=None, label='Data Acquisition System', group_name=None, acti
     name = lambda name: group_name + '.' + name
     info.param_group(group_name, label='%s Parameters' % label, active=active, active_value=active_value, glob=True)
     info.param(name('mode'), label='Mode', default='Disabled', values=['Disabled'])
-    for mode, m in das_modules.iteritems():
+    for mode, m in das_modules.items():
         m.params(info, group_name=group_name)
 
 DAS_DEFAULT_ID = 'das'
 
-def das_init(ts, id=None, points=None, sc_points=None, group_name=None):
+
+def das_init(ts, id=None, points=None, sc_points=None, group_name=None, support_interfaces=None):
     """
     Function to create specific das implementation instances.
     """
@@ -123,7 +124,8 @@ def das_init(ts, id=None, points=None, sc_points=None, group_name=None):
     if mode != 'Disabled':
         sim_module = das_modules.get(mode)
         if sim_module is not None:
-            sim = sim_module.DAS(ts, group_name, points=points, sc_points=sc_points)
+            sim = sim_module.DAS(ts, group_name, points=points, sc_points=sc_points,
+                                 support_interfaces=support_interfaces)
         else:
             raise DASError('Unknown data acquisition system mode: %s' % mode)
 
@@ -143,7 +145,17 @@ class DAS(object):
     independent grid simulator classes can be created containing the methods contained in this class.
     """
 
-    def __init__(self, ts, group_name, points=None, sc_points=None):
+    def __init__(self, ts, group_name, points=None, sc_points=None, support_interfaces=None):
+        """
+        Initialize the DAS object with the following parameters
+
+        :param ts: test script with logging capability
+        :param group_name: name used when there are multiple instances
+        :param points: data points ('AC_P_1', etc.)
+        :param sc_points: soft channel points
+        :param support_interfaces: dictionary with keys 'pvsim', 'gridsim', 'hil', etc.
+        """
+
         self.ts = ts
         self.group_name = group_name
         self.points = points
@@ -157,6 +169,22 @@ class DAS(object):
         self._timer = None
         self._ds = None
         self._last_datarec = []
+
+        # optional interfaces to other SVP abstraction layers/device drivers
+        self.dc_measurement_device = None
+        self.hil = None
+        self.gridsim = None
+        if support_interfaces is not None:
+            if support_interfaces.get('pvsim') is not None:
+                self.dc_measurement_device = support_interfaces.get('pvsim')
+            elif support_interfaces.get('dcsim') is not None:
+                self.dc_measurement_device = support_interfaces.get('dcsim')
+
+            if support_interfaces.get('hil') is not None:
+                self.hil = support_interfaces.get('hil')
+
+            if support_interfaces.get('gridsim') is not None:
+                self.gridsim = support_interfaces.get('gridsim')
 
         if self.points is None:
             self.points = dict(points_default)
@@ -177,13 +205,14 @@ class DAS(object):
             for p in self.sc_data_points:
                 self.data_points.append(p)
                 self.sc[p] = 0
+        # self.ts.log_debug('_init_sc_points datapoints = %s' % self.data_points)
 
-        self._ds = dataset.Dataset(self.data_points)
+        self._ds = dataset.Dataset(self.data_points, ts=self.ts)
 
     def _data_expand(self, data):
         if len(self.data_points) != len(data):
             raise DASError('Data/data point mismatch: %s %s' % (self.data_points, data))
-        return dict(zip(self.data_points, data))
+        return dict(list(zip(self.data_points, data)))
 
     def _timer_timeout(self, arg=None):
         self.data_sample()
@@ -219,9 +248,11 @@ class DAS(object):
         If sample_interval == 0, there will be no autonomous data captures and self.data_sample should be used to add
         data points to the capture
         """
+        if self.device is not None:
+            self.sample_interval = self.device.sample_interval
         if enable is True:
             if self._capture is False:
-                self._ds = dataset.Dataset(self.data_points)
+                self._ds = dataset.Dataset(self.data_points, ts=self.ts)
                 self._last_datarec = []
                 if self.sample_interval > 0:
                     if self.sample_interval < MINIMUM_SAMPLE_PERIOD:
@@ -345,10 +376,10 @@ def das_scan():
             else:
                 if module_name is not None and module_name in sys.modules:
                     del sys.modules[module_name]
-        except Exception, e:
+        except Exception as e:
             if module_name is not None and module_name in sys.modules:
                 del sys.modules[module_name]
-            raise DASError('Error scanning module %s: %s' % (module_name, str(e)))
+            print(DASError('Error scanning module %s: %s' % (module_name, str(e))))
 
 # scan for das modules on import
 das_scan()

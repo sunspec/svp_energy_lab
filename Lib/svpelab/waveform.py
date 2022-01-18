@@ -41,7 +41,7 @@ class WaveformError(Exception):
 
 class Waveform(object):
 
-    def __init__(self):
+    def __init__(self, ts=None):
         self.start_time = 0          # waveform start time
         self.sample_count = 0        # size of waveform/per channel
         self.sample_rate = 0         # samples/second
@@ -49,6 +49,7 @@ class Waveform(object):
         self.channels = []           # channel names
         self.channel_data = []       # waveform curves
         self.rms_data = {}           # rms data calculated from waveform data
+        self.ts = ts
 
     def from_csv(self, filename, sep=','):
         f = open(filename, 'r')
@@ -71,11 +72,18 @@ class Waveform(object):
         for i in range(chan_count):
             self.channel_data.append(chans[i])
 
+    def from_dataset(self, ds=None):
+        if ds is not None:
+            self.start_time = ds.start_time          # waveform start time
+            self.sample_rate = ds.sample_rate         # samples/second
+            self.channels = ds.points
+            self.channel_data = ds.data
+
     def to_csv(self, filename):
         f = open(filename, 'w')
         chan_count = len(self.channels)
         f.write('%s\n' % ','.join(self.channels))
-        for i in xrange(len(self.channel_data[0])):
+        for i in range(len(self.channel_data[0])):
             data = []
             for c in range(chan_count):
                 data.append(self.channel_data[c][i])
@@ -98,7 +106,14 @@ class Waveform(object):
             c = chan_id
             chan_index = self.channels.index(c)
         except Exception:
-            raise WaveformError('Channel not found: %s' % (c))
+            try:
+                c = 'TIME'
+                time_index = self.channels.index(c)
+                c = chan_id
+                chan_index = self.channels.index(c)
+            except Exception:
+                raise WaveformError('Channel not found: %s' % (c))
+
         time_chan = self.channel_data[time_index]
         data_chan = self.channel_data[chan_index]
         scanning = False
@@ -141,15 +156,15 @@ class Waveform(object):
 
 if __name__ == "__main__":
 
-    wf= Waveform()
-    wf.from_csv('c:\users\\bob\\waveforms\\sandia\\capture_1.csv')
+    wf = Waveform()
+    wf.from_csv('c:\\users\\bob\\waveforms\\sandia\\capture_1.csv')
     '''
     rms_time, rms_data = wf.compute_cycle_rms('AC_V_1')
     print rms_time
     print rms_data
     '''
     wf.compute_rms_data(1)
-    print wf.rms_data
+    print(wf.rms_data)
 
 
 

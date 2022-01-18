@@ -32,7 +32,8 @@ Questions can be directed to support@sunspec.org
 
 import os
 
-import gridsim
+from . import wavegen
+from . import gridsim
 
 manual_info = {
     'name': os.path.splitext(os.path.basename(__file__))[0],
@@ -42,19 +43,53 @@ manual_info = {
 def gridsim_info():
     return manual_info
 
+
 def params(info, group_name):
     gname = lambda name: group_name + '.' + name
     pname = lambda name: group_name + '.' + GROUP_NAME + '.' + name
     mode = manual_info['mode']
     info.param_add_value(gname('mode'), mode)
+    info.param_group(gname(GROUP_NAME), label='%s Parameters' % mode, active=gname('mode'), active_value=mode,
+                     glob=True)
+    info.param(pname('phases'), label='Phases', default=1, values=[1, 2, 3])
+    info.param(pname('v_nom'), label='Nominal voltage for all phases', default=120.0)
+    info.param(pname('v_max'), label='Max Voltage', default=200.0)
+    info.param(pname('i_max'), label='Max Current', default=10.0)
+    info.param(pname('freq'), label='Frequency', default=60.0)
+    info.param(pname('comm'), label='Communications Interface', default='VISA', values=['GPIB', 'VISA', 'WAVEGEN'])
+    info.param(pname('gpib_device'), label='GPIB address', active=pname('comm'), active_value=['GPIB'],
+               default='GPIB0::17::INSTR')
+    info.param(pname('visa_device'), label='VISA address', active=pname('comm'), active_value=['VISA'],
+               default='GPIB0::17::INSTR')
+
 
 GROUP_NAME = 'manual'
 
 
 class GridSim(gridsim.GridSim):
 
-    def __init__(self, ts, group_name, params=None):
-        gridsim.GridSim.__init__(self, ts, group_name, params)
+    def __init__(self, ts, group_name, params=None, support_interfaces=None):
+        gridsim.GridSim.__init__(self, ts, group_name, params, support_interfaces=support_interfaces)
 
         if ts.confirm('Please run the grid simulator profile.') is False:
             raise gridsim.GridSimError('Aborted grid simulation')
+
+        ts.log('Grid sim init')
+        self.v_nom_param = self._param_value('v_nom')
+        self.v_max_param = self._param_value('v_max')
+        self.i_max_param = self._param_value('i_max')
+        self.freq_param = self._param_value('freq')
+        self.phases = self._param_value('phases')
+        self.profile_name = ts.param_value('profile.profile_name')
+        self.comm = self._param_value('comm')
+        self.gpib_bus_address = self._param_value('gpib_bus_address')
+        self.gpib_board = self._param_value('gpib_board')
+        self.visa_device = self._param_value('visa_device')
+        self.cmd_str = ''
+        self.cmd_str = ''
+
+        self._cmd = None
+        self._query = None
+
+    def _param_value(self, name):
+        return self.ts.param_value(self.group_name + '.' + GROUP_NAME + '.' + name)

@@ -33,8 +33,8 @@ Questions can be directed to support@sunspec.org
 """
 
 import os
-import device_das_sandia_ni_pcie
-import das
+from . import device_das_sandia_ni_pcie
+from . import das
 
 ni_info = {
     'name': os.path.splitext(os.path.basename(__file__))[0],

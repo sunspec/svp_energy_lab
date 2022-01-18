@@ -703,7 +703,7 @@ class TCPServer(Server):
             except EOFError:
                 break
             except socket.error:
-                print('socket error:', sys.exc_info()[0])
+                print(('socket error:', sys.exc_info()[0]))
                 break
             reply = self.handle(call)
             if reply is not None:

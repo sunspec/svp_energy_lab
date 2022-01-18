@@ -32,8 +32,8 @@ Questions can be directed to support@sunspec.org
 
 import os
 
-import device_das_typhoon
-import das
+from . import device_das_typhoon
+from . import das
 
 typhoon_info = {
     'name': os.path.splitext(os.path.basename(__file__))[0],
@@ -51,6 +51,7 @@ def params(info, group_name=None):
     info.param_group(gname(GROUP_NAME), label='%s Parameters' % mode,
                      active=gname('mode'),  active_value=mode, glob=True)
     info.param(pname('sample_interval'), label='Sample Interval (ms)', default=1000)
+    info.param(pname('map'), label='Typhoon Analog Channel Map', default='ASGC')
 
 GROUP_NAME = 'typhoon'
 
@@ -59,11 +60,21 @@ class DAS(das.DAS):
 
     def __init__(self, ts, group_name, points=None, sc_points=None):
         das.DAS.__init__(self, ts, group_name, points=points, sc_points=sc_points)
-        self.device = device_das_typhoon.Device()
-        self.sample_interval = self._param_value('sample_interval')
+        self.params['ts'] = ts
+        self.params['map'] = self._param_value('map')
+        self.params['sample_interval'] = self._param_value('sample_interval')
 
-        if self.sample_interval < 50:
-            raise das.DASError('Parameter error: sample interval must be at least 50 ms')
+        self.device = device_das_typhoon.Device(self.params)
+        self.data_points = self.device.data_points
+
+        # self.wfm_channels = device_das_typhoon.wfm_channels
+        # self.wfm_typhoon_channels = device_das_typhoon.wfm_typhoon_channels
+
+        # initialize soft channel points
+        self._init_sc_points()
+
+        if self.sample_interval < 50 and self.sample_interval is not 0:
+            raise das.DASError('Parameter error: sample interval must be at least 50 ms or 0 for manual sampling')
 
     def _param_value(self, name):
         return self.ts.param_value(self.group_name + '.' + GROUP_NAME + '.' + name)
