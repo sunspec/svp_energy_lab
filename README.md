@@ -3,10 +3,10 @@ System Validation Platform (SVP) library that enables communication with energy 
 
 # Installation and Configuration
 To get the SVP operational, download the following repositories:
-•	[The SVP graphical user interface](https://github.com/jayatsandia/svp)
-•	[The SVP energy lab code](https://github.com/jayatsandia/svp_energy_lab)
-•	[IEEE 1547.1 working directory](https://github.com/jayatsandia/svp_1547.1) or another working directory
-•	Install [pysunspec2](https://github.com/sunspec/pysunspec2) from the latest release (it may also be pip-able now)
+* [The SVP graphical user interface](https://github.com/jayatsandia/svp)
+* [The SVP energy lab code](https://github.com/jayatsandia/svp_energy_lab)
+* [IEEE 1547.1 working directory](https://github.com/jayatsandia/svp_1547.1) or another working directory
+* Install [pysunspec2](https://github.com/sunspec/pysunspec2) from the latest release (it may also be pip-able now)
 
 Install the SVP dependencies using this [guide](https://github.com/jayatsandia/svp/blob/master/doc/INSTALL.md).  It’s recommended to use Python 3.7.X because there were some issues reported for 3.9+. 
 
