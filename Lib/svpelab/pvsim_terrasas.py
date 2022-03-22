@@ -95,11 +95,12 @@ GROUP_NAME = 'terrasas'
 
 class PVSim(pvsim.PVSim):
 
-    def __init__(self, ts, group_name):
-        pvsim.PVSim.__init__(self, ts, group_name)
+    def __init__(self, ts, group_name, support_interfaces=None):
+        pvsim.PVSim.__init__(self, ts, group_name, support_interfaces=support_interfaces)
 
         self.ts = ts
         self.tsas = None
+        self.support_interfaces = support_interfaces
 
         try:
             self.ipaddr = self._param_value('ipaddr')
