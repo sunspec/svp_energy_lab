@@ -290,6 +290,9 @@ class Channel(object):
     def status(self):
         return self.tsas.query('STATus:OPERation:CONDition? (@%s)\r' % (self.index))
 
+    def clear_protection_faults(self):
+        return self.tsas.cmd('OUTPut:PROTection:CLEar (@%s)\r' % (self.index))
+
     def overvoltage_protection_set(self, voltage=330):
         self.tsas.cmd('SOURce:VOLTage:PROTection %s, (@%s)\r' % (voltage, self.index))
         #[SOURce:]CURRent:PROTection[:LEVel] <value> [,(@chanlist)]

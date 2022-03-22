@@ -95,12 +95,11 @@ GROUP_NAME = 'terrasas'
 
 class PVSim(pvsim.PVSim):
 
-    def __init__(self, ts, group_name, support_interfaces=None):
-        pvsim.PVSim.__init__(self, ts, group_name, support_interfaces=support_interfaces)
+    def __init__(self, ts, group_name):
+        pvsim.PVSim.__init__(self, ts, group_name)
 
         self.ts = ts
         self.tsas = None
-        self.support_interfaces = support_interfaces
 
         try:
             self.ipaddr = self._param_value('ipaddr')
@@ -350,6 +349,16 @@ class PVSim(pvsim.PVSim):
             return dc_power_data
         else:
             raise pvsim.PVSimError('PV Sim not initialized')
+
+    def clear_faults(self):
+        """
+        Clear overvoltage and overcurrent faults on the channels
+        """
+        if self.tsas is not None:
+            for c in self.channel:
+                channel = self.tsas.channels[c]
+                channel.clear_protection_faults()
+
 
 if __name__ == "__main__":
     pass
