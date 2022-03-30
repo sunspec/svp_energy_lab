@@ -290,6 +290,12 @@ class Channel(object):
     def status(self):
         return self.tsas.query('STATus:OPERation:CONDition? (@%s)\r' % (self.index))
 
+    def voltage_protection_level(self):
+        return self.tsas.query('VOLTage:PROTection:LEVel? (@%s)\r' % (self.index))
+
+    def current_protection_level(self):
+        return self.tsas.query('CURRent:PROTection:LEVel? (@%s)\r' % (self.index))
+
     def clear_protection_faults(self):
         return self.tsas.cmd('OUTPut:PROTection:CLEar (@%s)\r' % (self.index))
 
@@ -317,41 +323,48 @@ if __name__ == "__main__":
         # tsas = TerraSAS(ipaddr='10.10.10.10')
 
         tsas.scan()
-        tsas.reset()
 
-        tsas.curve_en50530(pmp=3000, vmp=460)
-        tsas.curve('BP Solar - BP 3230T (60 cells)')
+        channel = tsas.channels[4]
+        print(channel.current_protection_level())
+        print(channel.voltage_protection_level())
+        print(channel.clear_protection_faults())
 
-        tsas.profile('STPsIrradiance')
-        tsas.profile('Cloudy day')
-
-        print('groups =', tsas.groups_get())
-        print('profiles =', tsas.profiles_get())
-        print('curves =', tsas.curves_get())
-
-        channel = tsas.channels[1]
-        print('is on =', channel.output_is_on())
-
-        channel.profile_set('STPsIrradiance')
-        channel.curve_set(EN_50530_CURVE)
-        channel.profile_start()
-        channel.output_set_on()
-
-        print('channel curve =', channel.curve_get())
-        print('channel profile =', channel.profile_get())
-        print('is on =', channel.output_is_on())
-
-        time.sleep(10)
-        print('is on =', channel.output_is_on())
-        channel.profile_abort()
-        channel.profile_set('Cloudy day')
-        channel.curve_set('BP Solar - BP 3230T (60 cells)')
-
-        channel.profile_start()
-
-        print('channel curve =', channel.curve_get())
-        print('channel profile =', channel.profile_get())
-        print('is on =', channel.output_is_on())
+        # tsas.scan()
+        # tsas.reset()
+        #
+        # tsas.curve_en50530(pmp=3000, vmp=460)
+        # tsas.curve('BP Solar - BP 3230T (60 cells)')
+        #
+        # tsas.profile('STPsIrradiance')
+        # tsas.profile('Cloudy day')
+        #
+        # print('groups =', tsas.groups_get())
+        # print('profiles =', tsas.profiles_get())
+        # print('curves =', tsas.curves_get())
+        #
+        # channel = tsas.channels[1]
+        # print('is on =', channel.output_is_on())
+        #
+        # channel.profile_set('STPsIrradiance')
+        # channel.curve_set(EN_50530_CURVE)
+        # channel.profile_start()
+        # channel.output_set_on()
+        #
+        # print('channel curve =', channel.curve_get())
+        # print('channel profile =', channel.profile_get())
+        # print('is on =', channel.output_is_on())
+        #
+        # time.sleep(10)
+        # print('is on =', channel.output_is_on())
+        # channel.profile_abort()
+        # channel.profile_set('Cloudy day')
+        # channel.curve_set('BP Solar - BP 3230T (60 cells)')
+        #
+        # channel.profile_start()
+        #
+        # print('channel curve =', channel.curve_get())
+        # print('channel profile =', channel.profile_get())
+        # print('is on =', channel.output_is_on())
 
         tsas.close()
 

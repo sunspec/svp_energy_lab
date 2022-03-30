@@ -50,30 +50,36 @@ def params(info, group_name):
     info.param_add_value(gname('mode'), mode)
     info.param_group(gname(GROUP_NAME), label='%s Parameters' % mode,
                      active=gname('mode'),  active_value=mode, glob=True)
-    info.param(pname('ifc_type'), label='Interface Type', default=client.RTU, values=[client.RTU, client.TCP, client.MAPPED])
+    info.param(pname('ifc_type'), label='Interface Type', default=client.RTU,
+               values=[client.RTU, client.TCP, client.MAPPED])
     # RTU parameters
-    info.param(pname('ifc_name'), label='Interface Name', default='COM3',  active=pname('ifc_type'), active_value=[client.RTU],
+    info.param(pname('ifc_name'), label='Interface Name', default='COM3',  active=pname('ifc_type'),
+               active_value=[client.RTU],
                desc='Select the communication port from the UMS computer to the EUT.')
     info.param(pname('baudrate'), label='Baud Rate', default=9600, values=[9600, 19200], active=pname('ifc_type'),
                active_value=[client.RTU])
     info.param(pname('parity'), label='Parity', default='N', values=['N', 'E'], active=pname('ifc_type'),
                active_value=[client.RTU])
     # TCP parameters
-    info.param(pname('ipaddr'), label='IP Address', default='127.0.0.1', active=pname('ifc_type'),
+    info.param(pname('ipaddr'), label='IP Address', default='192.168.137.60', active=pname('ifc_type'),
                active_value=[client.TCP])
-    info.param(pname('ipport'), label='IP Port', default=502, active=pname('ifc_type'), active_value=[client.TCP])
-    info.param(pname('tls'), label='TLS Client', default=False, active=pname('ifc_type'), active_value=[client.TCP],
-               desc='Enable TLS (Modbus/TCP Security).')
-    info.param(pname('cafile'), label='CA Certificate', default=None, active=pname('ifc_type'), active_value=[client.TCP],
+    info.param(pname('ipport'), label='IP Port', default=1502, active=pname('ifc_type'), active_value=[client.TCP])
+    info.param(pname('tls'), label='TLS Client', default="False", values=['True', 'False'], active=pname('ifc_type'),
+               active_value=[client.TCP], desc='Enable TLS (Modbus/TCP Security).')
+    info.param(pname('cafile'), label='CA Certificate', default="False", values=['True', 'False'], active=pname('tls'),
+               active_value=['True'],
                desc='Path to certificate authority (CA) certificate to use for validating server certificates.')
-    info.param(pname('certfile'), label='Client TLS Certificate', default=None, active=pname('ifc_type'), active_value=[client.TCP],
+    info.param(pname('certfile'), label='Client TLS Certificate', default="False", values=['True', 'False'],
+               active=pname('tls'), active_value=['True'],
                desc='Path to client TLS certificate to use for client authentication.')
-    info.param(pname('keyfile'), label='Client TLS Key', default=None, active=pname('ifc_type'), active_value=[client.TCP],
+    info.param(pname('keyfile'), label='Client TLS Key', default="False", values=['True', 'False'],
+               active=pname('tls'), active_value=['True'],
                desc='Path to client TLS key to use for client authentication.')
-    info.param(pname('insecure_skip_tls_verify'), label='Skip TLS Verification', default=False, active=pname('ifc_type'), active_value=[client.TCP],
+    info.param(pname('insecure_skip_tls_verify'), label='Skip TLS Verification', default="False",
+               values=['True', 'False'], active=pname('tls'), active_value=['True'],
                desc='Skip Verification of Server TLS Certificate.')
     # Mapped parameters
-    info.param(pname('map_name'), label='Map File', default='mbmap.xml',active=pname('ifc_type'),
+    info.param(pname('map_name'), label='Map File', default='mbmap.xml', active=pname('ifc_type'),
                active_value=[client.MAPPED], ptype=script.PTYPE_FILE)
     info.param(pname('slave_id'), label='Slave Id', default=1)
 
@@ -145,6 +151,7 @@ VOLTVAR_WMAX = 1
 VOLTVAR_VARMAX = 2
 VOLTVAR_VARAVAL = 3
 
+
 class DER(der.DER):
 
     def __init__(self, ts, group_name):
@@ -179,7 +186,7 @@ class DER(der.DER):
                                                   parity=parity, ipaddr=ipaddr, ipport=ipport,
                                                   tls=tls, cafile=cafile, certfile=certfile, keyfile=keyfile,
                                                   insecure_skip_tls_verify=skip_verify)
-        except Exception as e:  # fallback to old version
+        except Exception as e:  # fallback to unencrypted version
             if self.ts is not None:
                 self.ts.log('Could not create Modbus client with encryption: %s.  Attempted unencrypted option.')
             else:
@@ -621,7 +628,6 @@ class DER(der.DER):
         """
         if self.inv is None:
             raise der.DERError('DER not initialized')
-
         try:
             if 'volt_var' in self.inv.models:
                 self.inv.volt_var.read()
@@ -643,6 +649,7 @@ class DER(der.DER):
                     else:
                         self.inv.volt_var.ActCrv = 1
                     win_tms = params.get('WinTms')
+                    self.ts.log(win_tms)
                     if win_tms is not None:
                         self.inv.volt_var.WinTms = win_tms
                     rmp_tms = params.get('RmpTms')
@@ -700,8 +707,8 @@ class DER(der.DER):
 
         # We validate quadrant of each v/var pair; the origin starts at (100, 0).
         for idx in range(len(v)):
-            v_measure = v[idx]
-            var_measure = var[idx]
+            v_measure = v[idx] #The values are pu, so it is necessary multiplicate per 100 to validate the test
+            var_measure = var[idx] #The values are pu, so it is necessary multiplicate per 100 to validate the test
 
             if (v_measure > 100 and var_measure > 0) or (v_measure < 100 and var_measure < 0):
                 raise der.DERError(
@@ -728,6 +735,7 @@ class DER(der.DER):
             if 'volt_var' in self.inv.models:
                 self.inv.volt_var.read()
                 n_crv = self.inv.volt_var.NCrv
+                self.ts.log(n_crv)
                 if n_crv is not None:
                     if int(id) > int(n_crv):
                         raise der.DERError('Curve id out of range: %s' % (id))
