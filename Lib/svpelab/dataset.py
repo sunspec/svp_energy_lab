@@ -156,7 +156,8 @@ class Dataset(object):
             if len(data) > 0:
                 self.append(data)
         f.close()
-    def remove_none_row(self,filename, index):
+    
+    def remove_none_row(self, filename, index):
         import pandas as pd
         import numpy as np
         df = pd.read_csv(filename)

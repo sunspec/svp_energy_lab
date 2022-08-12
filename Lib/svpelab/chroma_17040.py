@@ -29,13 +29,13 @@ class ChromaBattSim(object):
                 raise ChromaBattSimError('GPIB connection not open')
             return self.conn.query(cmd_str.strip('\n'))
 
-        except Exception, e:
+        except Exception as e:
             raise ChromaBattSimError(str(e))
         
     def query(self, cmd_str):
         try:
             resp = self._query(cmd_str).strip()
-        except Exception, e:
+        except Exception as e:
             raise ChromaBattSimError(str(e))
         return resp
 
@@ -53,7 +53,7 @@ class ChromaBattSim(object):
             if self.conn is None:
                 raise ChromaBattSimError('connection not open')
             return self.conn.write(cmd_str.strip('\n'))
-        except Exception, e:
+        except Exception as e:
             raise ChromaBattSimError(str(e))
 
     def cmd(self, cmd_str):
@@ -66,7 +66,7 @@ class ChromaBattSim(object):
                 if resp[0] != '0':
                     raise ChromaBattSimError(resp + ' ' + cmd_str)
 
-        except Exception, e:
+        except Exception as e:
             raise ChromaBattSimError(str(e))
             
             
@@ -83,7 +83,7 @@ class ChromaBattSim(object):
             self.conn.read_termination = TERMINATOR
             self.conn.timeout=10000
             self.cmd('OUTPut:MODe 1')
-        except Exception, e:
+        except Exception as e:
             raise ChromaGridSimError('Cannot open VISA connection to %s' % (self.visa_device))
 
     def protection_clear(self):
