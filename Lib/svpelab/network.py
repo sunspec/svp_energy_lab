@@ -102,18 +102,39 @@ class NET(object):
             raise NETError('NET device not initialized')
         return self.device.info()
 
-    def net_capture(self, interface=None, timeout=None, bpf_filter=None, filename=None):
+    def get_packets(self, iface=None, timeout=None, bpf_filter=None, filename=None, count=None):
         """
-        Start data capture.
+        Start data capture and collect packets.
 
         :param interface: NIC interface, e.g., 'eth0'
         :param timeout: duration of the capture, e.g., 60 seconds
         :param bpf_filter: Berkeley packet filter, e.g., "tcp and port 80"
         :param filename: name of the file to save to the manifest
+        :param count: number of packets to capture
         """
         pass
     
     def print_capture(self, n_packets=None):
+        pass
+
+    def get_signal_data(self):
+        """
+        Convert packets into dict of information for the given application.
+
+        :return: dict with singal data
+        """
+        return {}
+
+    def save_packets(self):
+        """
+        Save pcap to net_dir directory
+        """
+        pass
+
+    def filter_packets(self):
+        """
+        Apply filter on the captured packets
+        """
         pass
 
 def net_scan():
