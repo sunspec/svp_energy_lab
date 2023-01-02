@@ -49,10 +49,10 @@ class GridSim(gridsim.GridSim):
       ip_port
     """
 
-    def __init__(self, ts, group_name):
+    def __init__(self, ts, group_name, support_interfaces=None):
+        gridsim.GridSim.__init__(self, ts, group_name, support_interfaces=support_interfaces)
         self.buffer_size = 1024
         self.conn = None
-        gridsim.GridSim.__init__(self, ts, group_name)
 
         self.phases_param = ts.param_value('gridsim.sunrex.phases')
         self.auto_config = ts.param_value('gridsim.auto_config')

@@ -93,7 +93,8 @@ class GridSim(gridsim.GridSim):
       visa_path
     """
 
-    def __init__(self, ts, group_name):
+    def __init__(self, ts, group_name, support_interfaces=None):
+        gridsim.GridSim.__init__(self, ts, group_name, support_interfaces=support_interfaces)
         self.rm = None      # Resource Manager for VISA
         self.conn = None    # Connection to instrument for VISA-GPIB
 
@@ -101,8 +102,6 @@ class GridSim(gridsim.GridSim):
         self.ProfileEntry = namedtuple('ProfileEntry', 't v f ph')
         self.execution_time = 0.02
         self.eps = 0.01
-
-        gridsim.GridSim.__init__(self, ts, group_name)
 
         self.v_nom_param = self._param_value('v_nom')
         self.v_max_param = self._param_value('v_max')

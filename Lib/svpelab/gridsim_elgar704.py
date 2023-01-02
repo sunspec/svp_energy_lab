@@ -50,11 +50,11 @@ class GridSim(gridsim.GridSim):
       timeout
       write_timeout
     """
-    def __init__(self, ts, group_name):
+    def __init__(self, ts, group_name, support_interfaces=None):
+        gridsim.GridSim.__init__(self, ts, group_name, support_interfaces=support_interfaces)
         ts.log('Grid sim init')
         self.rm = None
         self.conn = None
-        gridsim.GridSim.__init__(self, ts, group_name)
         self.v_nom_param = self._param_value('v_nom')
         self.v_max_param = self._param_value('v_max')
         self.i_max_param = self._param_value('i_max')

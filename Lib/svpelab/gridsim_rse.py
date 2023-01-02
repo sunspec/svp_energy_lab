@@ -82,11 +82,10 @@ class GridSim(gridsim.GridSim):
       ip_addr
       ip_port
     """
-    def __init__(self, ts, group_name):
+    def __init__(self, ts, group_name, support_interfaces=None):
+        gridsim.GridSim.__init__(self, ts, group_name, support_interfaces=support_interfaces)
         self.buffer_size = 1024
         self.conn = None
-
-        gridsim.GridSim.__init__(self, ts, group_name)
 
         self.v_nom_param = self._param_value('v_nom')
         self.v_max_param = self._param_value('v_max')
@@ -127,7 +126,7 @@ class GridSim(gridsim.GridSim):
                 self.relay(state=gridsim.RELAY_CLOSED)
 
     def _param_value(self, name):
-        return
+        return name
 
     def cmd_serial(self, cmd_str):
         self.cmd_str = cmd_str

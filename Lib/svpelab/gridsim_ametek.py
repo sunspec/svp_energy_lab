@@ -88,11 +88,10 @@ class GridSim(gridsim.GridSim):
       ip_addr
       ip_port
     """
-    def __init__(self, ts, group_name):
+    def __init__(self, ts, group_name, support_interfaces=None):
+        gridsim.GridSim.__init__(self, ts, group_name, support_interfaces=support_interfaces)
         self.buffer_size = 1024
         self.conn = None
-
-        gridsim.GridSim.__init__(self, ts, group_name)
 
         self.phases_param = self._param_value('phases')
         self.v_nom_param = float(self._param_value('v_nom'))

@@ -78,9 +78,8 @@ class GridSim(gridsim.GridSim):
       Visa Path
 
     """
-    def __init__(self, ts, group_name):
-
-        gridsim.GridSim.__init__(self, ts, group_name)
+    def __init__(self, ts, group_name, support_interfaces=None):
+        gridsim.GridSim.__init__(self, ts, group_name, support_interfaces=support_interfaces)
         self.conn = None
         self.phases = ts._param_value('phases')
         self.v_range_param = ts._param_value('v_range')

@@ -84,7 +84,10 @@ def gridsim_init(ts, id=None, group_name=None, support_interfaces=None):
         # ts.log_debug('gridsim_module, %s, gridsim_modules: %s' % (sim_module, gridsim_modules))
         if sim_module is not None:
             # ts.log_debug('support_interfaces: %s' % support_interfaces)
-            sim = sim_module.GridSim(ts, group_name, support_interfaces=support_interfaces)
+            if support_interfaces is None:
+                sim = sim_module.GridSim(ts, group_name)
+            else:
+                sim = sim_module.GridSim(ts, group_name, support_interfaces=support_interfaces)
         else:
             raise GridSimError('Unknown grid simulation mode: %s' % mode)
 
@@ -121,17 +124,18 @@ class GridSim(object):
         self.auto_config = self._group_param_value('auto_config')
 
         # optional interfaces to other SVP abstraction layers/device drivers
-        if support_interfaces.get('pvsim') is not None:
-            self.dc_measurement_device = support_interfaces.get('pvsim')
-        elif support_interfaces.get('dcsim') is not None:
-            self.dc_measurement_device = support_interfaces.get('dcsim')
-        else:
-            self.dc_measurement_device = None
-        if support_interfaces.get('hil') is not None:
-            self.hil = support_interfaces.get('hil')
-            # ts.log_debug('self.hil: %s' % self.hil)
-        else:
-            self.hil = None
+        if support_interfaces is not None:
+            if support_interfaces.get('pvsim') is not None:
+                self.dc_measurement_device = support_interfaces.get('pvsim')
+            elif support_interfaces.get('dcsim') is not None:
+                self.dc_measurement_device = support_interfaces.get('dcsim')
+            else:
+                self.dc_measurement_device = None
+            if support_interfaces.get('hil') is not None:
+                self.hil = support_interfaces.get('hil')
+                # ts.log_debug('self.hil: %s' % self.hil)
+            else:
+                self.hil = None
 
     def _group_param_value(self, name):
         return self.ts.param_value(self.group_name + '.' + name)
