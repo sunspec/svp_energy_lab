@@ -121,7 +121,7 @@ class NET(object):
         """
         Convert packets into dict of information for the given application.
 
-        :return: dict with singal data
+        :return: dict with signal data
         """
         return {}
 
