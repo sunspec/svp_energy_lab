@@ -36,8 +36,8 @@ import socket
 
 import serial
 
-import grid_profiles
-import gridsim
+from . import grid_profiles
+from . import gridsim
 
 rse_info = {
     'name': os.path.splitext(os.path.basename(__file__))[0],
@@ -82,11 +82,10 @@ class GridSim(gridsim.GridSim):
       ip_addr
       ip_port
     """
-    def __init__(self, ts, group_name):
+    def __init__(self, ts, group_name, support_interfaces=None):
+        gridsim.GridSim.__init__(self, ts, group_name, support_interfaces=support_interfaces)
         self.buffer_size = 1024
         self.conn = None
-
-        gridsim.GridSim.__init__(self, ts, group_name)
 
         self.v_nom_param = self._param_value('v_nom')
         self.v_max_param = self._param_value('v_max')
@@ -127,7 +126,7 @@ class GridSim(gridsim.GridSim):
                 self.relay(state=gridsim.RELAY_CLOSED)
 
     def _param_value(self, name):
-        return
+        return name
 
     def cmd_serial(self, cmd_str):
         self.cmd_str = cmd_str
@@ -137,7 +136,7 @@ class GridSim(gridsim.GridSim):
 
             self.conn.flushInput()
             self.conn.write(cmd_str)
-        except Exception, e:
+        except Exception as e:
              raise gridsim.GridSimError(str(e))
 
     def query_serial(self, cmd_str):
@@ -162,7 +161,7 @@ class GridSim(gridsim.GridSim):
                     raise gridsim.GridSimError('Timeout waiting for response')
             except gridsim.GridSimError:
                 raise
-            except Exception, e:
+            except Exception as e:
                 raise gridsim.GridSimError('Timeout waiting for response - More data problem')
 
         return resp
@@ -177,7 +176,7 @@ class GridSim(gridsim.GridSim):
 
             # print 'cmd> %s' % (cmd_str)
             self.conn.send(cmd_str)
-        except Exception, e:
+        except Exception as e:
             raise gridsim.GridSimError(str(e))
 
     def query_tcp(self, cmd_str):
@@ -195,7 +194,7 @@ class GridSim(gridsim.GridSim):
                         if d == '\n': #\r
                             more_data = False
                             break
-            except Exception, e:
+            except Exception as e:
                 raise gridsim.GridSimError('Timeout waiting for response')
 
         return resp
@@ -209,13 +208,13 @@ class GridSim(gridsim.GridSim):
             if len(resp) > 0:
                 if resp[0] != '0':
                     raise gridsim.GridSimError(resp + ' ' + self.cmd_str)
-        except Exception, e:
+        except Exception as e:
             raise gridsim.GridSimError(str(e))
 
     def query(self, cmd_str):
         try:
             resp = self._query(cmd_str).strip()
-        except Exception, e:
+        except Exception as e:
             raise gridsim.GridSimError(str(e))
 
         return resp
@@ -283,7 +282,7 @@ class GridSim(gridsim.GridSim):
             self.conn = serial.Serial(port=self.serial_port, baudrate=self.baudrate, bytesize=8, stopbits=1, xonxoff=0,
                                       timeout=self.timeout, writeTimeout=self.write_timeout)
             time.sleep(2)
-        except Exception, e:
+        except Exception as e:
             raise gridsim.GridSimError(str(e))
 
     def close(self):

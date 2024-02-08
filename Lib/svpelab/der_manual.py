@@ -32,7 +32,7 @@ Questions can be directed to support@sunspec.org
 
 import os
 
-import der
+from . import der
 
 manual_info = {
     'name': os.path.splitext(os.path.basename(__file__))[0],
@@ -47,6 +47,12 @@ def params(info, group_name):
     pname = lambda name: group_name + '.' + GROUP_NAME + '.' + name
     mode = manual_info['mode']
     info.param_add_value(gname('mode'), mode)
+    info.param_group(gname(GROUP_NAME), label='%s Parameters' % mode, active=gname('mode'), active_value=mode,
+                     glob=True)
+    info.param(pname('ipaddr'), label='IP Address', default='1.2.3.4')
+    info.param(pname('ipport'), label='IP Port', default=999)
+    info.param(pname('slave_id'), label='Slave Id', default=1)
+
     '''
     info.param_group(gname(GROUP_NAME), label='%s Parameters' % mode,
                      active=gname('mode'),  active_value=mode, glob=True)
@@ -56,8 +62,11 @@ GROUP_NAME = 'manual'
 
 class DER(der.DER):
 
-    def __init__(self, ts, group_name):
+    def __init__(self, ts, group_name, support_interfaces):
         der.DER.__init__(self, ts, group_name)
+        
+    def param_value(self, name):
+        return self.ts.param_value(self.group_name + '.' + GROUP_NAME + '.' + name)
 
     def info(self):
         """ Get DER device information.
@@ -73,12 +82,12 @@ class DER(der.DER):
         """
         try:
             params = {}
-            params['Manufacturer'] = self.ts.prompt('Enter Manufacturer: ')
-            params['Model'] = self.ts.prompt('Enter Model: ')
-            params['Options'] = self.ts.prompt('Enter Options: ')
-            params['Version'] = self.ts.prompt('Enter Version: ')
-            params['SerialNumber'] = self.ts.prompt('Enter Serial Number: ')
-        except Exception, e:
+            params['Manufacturer'] = 'MANUAL'
+            params['Model'] = 'MANUAL'
+            params['Options'] = 'MANUAL'
+            params['Version'] = 'MANUAL'
+            params['SerialNumber'] = 'MANUAL'
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -117,7 +126,7 @@ class DER(der.DER):
             params['AhrRtg'] = self.ts.prompt('Enter AhrRtg: ')
             params['MaxChaRte'] = self.ts.prompt('Enter MaxChaRte: ')
             params['MaxDisChaRte'] = self.ts.prompt('Enter MaxDisChaRte: ')
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -131,38 +140,42 @@ class DER(der.DER):
         """
 
         try:
-            params['A'] = self.ts.prompt('Enter A: ')
-            params['AphA'] = self.ts.prompt('Enter AphA: ')
-            params['AphB'] = self.ts.prompt('Enter AphB: ')
-            params['AphC'] = self.ts.prompt('Enter AphC: ')
-            params['PPVphAB'] = self.ts.prompt('Enter PPVphAB: ')
-            params['PPVphBC'] = self.ts.prompt('Enter PPVphBC: ')
-            params['PPVphCA'] = self.ts.prompt('Enter PPVphCA: ')
-            params['PhVphA'] = self.ts.prompt('Enter PhVphA: ')
-            params['PhVphB'] = self.ts.prompt('Enter PhVphB: ')
-            params['PhVphC'] = self.ts.prompt('Enter PhVphC: ')
-            params['W'] = self.ts.prompt('Enter W: ')
-            params['Hz'] = self.ts.prompt('Enter Hz: ')
-            params['VA'] = self.ts.prompt('Enter VA: ')
-            params['VAr'] = self.ts.prompt('Enter VAr: ')
-            params['PF'] = self.ts.prompt('Enter PF: ')
-            params['WH'] = self.ts.prompt('Enter WH: ')
-            params['DCA'] = self.ts.prompt('Enter DCA: ')
-            params['DCV'] = self.ts.prompt('Enter DCV: ')
-            params['DCW'] = self.ts.prompt('Enter DCW: ')
-            params['TmpCab'] = self.ts.prompt('Enter TmpCab: ')
-            params['TmpSnk'] = self.ts.prompt('Enter TmpSnk: ')
-            params['TmpTrns'] = self.ts.prompt('Enter TmpTrns: ')
-            params['TmpOt'] = self.ts.prompt('Enter TmpOt: ')
-            params['St'] = self.ts.prompt('Enter St: ')
-            params['StVnd'] = self.ts.prompt('Enter StVnd: ')
-            params['Evt1'] = self.ts.prompt('Enter Evt1: ')
-            params['Evt2'] = self.ts.prompt('Enter Evt2: ')
-            params['EvtVnd1'] = self.ts.prompt('Enter EvtVnd1: ')
-            params['EvtVnd2'] = self.ts.prompt('Enter EvtVnd2: ')
-            params['EvtVnd3'] = self.ts.prompt('Enter EvtVnd3: ')
-            params['EvtVnd4'] = self.ts.prompt('Enter EvtVnd4: ')
-        except Exception, e:
+            a = 123
+            params = {}
+
+            params['A'] = a
+            params['AphA'] = a
+            params['AphB'] = a
+            params['AphC'] = a
+            params['PPVphAB'] = a
+            params['PPVphBC'] = a
+            params['PPVphCA'] = a
+            params['PhVphA'] = a
+            params['PhVphB'] = a
+            params['PhVphC'] = a
+            params['W'] = a
+            params['Hz'] = a
+            params['VA'] = a
+            params['VAr'] = a
+            params['PF'] = a
+            params['WH'] = a
+            params['DCA'] = a
+            params['DCV'] = a
+            params['DCW'] = a
+            params['TmpCab'] = a
+            params['TmpSnk'] = a
+            params['TmpTrns'] = a
+            params['TmpOt'] = a
+            params['St'] = a
+            params['StVnd'] = a
+            params['Evt1'] = a
+            params['Evt2'] = a
+            params['EvtVnd1'] = a
+            params['EvtVnd2'] = a
+            params['EvtVnd3'] = a
+            params['EvtVnd4'] = a
+
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -204,7 +217,7 @@ class DER(der.DER):
             params['PFMinQ3'] = self.inv.settings.PFMinQ3
             params['PFMinQ4'] = self.inv.settings.PFMinQ4
             params['VArAct'] = self.inv.settings.VArAct
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -238,7 +251,7 @@ class DER(der.DER):
                 params['EPC_Connected'] = (ecp_conn_bitfield & ECPCONN_CONNECTED) == ECPCONN_CONNECTED
             else:
                 params = {}
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -272,7 +285,7 @@ class DER(der.DER):
                 params['HFRT'] = (status_bitfield & STACTCTL_HFRT) == STACTCTL_HFRT
             else:
                 params = {}
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -296,7 +309,7 @@ class DER(der.DER):
                 params['Conn'] = self.ts.prompt('What is the connect status: True/False')
                 params['WinTms'] = self.ts.prompt('What is the Time Window?')
                 params['RvrtTms'] = self.ts.prompt('What is the Revert Time?')
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -331,7 +344,7 @@ class DER(der.DER):
             else:
                 params = {}
 
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -363,7 +376,7 @@ class DER(der.DER):
                 params['WinTms'] = self.inv.controls.WMaxLimPct_WinTms
                 params['RmpTms'] = self.inv.controls.WMaxLimPct_RmpTms
                 params['RvrtTms'] = self.inv.controls.WMaxLimPct_RvrtTms
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -390,7 +403,7 @@ class DER(der.DER):
             else:
                 params = None
 
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -413,7 +426,7 @@ class DER(der.DER):
             else:
                 params = None
 
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -453,7 +466,7 @@ class DER(der.DER):
                 params['RvrtTms'] = self.inv.freq_watt.RvrtTms
                 if self.inv.freq_watt.ActCrv != 0:
                     params['curve'] = self.freq_watt_curve(id=self.inv.freq_watt.ActCrv)
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -498,7 +511,7 @@ class DER(der.DER):
                 params['id'] = id  #also store the curve number
                 hz = []
                 w = []
-                for i in xrange(1, act_pt + 1):  # SunSpec point index starts at 1
+                for i in range(1, act_pt + 1):  # SunSpec point index starts at 1
                     hz_point = 'Hz%d' % i
                     w_point = 'VAr%d' % i
                     hz.append(getattr(curve, hz_point))
@@ -506,7 +519,7 @@ class DER(der.DER):
                 params['hz'] = hz
                 params['w'] = w
 
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -533,23 +546,7 @@ class DER(der.DER):
         try:
             if params is not None:
                 self.ts.confirm('Set the following parameters %s' % params)
-            else:
-                params = {}
-                self.inv.hfrtc.read()
-                if self.inv.freq_watt_param.ModEna == 0:
-                    params['Ena'] = False
-                else:
-                    params['Ena'] = True
-                if self.inv.freq_watt_param.HysEna == 0:
-                    params['HysEna'] = False
-                else:
-                    params['HysEna'] = True
-                params['WGra'] = self.inv.freq_watt_param.WGra
-                params['HzStr'] = self.inv.freq_watt_param.HzStr
-                params['HzStop'] = self.inv.freq_watt_param.HzStop
-                params['HzStopWGra'] = self.inv.freq_watt_param.HzStopWGra
-
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -589,7 +586,7 @@ class DER(der.DER):
                 params['RmpTms'] = self.inv.hfrtc.RmpTms
                 params['RvrtTms'] = self.inv.hfrtc.RvrtTms
 
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -629,7 +626,7 @@ class DER(der.DER):
                 params['RmpTms'] = self.inv.lfrtc.RmpTms
                 params['RvrtTms'] = self.inv.lfrtc.RvrtTms
 
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -662,7 +659,7 @@ class DER(der.DER):
                 params['curve'] = self.ts.prompt('Curve parameters are: ')
                 '''
 
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -695,7 +692,7 @@ class DER(der.DER):
                 params['curve'] = self.ts.prompt('Curve parameters are: ')
                 '''
 
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -748,7 +745,7 @@ class DER(der.DER):
                 params['InOutWRte_RvrtTms'] = self.ts.prompt('InOutWRte_RvrtTms? ')
                 params['InOutWRte_RmpTms'] = self.ts.prompt('InOutWRte_RmpTms? ')
                 '''
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params

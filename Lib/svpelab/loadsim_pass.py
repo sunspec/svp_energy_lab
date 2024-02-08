@@ -31,14 +31,14 @@ Questions can be directed to support@sunspec.org
 """
 
 import os
-import loadsim
+from . import loadsim
 
 pass_info = {
     'name': os.path.splitext(os.path.basename(__file__))[0],
     'mode': 'Pass'
 }
 
-def load_info():
+def loadsim_info():
     return pass_info
 
 def params(info, group_name=None):
@@ -61,43 +61,43 @@ class LoadSim(loadsim.LoadSim):
     def __init__(self, ts, group_name):
         loadsim.LoadSim.__init__(self, ts, group_name)
 
-    def resistance(self, r=None):
+    def resistance(self, r=None, ph=None):
         if r is not None:
             self.ts.log('Adjust the resistive load to R = %0.3f Ohms.' % r)
         else:
             self.ts.log('Enter the resistive load in Ohms.')
 
-    def inductance(self, i=None):
+    def inductance(self, l=None, ph=None):
         if i is not None:
-            self.ts.log('Adjust the inductive load to L = %0.6f H.' % i)
+            self.ts.log('Adjust the inductive load to L = %0.6f H.' % l)
         else:
             self.ts.log('Enter the inductive load in H.')
 
-    def capacitance(self, c=None):
+    def capacitance(self, c=None, ph=None):
         if c is not None:
             self.ts.log('Adjust the capacitive load to C = %0.6f F.' % c)
         else:
             self.ts.log('Enter the capacitive load in F.')
 
-    def capacitor_q(self, q=None):
+    def capacitor_q(self, q=None, ph=None):
         if q is not None:
             self.ts.log('Adjust the capacitive load of the fundamental freq to %0.3f VAr.' % q)
         else:
             self.ts.log('Enter the capacitor reactive power in VAr.')
 
-    def inductor_q(self, q=None):
+    def inductor_q(self, q=None, ph=None):
         if q is not None:
             self.ts.log('Adjust the inductive load of the fundamental freq to %0.3f VAr.' % q)
         else:
             self.ts.log('Enter the inductor reactive power in VAr.')
 
-    def resistance_p(self, p=None):
+    def resistance_p(self, p=None, ph=None):
         if p is not None:
             self.ts.log('Adjust the resistive load of the fundamental freq to  %0.3f W.' % p)
         else:
             self.ts.log('Enter the resistor power in W.')
 
-    def tune_current(self, i=None):
+    def tune_current(self, i=None, ph=None):
         if c is not None:
             self.ts.log('Adjust R, L, and C until the fundamental frequency current through switch S3 is '
                         'less than %0.2f' % i)

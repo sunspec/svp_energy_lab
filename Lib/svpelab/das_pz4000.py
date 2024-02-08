@@ -1,7 +1,7 @@
 
 import os
-import das
-import device_pz4000
+from . import das
+from . import device_pz4000
 
 
 

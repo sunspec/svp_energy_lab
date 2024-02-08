@@ -31,8 +31,8 @@ Questions can be directed to support@sunspec.org
 """
 
 import os
-import loadsim
-import chroma_A800067 as chroma
+from . import loadsim
+from . import chroma_A800067 as chroma
 
 chroma_info = {
     'name': os.path.splitext(os.path.basename(__file__))[0],
@@ -88,13 +88,13 @@ class LoadSim(loadsim.LoadSim):
     def freqset(self, f):
         return self.rlc.freqset(f)
 
-    def inductance(self, ph, i=None):
-        if i is not None:
-            return self.rlc.inductance(ph, i)
+    def inductance(self, ph=None, l=None):
+        if l is not None:
+            return self.rlc.inductance(ph, l)
 
-    def capacitance(self, ph, i=None):
-        if i is not None:
-            return self.rlc.capacitance(ph, i)
+    def capacitance(self, ph=None, c=None):
+        if c is not None:
+            return self.rlc.capacitance(ph, c)
         else:
             self.ts.log('Enter the capacitive load in F.')
 

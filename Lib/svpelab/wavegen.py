@@ -44,12 +44,12 @@ def params(info, id=None, label='Waveform Generator', group_name=None, active=No
         group_name += '.' + WAVEGEN_DEFAULT_ID
     if id is not None:
         group_name += '_' + str(id)
-    print 'group_name = %s' % group_name
+    print('group_name = %s' % group_name)
     name = lambda name: group_name + '.' + name
     info.param_group(group_name, label='%s Parameters' % label, active=active, active_value=active_value, glob=True)
-    print 'name = %s' % name('mode')
+    print('name = %s' % name('mode'))
     info.param(name('mode'), label='Mode', default='Disabled', values=['Disabled'])
-    for mode, m in wavegen_modules.iteritems():
+    for mode, m in wavegen_modules.items():
         m.params(info, group_name=group_name)
 
 WAVEGEN_DEFAULT_ID = 'wavegen'
@@ -120,14 +120,11 @@ class Wavegen(object):
             raise WavegenError('Wavegen device not initialized')
         self.device.close()
 
-    def load_config(self, params):
+    def load_config(self,sequence):
         """
-        Enable channels
-        :param params: dict containing following possible elements:
-          'sequence_filename': <sequence file name>
-        :return:
+        Load configuration
         """
-        self.device.load_config(params=params)
+        self.device.load_config(sequence=sequence)
 
     def start(self):
         """
@@ -143,21 +140,46 @@ class Wavegen(object):
         """
         self.device.stop()
 
-    def chan_enable(self, chans):
+    def chan_state(self, chans):
         """
         Enable channels
         :param chans: list of channels to enable
         :return:
         """
-        self.device.chan_enable(chans=chans)
+        self.device.chan_state(chans=chans)
 
-    def chan_disable(self, chans):
+
+
+    def voltage(self, voltage, channel):
         """
-        Disable channels
-        :param chans: list of channels to disable
-        :return:
+        Change the voltage value of individual channel
+        :param voltage: The amplitude of the waveform
+        :param channel: Channel to configure
         """
-        self.device.chan_enable(chans=chans)
+        self.device.voltage(voltage=voltage, channel=channel)
+
+    def frequency(self, frequency):
+        """
+        Change the voltage value of individual channel
+        :param frequency: The frequency of the waveform on all channels
+        """
+        self.device.frequency(frequency=frequency)
+
+    def phase(self, phase, channel):
+        """
+        Change the voltage value of individual channel
+        :param phase: This command sets the phase on selected channel
+        :param channel: Channel(s) to configure
+        """
+        self.device.phase(phase=phase, channel=channel)
+
+    def config_asymmetric_phase_angles(self, mag=None, angle=None):
+        """
+        :param mag: list of voltages for the imbalanced test, e.g., [277.2, 277.2, 277.2]
+        :param angle: list of phase angles for the imbalanced test, e.g., [0, 120, -120]
+        :returns: voltage list and phase list
+        """
+        return None, None
 
 def wavegen_scan():
     global wavegen_modules
@@ -180,7 +202,7 @@ def wavegen_scan():
             else:
                 if module_name is not None and module_name in sys.modules:
                     del sys.modules[module_name]
-        except Exception, e:
+        except Exception as e:
             if module_name is not None and module_name in sys.modules:
                 del sys.modules[module_name]
             raise WavegenError('Error scanning module %s: %s' % (module_name, str(e)))

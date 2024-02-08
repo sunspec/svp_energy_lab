@@ -31,12 +31,12 @@ Questions can be directed to support@sunspec.org
 """
 import os
 
-import gridsim
+from . import gridsim
 
 try:
-    import typhoon.api.hil_control_panel as cp
-except Exception, e:
-    print('Typhoon HIL API not installed. %s' % e)
+    import typhoon.api.hil as cp  # control panel
+except Exception as e:
+    print(('Typhoon HIL API not installed. %s' % e))
 
 typhoon_info = {
     'name': os.path.splitext(os.path.basename(__file__))[0],
@@ -56,6 +56,9 @@ def params(info, group_name):
     info.param(pname('v_nom'), label='EUT nominal voltage for all 3 phases (V)', default=230.)
     info.param(pname('f_nom'), label='EUT nominal frequency', default=50.)
     info.param(pname('p_nom'), label='EUT nominal power (W)', default=34500.)
+
+    info.param(pname('waveform_names'), label='Waveform Names',
+               default="V_source_phase_A, V_source_phase_B, V_source_phase_C")
 
 GROUP_NAME = 'typhoon'
 
@@ -80,8 +83,23 @@ class GridSim(gridsim.GridSim):
         self.p_nom = self._param_value('p_nom')
         self.v_nom = self._param_value('v_nom')
         self.v = self.v_nom
+
+        # for asymettric voltage tests
+        self.v1 = self.v_nom
+        self.v2 = self.v_nom
+        self.v3 = self.v_nom
+
         self.f_nom = self._param_value('f_nom')
         self.f = self.f_nom
+
+        try:
+            tempstring = self._param_value('waveform_names').strip().split(',')
+            self.waveform_source_list = [i .rstrip(' ').lstrip(' ')for i in tempstring]
+        except Exception as e:
+            ts.log("Failed waveform_names: %s" % e)
+            raise e
+
+        self.ts.log_debug('Grid Sources: %s.' % self.waveform_source_list)
 
         if self.auto_config == 'Enabled':
             ts.log('Configuring the Typhoon HIL Emulated Grid Simulator.')
@@ -101,9 +119,18 @@ class GridSim(gridsim.GridSim):
 
     def config_phase_angles(self):
         # set the phase angles for the 3 phases
-        cp.set_source_sine_waveform('V_source_phase_A', phase=0.0)
-        cp.set_source_sine_waveform('V_source_phase_B', phase=-120.0)
-        cp.set_source_sine_waveform('V_source_phase_C', phase=120.0)
+        if len(self.waveform_source_list) == 1:  # single phase
+            cp.set_source_sine_waveform(self.waveform_source_list[0], phase=0.0)
+        elif len(self.waveform_source_list) == 2:  # split phase
+            cp.set_source_sine_waveform(self.waveform_source_list[0], phase=0.0)
+            cp.set_source_sine_waveform(self.waveform_source_list[1], phase=180.0)
+        elif len(self.waveform_source_list) == 3:  # three phase
+            cp.set_source_sine_waveform(self.waveform_source_list[0], phase=0.0)
+            cp.set_source_sine_waveform(self.waveform_source_list[1], phase=-120.0)
+            cp.set_source_sine_waveform(self.waveform_source_list[2], phase=120.0)
+        else:
+            self.ts.log_warning('Phase angles not set for simulation because the number of grid simulation '
+                                'waveforms is not 1, 2, or 3.')
 
     def current(self, current=None):
         """
@@ -126,14 +153,17 @@ class GridSim(gridsim.GridSim):
         """
         if freq is not None:
             self.f = freq
-            cp.prepare_source_sine_waveform('V_source_phase_A', frequency=self.f)
-            cp.prepare_source_sine_waveform('V_source_phase_B', frequency=self.f)
-            cp.prepare_source_sine_waveform('V_source_phase_C', frequency=self.f)
-            cp.update_sources(["V_source_phase_A", "V_source_phase_B", "V_source_phase_C"], executeAt=None)
+            for wave in self.waveform_source_list:
+                cp.prepare_source_sine_waveform(wave, frequency=self.f)
+            cp.update_sources(self.waveform_source_list, executeAt=None)
+
+            # For setting sine source in Anti-islanding component you can use:
+            # cp.set_source_sine_waveform('Anti-islanding1.Vgrid', rms=50.0, frequency=50.0)
+
         freq = self.f
         return freq
 
-    def profile_load(self, profile_name, v_step=100, f_step=100, t_step=None):
+    def profile_load(self, profile_name=None, v_step=100, f_step=100, t_step=None, profile=None):
         pass
         # if profile_name is None:
         #     raise gridsim.GridSimError('Profile not specified.')
@@ -187,27 +217,43 @@ class GridSim(gridsim.GridSim):
         """
         if voltage is not None:
             # set output voltage on all phases
+            # self.ts.log_debug('waveforms: %s' % self.waveform_source_list)
             if type(voltage) is not list and type(voltage) is not tuple:
                 self.v = voltage
-                self.ts.log_debug('        Setting Typhoon AC voltage to %s' % self.v)
-                cp.prepare_source_sine_waveform('V_source_phase_A', rms=self.v)
-                cp.prepare_source_sine_waveform('V_source_phase_B', rms=self.v)
-                cp.prepare_source_sine_waveform('V_source_phase_C', rms=self.v)
-                cp.update_sources(["V_source_phase_A", "V_source_phase_B", "V_source_phase_C"], executeAt=None)
+                # self.ts.log_debug('        Setting Typhoon AC voltage to %s' % self.v)
+                for wave in self.waveform_source_list:
+                    # self.ts.log_debug('Source: %s set to %s V.' % (wave, self.v))
+                    cp.prepare_source_sine_waveform(name=wave, rms=self.v)
+                # cp.update_sources(self.waveform_source_list, executeAt=None)
+                cp.update_sources(self.waveform_source_list, executeAt=None)
                 # cp.wait_msec(100.0)
+                self.v1 = self.v
+                self.v2 = self.v
+                self.v3 = self.v
 
             else:
-                self.v = voltage[0]  # currently don't support asymmetric voltages.
-                cp.prepare_source_sine_waveform('V_source_phase_A', rms=self.v)
-                cp.prepare_source_sine_waveform('V_source_phase_B', rms=self.v)
-                cp.prepare_source_sine_waveform('V_source_phase_C', rms=self.v)
-                cp.update_sources(["V_source_phase_A", "V_source_phase_B", "V_source_phase_C"], executeAt=None)
-                # cp.wait_msec(100.0)
+                # self.ts.log('Creating asymmetric voltage condition with voltages: %s, %s, %s' %
+                #             (voltage[0], voltage[1], voltage[2]))
+                phase = 0
+                for wave in self.waveform_source_list:
+                    phase += 1
+                    self.v = voltage[phase-1]
+                    cp.prepare_source_sine_waveform(name=wave, rms=voltage[phase-1])
+                    if phase == 1:
+                        v1 = voltage[phase-1]
+                    if phase == 2:
+                        v2 = voltage[phase-1]
+                    if phase == 3:
+                        v3 = voltage[phase-1]
 
-        v1 = self.v
-        v2 = self.v
-        v3 = self.v
-        return v1, v2, v3
+                cp.update_sources(self.waveform_source_list, executeAt=None)
+                # cp.wait_msec(100.0)
+                self.v = (v1 + v2 + v3)/3
+                self.v1 = v1
+                self.v2 = v2
+                self.v3 = v3
+
+        return self.v1, self.v2, self.v3
 
     def voltage_max(self, voltage=None):
         """
@@ -219,6 +265,36 @@ class GridSim(gridsim.GridSim):
             pass
         return self.v, self.v, self.v
 
+    def config_asymmetric_phase_angles(self, mag=None, angle=None):
+        """
+        :param mag: list of voltages for the imbalanced test, e.g., [277.2, 277.2, 277.2]
+        :param angle: list of phase angles for the imbalanced test, e.g., [0, 120, -120]
+
+        :returns: voltage list and phase list
+        """
+        if mag is not None:
+            if type(mag) is not list:
+                raise gridsim.GridSimError('Waveform magnitudes were not provided as list. "mag" type: %s' % type(mag))
+
+        if angle is not None:
+            if type(angle) is list:
+                cp.set_source_sine_waveform(self.waveform_source_list[0], rms=mag[0], phase=angle[0])
+                cp.set_source_sine_waveform(self.waveform_source_list[1], rms=mag[1], phase=angle[1])
+                cp.set_source_sine_waveform(self.waveform_source_list[2], rms=mag[2], phase=angle[2])
+                cp.update_sources(self.waveform_source_list, executeAt=None)
+                # cp.wait_msec(100.0)
+                self.v = (v1 + v2 + v3)/3
+                self.v1 = v1
+                self.v2 = v2
+                self.v3 = v3
+
+            else:
+                raise gridsim.GridSimError('Waveform angles were not provided as list.')
+
+        voltages = [self.v1, self.v2, self.v3]
+        phases = angle
+        return voltages, phases
+
     def i_max(self):
         return self.v/self.p_nom
 
@@ -228,5 +304,77 @@ class GridSim(gridsim.GridSim):
     def v_nom(self):
         return self.v_nom
 
+    def meas_voltage(self, ph_list=(1, 2, 3)):
+        v1 = float(cp.read_analog_signal(name='V( Vrms1 )'))
+        v2 = float(cp.read_analog_signal(name='V( Vrms2 )'))
+        v3 = float(cp.read_analog_signal(name='V( Vrms3 )'))
+        return v1, v2, v3
+
+    def meas_current(self, ph_list=(1, 2, 3)):
+        # for use during anti-islanding testing to determine the current to the utility
+        try:
+            i1 = float(cp.read_analog_signal(name='I( Anti-islanding1.Irms1_utility )'))
+            i2 = float(cp.read_analog_signal(name='I( Anti-islanding1.Irms2_utility )'))
+            i3 = float(cp.read_analog_signal(name='I( Anti-islanding1.Irms3_utility )'))
+            print(('Utility currents are %s, %s, %s' % (i1, i2, i3)))
+        except Exception as e:
+            i1 = i2 = i3 = None
+        return i1, i2, i3
+
 if __name__ == "__main__":
-    pass
+    import sys
+    import time
+    import numpy as np
+    import math
+    sys.path.insert(0, r'C:/Typhoon HIL Control Center/python_portable/Lib/site-packages')
+    sys.path.insert(0, r'C:/Typhoon HIL Control Center/python_portable')
+    sys.path.insert(0, r'C:/Typhoon HIL Control Center')
+    import typhoon.api.hil_control_panel as cp
+    from typhoon.api.schematic_editor import model
+    import os
+
+    cp.set_debug_level(level=1)
+    cp.stop_simulation()
+
+    model.get_hw_settings()
+    if not model.load(r'D:/SVP/SVP 1.4.3 Directories 5-2-17/svp_energy_lab-loadsim/Lib/svpelab/Typhoon/ASGC.tse'):
+        print("Model did not load!")
+
+    if not model.compile():
+        print("Model did not compile!")
+
+    # first we need to load model
+    cp.load_model(file=r'D:/SVP/SVP 1.4.3 Directories 5-2-17/svp_energy_lab-loadsim/Lib'
+                        r'/svpelab/Typhoon/ASGC Target files/ASGC.cpd')
+
+    # we could also open existing settings file...
+    cp.load_settings_file(file=r'D:/SVP/SVP 1.4.3 Directories 5-2-17/svp_energy_lab-loadsim/Lib/'
+                                r'svpelab/Typhoon/settings2.runx')
+
+    # after setting parameter we could start simulation
+    cp.start_simulation()
+
+    # let the inverter startup
+    sleeptime = 15
+    for i in range(1, sleeptime):
+        print(("Waiting another %d seconds until the inverter starts. Power = %f." %
+               ((sleeptime-i), cp.read_analog_signal(name='Pdc'))))
+        time.sleep(1)
+
+    print(('Sources: %s' % cp.available_sources()))
+
+    waveform_source_list = ['V_source_phase_A', 'V_source_phase_B', 'V_source_phase_C']
+
+    for voltage in range(210, 250, 1):
+        for wave in waveform_source_list:
+            cp.prepare_source_sine_waveform(name=wave, rms=voltage)
+        cp.update_sources(waveform_source_list, executeAt=None)
+
+        time.sleep(2)
+
+        v1 = float(cp.read_analog_signal(name='V( Vrms1 )'))
+        v2 = float(cp.read_analog_signal(name='V( Vrms2 )'))
+        v3 = float(cp.read_analog_signal(name='V( Vrms3 )'))
+
+        # print('Voltage Target: %s, Voltages: %s' % (voltage, [v1, v2, v3]))
+        print(('%s, %s, %s, %s, %s' % (voltage, voltage, v1, v2, v3)))

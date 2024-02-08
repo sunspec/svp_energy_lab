@@ -143,13 +143,13 @@ class Device(object):
         """
         try:
             # sys.path.append(os.path.normpath(self.visa_path))
-            import visa
+            import pyvisa as visa
             self.rm = visa.ResourceManager(self.visa_path)
             self.conn = self.rm.open_resource(self.visa_device)
             # set terminator in pyvisa
             self.conn.write_termination = TERMINATOR
 
-        except Exception, e:
+        except Exception as e:
             raise DeviceError('Cannot open VISA connection to %s' % (self.visa_device))
 
     def close(self):
@@ -163,7 +163,7 @@ class Device(object):
                     self.conn.close()
                 self.rm.close()
 
-        except Exception, e:
+        except Exception as e:
             raise DeviceError(str(e))
 
     def _query(self, cmd_str):
@@ -178,7 +178,7 @@ class Device(object):
                 raise DeviceError('Device connection not open')
 
             return self.conn.query(cmd_str).strip()
-        except Exception, e:
+        except Exception as e:
             raise DeviceError(str(e))
 
     def _write(self, cmd_str):
@@ -191,7 +191,7 @@ class Device(object):
                 raise DeviceError('Device connection not open')
 
             return self.conn.write(cmd_str)
-        except Exception, e:
+        except Exception as e:
             raise DeviceError(str(e))
 
 
@@ -213,5 +213,5 @@ if __name__ == "__main__":
                                        'points': ('V', 'I', 'P'),
                                        'label': ''}]
     })
-    print dpm.data_points
+    print(dpm.data_points)
 

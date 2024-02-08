@@ -31,9 +31,9 @@ Questions can be directed to support@sunspec.org
 """
 
 import os
-import gridsim
-import grid_profiles
-import chroma_61845
+from . import gridsim
+from . import grid_profiles
+from . import chroma_61845
 
 chroma_info = {
     'name': os.path.splitext(os.path.basename(__file__))[0],
@@ -78,9 +78,8 @@ class GridSim(gridsim.GridSim):
       Visa Path
 
     """
-    def __init__(self, ts, group_name):
-
-        gridsim.GridSim.__init__(self, ts, group_name)
+    def __init__(self, ts, group_name, support_interfaces=None):
+        gridsim.GridSim.__init__(self, ts, group_name, support_interfaces=support_interfaces)
         self.conn = None
         self.phases = ts._param_value('phases')
         self.v_range_param = ts._param_value('v_range')
@@ -118,13 +117,13 @@ class GridSim(gridsim.GridSim):
             if len(resp) > 0:
                 if resp[0] != '0':
                     raise gridsim.GridSimError(resp + ' ' + self.cmd_str)
-        except Exception, e:
+        except Exception as e:
             raise gridsim.GridSimError(str(e))
 
     def query(self, cmd_str):
         try:
             resp = self.dev.query(cmd_str).strip()
-        except Exception, e:
+        except Exception as e:
             raise gridsim.GridSimError(str(e))
         return resp
 
@@ -178,7 +177,7 @@ class GridSim(gridsim.GridSim):
         try:
            self.dev.open()
 
-        except Exception, e:
+        except Exception as e:
             raise gridsim.GridSimError('Cannot open VISA connection to %s' % (self.visa_device))
 
     def close(self):

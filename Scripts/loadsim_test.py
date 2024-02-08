@@ -38,7 +38,7 @@ import traceback
 lib_path = os.path.join(os.path.dirname(__file__), '..', 'Lib')
 if lib_path not in sys.path:
     sys.path.append(lib_path)
-print sys.path
+print(sys.path)
 
 # place script library imports here
 from svpelab import loadsim
@@ -55,7 +55,7 @@ def test_run():
 
         result = script.RESULT_COMPLETE
 
-    except script.ScriptFail, e:
+    except script.ScriptFail as e:
         reason = str(e)
         if reason:
             ts.log_error(reason)
@@ -84,7 +84,7 @@ def run(test_script):
         if result == script.RESULT_FAIL:
             rc = 1
 
-    except Exception, e:
+    except Exception as e:
         ts.log_error('Test script exception: %s' % traceback.format_exc())
         rc = 1
 

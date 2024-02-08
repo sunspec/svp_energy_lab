@@ -32,9 +32,8 @@ Questions can be directed to support@sunspec.org
 
 import os
 from collections import namedtuple
-
-import grid_profiles
-import gridsim
+from . import grid_profiles
+from . import gridsim
 
 sps_info = {
     'name': os.path.splitext(os.path.basename(__file__))[0],
@@ -94,7 +93,8 @@ class GridSim(gridsim.GridSim):
       visa_path
     """
 
-    def __init__(self, ts, group_name):
+    def __init__(self, ts, group_name, support_interfaces=None):
+        gridsim.GridSim.__init__(self, ts, group_name, support_interfaces=support_interfaces)
         self.rm = None      # Resource Manager for VISA
         self.conn = None    # Connection to instrument for VISA-GPIB
 
@@ -102,8 +102,6 @@ class GridSim(gridsim.GridSim):
         self.ProfileEntry = namedtuple('ProfileEntry', 't v f ph')
         self.execution_time = 0.02
         self.eps = 0.01
-
-        gridsim.GridSim.__init__(self, ts, group_name)
 
         self.v_nom_param = self._param_value('v_nom')
         self.v_max_param = self._param_value('v_max')
@@ -224,7 +222,7 @@ class GridSim(gridsim.GridSim):
         elif self.comm == 'VISA':
             try:
                 # sys.path.append(os.path.normpath(self.visa_path))
-                import visa
+                import pyvisa as visa
                 self.rm = visa.ResourceManager()
                 self.conn = self.rm.open_resource(self.visa_device)
 
@@ -233,7 +231,7 @@ class GridSim(gridsim.GridSim):
 
                 self.ts.sleep(1)
 
-            except Exception, e:
+            except Exception as e:
                 raise gridsim.GridSimError('Cannot open VISA connection to %s\n\t%s' % (self.visa_device,str(e)))
         else:
             raise ValueError('Unknown communication type %s. Use Serial, GPIB or VISA' % self.comm)
@@ -256,7 +254,7 @@ class GridSim(gridsim.GridSim):
                     self.rm.close()
 
                 self.ts.sleep(1)
-            except Exception, e:
+            except Exception as e:
                 raise gridsim.GridSimError(str(e))
         else:
             raise ValueError('Unknown communication type %s. Use Serial, GPIB or VISA' % self.comm)
@@ -534,7 +532,9 @@ class GridSim(gridsim.GridSim):
         """
 
         if voltage is not None:
-            voltage = float(max(voltage))  # voltage is a triplet but SPS only takes one value
+            # if voltage is a list or tuple, only take one value
+            if type(voltage) is list or type(voltage) is tuple:
+                voltage = float(max(voltage))
 
             if voltage <= 0:
                 raise gridsim.GridSimError('Maximum Voltage must be greater than 0V')
@@ -543,6 +543,9 @@ class GridSim(gridsim.GridSim):
             range_values = str(self._query('conf:amp:range?')).split(',')
 
             for i, rg in enumerate(range_values):
+                self.ts.log_debug('Range is "%s"' % rg)
+                self.ts.log_debug('rg[:-1] produces "%s"' % rg[:-1])
+                self.ts.log_debug('rg[:-2] produces "%s"' % rg[:-2])
                 value = float(rg[:-1])
                 if voltage == value:
                     self._write('amp:range %i' % i)
@@ -724,8 +727,8 @@ class GridSim(gridsim.GridSim):
             if self.conn is None:
                 raise gridsim.GridSimError('GPIB connection not open')
 
-            return self.conn.query(cmd_str)
-        except Exception, e:
+            return self.conn.query(cmd_str).rstrip("\n\r")
+        except Exception as e:
             raise gridsim.GridSimError(str(e))
 
     def _write(self, cmd_str):
@@ -741,7 +744,7 @@ class GridSim(gridsim.GridSim):
             # TODO: check num_written_bytes to see if writing succeeded
 
             return num_written_bytes
-        except Exception, e:
+        except Exception as e:
             raise gridsim.GridSimError(str(e))
 
     @staticmethod
@@ -785,7 +788,7 @@ class GridSim(gridsim.GridSim):
             raise ValueError('Phase must be between 1 and 3')
         else:
             suffix = {'VOLT': -2, 'CURR': -2, 'S': -3}
-            if what in suffix.keys():
+            if what in list(suffix.keys()):
                 self._write('CONF:MEAS:PH %i' % phase)
                 value = self._query('MEAS:' + what + '?')
                 # query returns the unit + '\n' which has to be removed before converting to float

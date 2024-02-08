@@ -31,8 +31,8 @@ Questions can be directed to support@sunspec.org
 """
 
 import os
-import loadsim
-import chroma_A800067 as chroma
+from . import loadsim
+from . import chroma_A800067 as chroma
 
 chroma_info = {
     'name': os.path.splitext(os.path.basename(__file__))[0],

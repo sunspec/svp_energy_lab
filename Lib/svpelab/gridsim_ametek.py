@@ -33,11 +33,9 @@ Questions can be directed to support@sunspec.org
 import os
 import time
 import socket
-
 import serial
-
-import grid_profiles
-import gridsim
+from . import grid_profiles
+from . import gridsim
 
 ametek_info = {
     'name': os.path.splitext(os.path.basename(__file__))[0],
@@ -54,7 +52,7 @@ def params(info, group_name):
     info.param_add_value(gname('mode'), mode)
     info.param_group(gname(GROUP_NAME), label='%s Parameters' % mode,
                      active=gname('mode'),  active_value=mode, glob=True)
-    info.param(pname('phases'), label='Phases', default=1, values=[1, 3])
+    info.param(pname('phases'), label='Phases', default=1, values=[1, 2, 3])
     info.param(pname('v_nom'), label='Nominal voltage for all phases', default=277.2)
     info.param(pname('v_max'), label='Max Voltage', default=300.0)
     info.param(pname('i_max'), label='Max Current', default=100.0)
@@ -66,6 +64,7 @@ def params(info, group_name):
                active=pname('comm'),  active_value=['TCP/IP'], default='192.168.1.10')
     info.param(pname('ip_port'), label='IP Port',
                active=pname('comm'),  active_value=['TCP/IP'], default=5025)
+
 
 GROUP_NAME = 'ametek'
 
@@ -89,11 +88,10 @@ class GridSim(gridsim.GridSim):
       ip_addr
       ip_port
     """
-    def __init__(self, ts, group_name):
+    def __init__(self, ts, group_name, support_interfaces=None):
+        gridsim.GridSim.__init__(self, ts, group_name, support_interfaces=support_interfaces)
         self.buffer_size = 1024
         self.conn = None
-
-        gridsim.GridSim.__init__(self, ts, group_name)
 
         self.phases_param = self._param_value('phases')
         self.v_nom_param = float(self._param_value('v_nom'))
@@ -147,7 +145,7 @@ class GridSim(gridsim.GridSim):
 
             self.conn.flushInput()
             self.conn.write(cmd_str)
-        except Exception, e:
+        except Exception as e:
              raise gridsim.GridSimError(str(e))
 
     def query_serial(self, cmd_str):
@@ -172,7 +170,7 @@ class GridSim(gridsim.GridSim):
                     raise gridsim.GridSimError('Timeout waiting for response')
             except gridsim.GridSimError:
                 raise
-            except Exception, e:
+            except Exception as e:
                 raise gridsim.GridSimError('Timeout waiting for response - More data problem')
 
         return resp
@@ -187,7 +185,7 @@ class GridSim(gridsim.GridSim):
 
             # print 'cmd> %s' % (cmd_str)
             self.conn.send(cmd_str)
-        except Exception, e:
+        except Exception as e:
             raise gridsim.GridSimError(str(e))
 
     def query_tcp(self, cmd_str):
@@ -205,7 +203,7 @@ class GridSim(gridsim.GridSim):
                         if d == '\n': #\r
                             more_data = False
                             break
-            except Exception, e:
+            except Exception as e:
                 raise gridsim.GridSimError('Timeout waiting for response')
 
         return resp
@@ -219,13 +217,13 @@ class GridSim(gridsim.GridSim):
             if len(resp) > 0:
                 if resp[0] != '0':
                     raise gridsim.GridSimError(resp + ' ' + self.cmd_str)
-        except Exception, e:
+        except Exception as e:
             raise gridsim.GridSimError(str(e))
 
     def query(self, cmd_str):
         try:
             resp = self._query(cmd_str).strip()
-        except Exception, e:
+        except Exception as e:
             raise gridsim.GridSimError(str(e))
 
         return resp
@@ -233,27 +231,75 @@ class GridSim(gridsim.GridSim):
     def info(self):
         return self.query('*IDN?\n')
 
-    def config_phase_angles(self):
-        if self.phases_param == 1:
-            self.cmd('inst:coup none;:inst:nsel 1;:phas 0.0\n')
-            self.cmd('inst:coup none;:inst:nsel 1;:phas 0.0\n')
-            self.cmd('inst:coup none;:inst:nsel 2;:phas 180.0\n')
-            self.cmd('inst:coup none;:inst:nsel 2;:phas 180.0\n')
-            self.cmd('inst:coup none;:inst:nsel 1;:func sin\n')
-            self.cmd('inst:coup none;:inst:nsel 2;:func sin\n')
-        elif self.phases_param == 3:
-            # set the phase angles for the 3 phases
-            self.cmd('inst:coup none;:inst:nsel 1;:phas 0.0\n')
-            self.cmd('inst:coup none;:inst:nsel 1;:phas 0.0\n')
-            self.cmd('inst:coup none;:inst:nsel 2;:phas 120.0\n')
-            self.cmd('inst:coup none;:inst:nsel 2;:phas 120.0\n')
-            self.cmd('inst:coup none;:inst:nsel 3;:phas 240.0\n')
-            self.cmd('inst:coup none;:inst:nsel 3;:phas 240.0\n')
-            self.cmd('inst:coup none;:inst:nsel 1;:func sin\n')
-            self.cmd('inst:coup none;:inst:nsel 2;:func sin\n')
-            self.cmd('inst:coup none;:inst:nsel 3;:func sin\n')
-        else:
-            raise gridsim.GridSimError('Unsupported phase parameter: %s' % (self.phases_param))
+    def config_phase_angles(self, config=False):
+        if config:
+            if self.phases_param == 1:
+                self.cmd('inst:coup none;:inst:nsel 1;:phas 0.0\n')
+                self.cmd('inst:coup none;:inst:nsel 1;:phas 0.0\n')
+                self.cmd('inst:coup none;:inst:nsel 2;:phas 180.0\n')
+                self.cmd('inst:coup none;:inst:nsel 2;:phas 180.0\n')
+                self.cmd('inst:coup none;:inst:nsel 1;:func sin\n')
+                self.cmd('inst:coup none;:inst:nsel 2;:func sin\n')
+            elif self.phases_param == 3:
+                # set the phase angles for the 3 phases
+                self.cmd('inst:coup none;:inst:nsel 1;:phas 0.0\n')
+                self.cmd('inst:coup none;:inst:nsel 1;:phas 0.0\n')
+                self.cmd('inst:coup none;:inst:nsel 2;:phas 120.0\n')
+                self.cmd('inst:coup none;:inst:nsel 2;:phas 120.0\n')
+                self.cmd('inst:coup none;:inst:nsel 3;:phas 240.0\n')
+                self.cmd('inst:coup none;:inst:nsel 3;:phas 240.0\n')
+                self.cmd('inst:coup none;:inst:nsel 1;:func sin\n')
+                self.cmd('inst:coup none;:inst:nsel 2;:func sin\n')
+                self.cmd('inst:coup none;:inst:nsel 3;:func sin\n')
+            elif self.phases_param == 2:
+                # set the phase angles for the 2 phases
+                self.cmd('inst:coup none;:inst:nsel 1;:phas 0.0\n')
+                self.cmd('inst:coup none;:inst:nsel 1;:phas 0.0\n')
+                self.cmd('inst:coup none;:inst:nsel 2;:phas 180.0\n')
+                self.cmd('inst:coup none;:inst:nsel 2;:phas 180.0\n')
+                self.cmd('inst:coup none;:inst:nsel 3;:phas 0.0\n')
+                self.cmd('inst:coup none;:inst:nsel 3;:phas 0.0\n')
+                self.cmd('inst:coup none;:inst:nsel 1;:func sin\n')
+                self.cmd('inst:coup none;:inst:nsel 2;:func sin\n')
+                self.cmd('inst:coup none;:inst:nsel 3;:func sin\n')
+            else:
+                raise gridsim.GridSimError('Unsupported phase parameter: %s' % (self.phases_param))
+
+        ph1 = float(self.query('inst:coup none;:inst:nsel 1;:phas?\n'))
+        ph2 = float(self.query('inst:coup none;:inst:nsel 2;:phas?\n'))
+        ph3 = float(self.query('inst:coup none;:inst:nsel 3;:phas?\n'))
+        return ph1, ph2, ph3
+
+    def config_asymmetric_phase_angles(self, mag=None, angle=None):
+        """
+        :param mag: list of voltages for the imbalanced test, e.g., [277.2, 277.2, 277.2]
+        :param angle: list of phase angles for the imbalanced test, e.g., [0, 120, -120]
+
+        :returns: voltage list and phase list
+        """
+        voltages = []
+        phases = []
+
+        if mag is not None:
+            if type(mag) is not list:
+                raise gridsim.GridSimError('Waveform magnitudes were not provided as list. "mag" type: %s' % type(mag))
+
+        if angle is not None:
+            if type(angle) is list:
+                if angle[2] < 0:  # make positive for Ametek
+                    angle[2] += 360.
+                self.cmd('inst:coup none;:inst:nsel 1;:phas %0.1f;:volt:ac %0.1f;'
+                         ':inst:coup none;:inst:nsel 2;:phas %0.1f;:volt:ac %0.1f;'
+                         ':inst:coup none;:inst:nsel 3;:phas %0.1f;:volt:ac %0.1f\n' % (angle[0], mag[0], angle[1],
+                                                                                       mag[1], angle[2], mag[2]))
+
+                # get phase and voltage measurements to return
+                phases = self.config_phase_angles()
+                voltages = self.voltage()
+            else:
+                raise gridsim.GridSimError('Waveform angles were not provided as list.')
+
+        return voltages, phases
 
     def config(self):
         """
@@ -274,7 +320,8 @@ class GridSim(gridsim.GridSim):
         self.freq(self.freq_param)
 
         # set the phase angles for the active phases
-        self.config_phase_angles()
+        ph1, ph2, ph3 = self.config_phase_angles(config=True)
+        self.ts.log('Grid sim phase angles are: phase1 = %s, phase2 = %s, phase3 = %s' % (ph1, ph2, ph3))
 
         # set voltage range
         v_max = self.v_max_param
@@ -308,7 +355,7 @@ class GridSim(gridsim.GridSim):
             self.conn = serial.Serial(port=self.serial_port, baudrate=self.baudrate, bytesize=8, stopbits=1, xonxoff=0,
                                       timeout=self.timeout, writeTimeout=self.write_timeout)
             time.sleep(2)
-        except Exception, e:
+        except Exception as e:
             raise gridsim.GridSimError(str(e))
 
     def close(self):
@@ -561,5 +608,176 @@ class GridSim(gridsim.GridSim):
     def v_nom(self):
         return self.v_nom_param
 
+    # Measurements from the grid simulator.
+    # MEASure triggers the acquisition of new measurement data before returning a reading.
+    # FETCh returns a reading computed from previously acquired data.
+    def meas_current(self, ph_list=(1, 2, 3)):
+        if 1 in ph_list:
+            self.cmd('inst:coup none;:inst:nsel 1\n')
+            i1 = self.query('meas:curr:ac?\n')
+            i1 = float(i1[:-1])
+        else:
+            i1 = None
+        if 2 in ph_list:
+            self.cmd('inst:coup none;:inst:nsel 2\n')
+            i2 = self.query('meas:curr:ac?\n')
+            i2 = float(i2[:-1])
+        else:
+            i2 = None
+        if 3 in ph_list:
+            self.cmd('inst:coup none;:inst:nsel 3\n')
+            i3 = self.query('meas:curr:ac?\n')
+            i3 = float(i3[:-1])
+        else:
+            i3 = None
+        return i1, i2, i3
+
+    def meas_voltage(self, ph_list=(1, 2, 3)):
+        if 1 in ph_list:
+            self.cmd('inst:coup none;:inst:nsel 1\n')
+            v1 = self.query('meas:volt:ac?\n')
+            v1 = float(v1[:-1])
+        else:
+            v1 = None
+        if 2 in ph_list:
+            self.cmd('inst:coup none;:inst:nsel 2\n')
+            v2 = self.query('meas:volt:ac?\n')
+            v2 = float(v2[:-1])
+        else:
+            v2 = None
+        if 3 in ph_list:
+            self.cmd('inst:coup none;:inst:nsel 3\n')
+            v3 = self.query('meas:volt:ac?\n')
+            v3 = float(v3[:-1])
+        else:
+            v3 = None
+        return v1, v2, v3
+
+    def meas_freq(self):
+        freq = self.query('meas:FREQ?\n')
+        return freq
+
+    def meas_power(self, ph_list=(1, 2, 3)):
+        if 1 in ph_list:
+            self.cmd('inst:coup none;:inst:nsel 1\n')
+            p1 = self.query('meas:pow:ac?\n')
+            p1 = float(p1[:-1])*1000.
+        else:
+            p1 = None
+        if 2 in ph_list:
+            self.cmd('inst:coup none;:inst:nsel 2\n')
+            p2 = self.query('meas:pow:ac?\n')
+            p2 = float(p2[:-1])*1000.
+        else:
+            p2 = None
+        if 3 in ph_list:
+            self.cmd('inst:coup none;:inst:nsel 3\n')
+            p3 = self.query('meas:pow:ac?\n')
+            p3 = float(p3[:-1])*1000.
+        else:
+            p3 = None
+        return p1, p2, p3
+
+    def meas_va(self, ph_list=(1, 2, 3)):
+        if 1 in ph_list:
+            self.cmd('inst:coup none;:inst:nsel 1\n')
+            va1 = self.query('meas:pow:ac:app?\n')
+            va1 = float(va1[:-1])*1000.
+        else:
+            va1 = None
+        if 2 in ph_list:
+            self.cmd('inst:coup none;:inst:nsel 2\n')
+            va2 = self.query('meas:pow:ac:app?\n')
+            va2 = float(va2[:-1])*1000.
+        else:
+            va2 = None
+        if 3 in ph_list:
+            self.cmd('inst:coup none;:inst:nsel 3\n')
+            va3 = self.query('meas:pow:ac:app?\n')
+            va3 = float(va3[:-1])*1000.
+        else:
+            va3 = None
+        return va1, va2, va3
+
+    def meas_pf(self, ph_list=(1, 2, 3)):
+        if 1 in ph_list:
+            self.cmd('inst:coup none;:inst:nsel 1\n')
+            pf1 = self.query('meas:pow:pfac?\n')
+            pf1 = float(pf1[:-1])
+        else:
+            pf1 = None
+        if 1 in ph_list:
+            self.cmd('inst:coup none;:inst:nsel 2\n')
+            pf2 = self.query('meas:pow:pfac?\n')
+            pf2 = float(pf2[:-1])
+        else:
+            pf2 = None
+        if 1 in ph_list:
+            self.cmd('inst:coup none;:inst:nsel 3\n')
+            pf3 = self.query('meas:pow:pfac?\n')
+            pf3 = float(pf3[:-1])
+        else:
+            pf3 = None
+        return pf1, pf2, pf3
+
+    def fetch_current(self):
+        self.cmd('inst:coup none;:inst:nsel 1\n')
+        i1 = self.query('fetc:curr:ac?\n')
+        self.cmd('inst:coup none;:inst:nsel 2\n')
+        i2 = self.query('fetc:curr:ac?\n')
+        self.cmd('inst:coup none;:inst:nsel 3\n')
+        i3 = self.query('fetc:curr:ac?\n')
+        return float(i1[:-1]), float(i2[:-1]), float(i3[:-1])
+
+    def fetch_voltage(self):
+        self.cmd('inst:coup none;:inst:nsel 1\n')
+        v1 = self.query('fetc:volt:ac?\n')
+        self.cmd('inst:coup none;:inst:nsel 2\n')
+        v2 = self.query('fetc:volt:ac?\n')
+        self.cmd('inst:coup none;:inst:nsel 3\n')
+        v3 = self.query('fetc:volt:ac?\n')
+        return float(v1[:-1]), float(v2[:-1]), float(v3[:-1])
+
+    def fetch_freq(self):
+        freq = self.query('fetc:FREQ?\n')
+        return freq
+
+    def fetch_power(self):
+        self.cmd('inst:coup none;:inst:nsel 1\n')
+        p1 = self.query('fetc:pow:ac?\n')
+        self.cmd('inst:coup none;:inst:nsel 2\n')
+        p2 = self.query('fetc:pow:ac?\n')
+        self.cmd('inst:coup none;:inst:nsel 3\n')
+        p3 = self.query('fetc:pow:ac?\n')
+        return float(p1[:-1])*1000., float(p2[:-1])*1000., float(p3[:-1])*1000.  # convert to watts
+
+    def fetch_va(self):
+        self.cmd('inst:coup none;:inst:nsel 1\n')
+        va1 = self.query('fetc:pow:ac:app?\n')
+        self.cmd('inst:coup none;:inst:nsel 2\n')
+        va2 = self.query('fetc:pow:ac:app?\n')
+        self.cmd('inst:coup none;:inst:nsel 3\n')
+        va3 = self.query('fetc:pow:ac:app?\n')
+        return float(va1[:-1])*1000., float(va2[:-1])*1000., float(va3[:-1])*1000.    # convert to VA
+
+    def fetch_pf(self):
+        self.cmd('inst:coup none;:inst:nsel 1\n')
+        pf1 = self.query('fetc:pow:pfac?\n')
+        self.cmd('inst:coup none;:inst:nsel 2\n')
+        pf2 = self.query('fetc:pow:pfac?\n')
+        self.cmd('inst:coup none;:inst:nsel 3\n')
+        pf3 = self.query('fetc:pow:pfac?\n')
+        return float(pf1[:-1]), float(pf2[:-1]), float(pf3[:-1])
+
 if __name__ == "__main__":
-    pass
+
+    grid = GridSim(ts=None, group_name=None)
+
+    grid.config_asymmetric_phase_angles(mag=[276., 277., 278.], angle=[0., 121., 243.])
+
+    print(grid.meas_current())
+    print(grid.meas_voltage())
+    print(grid.meas_freq())
+    print(grid.meas_power())
+    print(grid.meas_va())
+    print(grid.meas_pf())
