@@ -32,7 +32,7 @@ Questions can be directed to support@sunspec.org
 
 import os
 
-import gridsim
+from . import gridsim
 
 pass_info = {
     'name': os.path.splitext(os.path.basename(__file__))[0],
@@ -59,8 +59,8 @@ GROUP_NAME = 'pass'
 
 class GridSim(gridsim.GridSim):
 
-    def __init__(self, ts, group_name, params=None):
-        gridsim.GridSim.__init__(self, ts, group_name, params)
+    def __init__(self, ts, group_name, support_interfaces=None):
+        gridsim.GridSim.__init__(self, ts, group_name, support_interfaces=support_interfaces)
 
         self.v_nom = self._param_value('v_nom')
         self.v_max = self._param_value('v_max')

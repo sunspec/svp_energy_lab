@@ -36,9 +36,10 @@ import socket
 import re
 
 import serial
+import pyvisa as visa
 
-import grid_profiles
-import gridsim
+from . import grid_profiles
+from . import gridsim
 
 pacific_info = {
     'name': os.path.splitext(os.path.basename(__file__))[0],
@@ -60,14 +61,17 @@ def params(info, group_name):
     info.param(pname('v_max'), label='Max Voltage', default=300.0)
     info.param(pname('i_max'), label='Max Current', default=100.0)
     info.param(pname('freq'), label='Frequency', default=60.0)
-    info.param(pname('comm'), label='Communications Interface', default='TCP/IP', values=['Serial', 'TCP/IP'])
+    info.param(pname('comm'), label='Communications Interface', default='REMOTE IP-GPIB', values=['Serial', 'TCP/IP','REMOTE IP-GPIB'])
     info.param(pname('serial_port'), label='Serial Port',
                active=pname('comm'),  active_value=['Serial'], default='com1')
     info.param(pname('ip_addr'), label='IP Address',
                active=pname('comm'),  active_value=['TCP/IP'], default='192.168.0.171')
     info.param(pname('ip_port'), label='IP Port',
                active=pname('comm'),  active_value=['TCP/IP'], default=1234)
-
+    info.param(pname('remote_ip_addr'), label='REMOTE IP Address',
+               active=pname('comm'),  active_value=['REMOTE IP-GPIB'], default='192.168.120.32')
+    info.param(pname('gpib_addr'), label='GPIB Address',
+               active=pname('comm'),  active_value=['REMOTE IP-GPIB'], default=2)			   
 GROUP_NAME = 'pacific'
 
 
@@ -90,11 +94,10 @@ class GridSim(gridsim.GridSim):
       ip_addr
       ip_port
     """
-    def __init__(self, ts, group_name):
+    def __init__(self, ts, group_name, support_interfaces=None):
+        gridsim.GridSim.__init__(self, ts, group_name, support_interfaces=support_interfaces)
         self.buffer_size = 1024
         self.conn = None
-
-        gridsim.GridSim.__init__(self, ts, group_name)
 
         self.phases_param = self._param_value('phases')
         self.v_nom_param = self._param_value('v_nom')
@@ -105,6 +108,8 @@ class GridSim(gridsim.GridSim):
         self.serial_port = self._param_value('serial_port')
         self.ipaddr = self._param_value('ip_addr')
         self.ipport = self._param_value('ip_port')
+        self.remote_ipaddr = self._param_value('remote_ip_addr')
+        self.gpib_addr = self._param_value('gpib_addr')
         self.baudrate = 115200
         self.timeout = 5
         self.write_timeout = 2
@@ -120,7 +125,10 @@ class GridSim(gridsim.GridSim):
         elif self.comm == 'TCP/IP':
             self._cmd = self.cmd_tcp
             self._query = self.query_tcp
-
+        elif self.comm == 'REMOTE IP-GPIB':
+            self._cmd = self.cmd_remote_tcp
+            self._query = self.query_remote_tcp
+			
         if self.auto_config == 'Enabled':
             ts.log('Configuring the Grid Simulator.')
             self.config()
@@ -131,7 +139,7 @@ class GridSim(gridsim.GridSim):
                 gridsim.GridSimError('Grid simulation was not started.')
             else:
                 self.ts.log('Turning on grid simulator output.')
-                self.relay(state=gridsim.RELAY_CLOSED)
+                self.relay(state)
 
     def _param_value(self, name):
         return self.ts.param_value(self.group_name + '.' + GROUP_NAME + '.' + name)
@@ -280,7 +288,7 @@ class GridSim(gridsim.GridSim):
 
             self.conn.flushInput()
             self.conn.write(cmd_str)
-        except Exception, e:
+        except Exception as e:
              raise gridsim.GridSimError(str(e))
 
     def query_serial(self, cmd_str):
@@ -305,7 +313,7 @@ class GridSim(gridsim.GridSim):
                     raise gridsim.GridSimError('Timeout waiting for response')
             except gridsim.GridSimError:
                 raise
-            except Exception, e:
+            except Exception as e:
                 raise gridsim.GridSimError('Timeout waiting for response - More data problem')
 
         return resp
@@ -321,7 +329,7 @@ class GridSim(gridsim.GridSim):
             # print 'cmd> %s' % (cmd_str)
             self.conn.send(cmd_str)
             self.ts.sleep(1)
-        except Exception, e:
+        except Exception as e:
             raise gridsim.GridSimError(str(e))
 
     def query_tcp(self, cmd_str):
@@ -339,10 +347,47 @@ class GridSim(gridsim.GridSim):
                         if d == '\n': #\r
                             more_data = False
                             break
-            except Exception, e:
+            except Exception as e:
                 raise gridsim.GridSimError('Timeout waiting for response')
 
         return resp
+
+    def cmd_remote_tcp(self, cmd_str):
+        try:
+            if self.conn is None:
+                self.ts.log('remote_ipaddr = %s  gpib_addr = %s' % (self.remote_ipaddr, self.gpib_addr))
+                rm = visa.ResourceManager('@py')
+                rsc = "TCPIP::" + str(self.remote_ipaddr) + "::gpib0," + str(self.gpib_addr) + "::INSTR"
+                self.conn = rm.open_resource(str(rsc))						
+                print(("Success when opening remote GPIB resource " +  str(rsc)))
+                self.conn.write('*IDN?')
+                time.sleep(2)	
+                self.conn.read()                            							
+            # print 'cmd> %s' % (cmd_str)
+            self.conn.write(cmd_str)
+            self.ts.sleep(1)
+        except Exception as e:
+            raise gridsim.GridSimError(str(e))
+
+    def query_remote_tcp(self, cmd_str):
+        resp = ''
+        more_data = True
+
+        self._cmd(cmd_str)
+
+        while more_data:
+            try:
+                data = self.conn.read()
+                if len(data) > 0:
+                    for d in data:
+                        resp += d
+                        if d == '\n': #\r
+                            more_data = False
+                            break
+            except Exception as e:
+                raise gridsim.GridSimError('Timeout waiting for response')
+
+        return resp		
 
     def cmd(self, cmd_str):
         self.cmd_str = cmd_str
@@ -353,13 +398,13 @@ class GridSim(gridsim.GridSim):
             if len(resp) > 0:
                 if resp[0] != '0':
                     raise gridsim.GridSimError(resp + ' ' + self.cmd_str)
-        except Exception, e:
+        except Exception as e:
             raise gridsim.GridSimError(str(e))
 
     def query(self, cmd_str):
         try:
             resp = self._query(cmd_str).strip()
-        except Exception, e:
+        except Exception as e:
             raise gridsim.GridSimError(str(e))
 
         return resp
@@ -410,18 +455,20 @@ class GridSim(gridsim.GridSim):
             self.conn = serial.Serial(port=self.serial_port, baudrate=self.baudrate, bytesize=8, stopbits=1, xonxoff=0,
                                       timeout=self.timeout, writeTimeout=self.write_timeout)
             time.sleep(2)
-        except Exception, e:
+        except Exception as e:
             raise gridsim.GridSimError(str(e))
-
+		
     def close(self):
         """
         Close any open communications resources associated with the grid
         simulator.
         """
+        self.relay(state=gridsim.RELAY_CLOSED)
         if self.conn:
             self.ts.log('Closing connection to grid simulator.')
             self.conn.close()
 
+			
     def current(self, current=None):
         """
         Set the value for current if provided. If none provided, obtains
@@ -635,18 +682,24 @@ class GridSim(gridsim.GridSim):
         """
         if state is not None:
             if state == gridsim.RELAY_OPEN:
-                self.cmd(':OUTput OFF\n')
-            elif state == gridsim.RELAY_CLOSED:
+                self.ts.log_debug("Energizando sistema")                 
                 self.cmd(':OUTput ON\n')
+            elif state == gridsim.RELAY_CLOSED:
+                self.ts.log_debug("Desenergizando sistema") 
+                self.cmd(':OUTput OFF\n')
             else:
                 raise gridsim.GridSimError('Invalid relay state. State = "%s"', state)
         else:
             state = self.query(':OUTP?\n').strip()
-            if state == 1:
+            self.ts.log_debug('state: %s' % state)
+            if state == '1':
+                self.ts.log_debug("Sistema energizado")
                 state = gridsim.RELAY_CLOSED
-            elif state == 0:
+            elif state == '0':
+                self.ts.log_debug("Sistema NO energizado")
                 state = gridsim.RELAY_OPEN
             else:
+                self.ts.log_debug("Sistema desconocido")                
                 state = gridsim.RELAY_UNKNOWN
         return state
 

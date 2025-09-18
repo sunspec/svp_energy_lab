@@ -45,6 +45,14 @@ battsim_modules = {}
 
 
 def params(info, id=None, label='Battery Simulator', group_name=None, active=None, active_value=None):
+    """
+    This function defines parameters for a battery simulator implementation. It creates a parameter group with 
+    the specified label and group name, and adds parameters for the battery simulator mode and auto-configuration. 
+    
+    The `params()` function is typically used to define the parameters for a battery simulator implementation that can be 
+    configured through a test script or other interface. The function takes several optional parameters to customize the parameter 
+    group, such as the group name, label, and whether the group should be active based on some condition.
+    """
     if group_name is None:
         group_name = BATTSIM_DEFAULT_ID
     else:
@@ -57,7 +65,7 @@ def params(info, id=None, label='Battery Simulator', group_name=None, active=Non
     info.param(name('mode'), label='Mode', default='Disabled', values=['Disabled'])
     info.param(name('auto_config'), label='Configure battery simulator at beginning of test', default='Disabled',
                values=['Enabled', 'Disabled'])
-    for mode, m in battsim_modules.iteritems():
+    for mode, m in battsim_modules.items():
         m.params(info, group_name=group_name)
 
 BATTSIM_DEFAULT_ID = 'battsim'
@@ -104,6 +112,14 @@ class BattSim(object):
     """
     Template for battery simulator implementations. This class can be used as a base class or
     independent battery simulator classes can be created containing the methods contained in this class.
+
+    Methods:
+    --------
+
+    - info(self): Return information string for the device.
+    - config(self): Perform configuration for the simulation based on provided parameters.
+    - open(self): Open communications resources associated with the battery simulator.
+    - close(self): Close open communications resources associated with the battery simulator.
     """
 
     def __init__(self, ts, group_name, params=None):
@@ -144,6 +160,17 @@ class BattSim(object):
 
 
 def battsim_scan():
+    """
+    Scans for battery simulator modules in the current directory and imports them.
+    
+    This function scans all files in the current directory that match the pattern "battsim_*.py",
+    imports the modules, and adds them to the global `battsim_modules` dictionary, keyed by the
+    "mode" value returned from the `battsim_info()` function in the module.
+    
+    If a module does not have a `battsim_info()` function, or if an exception occurs during the
+    import, the module is removed from `sys.modules` and the exception is re-raised as a
+    `BattSimError`.
+    """
     global battsim_modules
     # scan all files in current directory that match battsim_*.py
     package_name = '.'.join(__name__.split('.')[:-1])
@@ -164,7 +191,7 @@ def battsim_scan():
             else:
                 if module_name is not None and module_name in sys.modules:
                     del sys.modules[module_name]
-        except Exception, e:
+        except Exception as e:
             if module_name is not None and module_name in sys.modules:
                 del sys.modules[module_name]
             raise BattSimError('Error scanning module %s: %s' % (module_name, str(e)))

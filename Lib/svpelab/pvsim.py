@@ -38,6 +38,23 @@ import importlib
 pvsim_modules = {}
 
 def params(info, id=None, label='PV Simulator', group_name=None, active=None, active_value=None):
+    """
+    Defines parameters for a PV simulator implementation.
+    
+    This function sets up a parameter group for a PV simulator implementation, with a default mode of 'Disabled'. 
+    It also allows for additional parameters to be defined by specific PV simulator modules.
+    
+    Args:
+        info (object)               : An object that provides methods for defining parameters.
+        id (str, optional)          : An optional identifier for the PV simulator instance.
+        label (str, optional)       : A label for the PV simulator parameters.
+        group_name (str, optional)  : The name of the parameter group.
+        active (str, optional)      : A parameter that determines if the PV simulator is active.
+        active_value (str, optional): The value that the active parameter must have for the PV simulator to be considered active.
+    
+    Returns:
+        None
+    """
     if group_name is None:
         group_name = PVSIM_DEFAULT_ID
     else:
@@ -47,12 +64,12 @@ def params(info, id=None, label='PV Simulator', group_name=None, active=None, ac
     name = lambda name: group_name + '.' + name
     info.param_group(group_name, label='%s Parameters' % label, active=active, active_value=active_value, glob=True)
     info.param(name('mode'), label='Mode', default='Disabled', values=['Disabled'])
-    for mode, m in pvsim_modules.iteritems():
+    for mode, m in pvsim_modules.items():
         m.params(info, group_name=group_name)
 
 PVSIM_DEFAULT_ID = 'pvsim'
 
-def pvsim_init(ts, id=None, group_name=None):
+def pvsim_init(ts, id=None, group_name=None,support_interfaces=None):
     """
     Function to create specific pv simulator implementation instances.
 
@@ -71,7 +88,7 @@ def pvsim_init(ts, id=None, group_name=None):
     if mode != 'Disabled':
         sim_module = pvsim_modules.get(mode)
         if sim_module is not None:
-            sim = sim_module.PVSim(ts, group_name)
+            sim = sim_module.PVSim(ts, group_name,support_interfaces=support_interfaces)
         else:
             raise PVSimError('Unknown PV simulation mode: %s' % mode)
 
@@ -82,35 +99,111 @@ class PVSimError(Exception):
     pass
 
 class PVSim(object):
+    """
+    PVSim class for simulating photovoltaic systems.
 
-    def __init__(self, ts, group_name, params=None):
+    Methods:
+    - close(): Close the communication connection to the PVSim.
+    - info(): Get the type of PVSim.
+    - irradiance_set(irradiance=1000): Set irradiance level for the PVSim channels.
+    - iv_curve_config(pmp, vmp): Configure the I-V curves on the channels.
+    - power_set(power): Set the maximum power of the I-V curve.
+    - profile_load(profile_name): Load an irradiance vs time profile.
+    - power_on(): Energize the output of the PVSimulator.
+    - profile_start(): Start the loaded profile.
+    """
+
+    def __init__(self, ts, group_name, params=None, support_interfaces=None):
         self.ts = ts
         self.group_name = group_name
+        self.params = params
+        self.hil = None
+        if support_interfaces is not None:
+            if support_interfaces.get('hil') is not None:
+                self.hil = support_interfaces.get('hil')
 
     def close(self):
+        """
+        Close the communication connection to the PVSim
+
+        :return: None
+        """
         pass
 
     def info(self):
+        """
+        Get the type of PVSim.  Typically this is done with a *IDN? command.
+
+        :return: string of the information from the device
+        """
         pass
 
     def irradiance_set(self, irradiance=1000):
+        """
+        Set irradiance level for the PVSim channels (individual power supplies that produce the I-V curves)
+
+        :return: None
+        """
+        pass
+
+    def iv_curve_config(self, pmp, vmp):
+        """
+        Configure the I-V curves on the channels (individual power supplies that produce the I-V curves)
+
+        Typically this is done using the EN50530 standard.  Pointwise EN50530 curves can be created using
+        pv_curve_generation.py if the PV simulator cannot generate the EN50530 curve directly
+
+        :param pmp: Maximum Power Point (MPP) Power in watts
+        :param vmp: Maximum Power Point (MPP) Voltage in volts
+        :return: None
+        """
         pass
 
     def power_set(self, power):
+        """
+        Set the maximum power of the I-V curve by adjusting the irradiance on the PVSim channels (or some other means)
+
+        :param power: maximum power in watts
+        :return: None
+        """
         pass
 
     def profile_load(self, profile_name):
-        # use pv_profiles.py to create profile
+        """
+        Rarely used function to load an irradiance vs time profile
+
+        :param profile_name: a string with the pv_profiles.py profile that is being used for the irradiance vs time
+        :return: None
+        """
         pass
 
     def power_on(self):
+        """
+        Energizes the output of the PVSimulator
+
+        :return: None
+        """
         pass
 
     def profile_start(self):
+        """
+        Starts the profile that was loaded in profile_load()
+
+        :return: None
+        """
         pass
 
 
 def pvsim_scan():
+    """
+    Scans for PV simulator modules in the current directory and imports them into the `pvsim_modules` global dictionary.
+    
+    This function is used to automatically discover and load PV simulator modules that follow the naming convention `pvsim_*.py`. 
+    Each discovered module should have a `pvsim_info()` function that returns a dictionary with a `'mode'` key, which is used to 
+    associate the module with a specific PV simulator mode.
+    
+    The discovered modules are stored in the `pvsim_modules` global dictionary, keyed by their `'mode'` value.
+    """
     global pvsim_modules
     # scan all files in current directory that match gridsim_*.py
     package_name = '.'.join(__name__.split('.')[:-1])
@@ -131,10 +224,10 @@ def pvsim_scan():
             else:
                 if module_name is not None and module_name in sys.modules:
                     del sys.modules[module_name]
-        except Exception, e:
+        except Exception as e:
             if module_name is not None and module_name in sys.modules:
                 del sys.modules[module_name]
-            raise PVSimError('Error scanning module %s: %s' % (module_name, str(e)))
+            print(PVSimError('Error scanning module %s: %s' % (module_name, str(e))))
 
 # scan for gridsim modules on import
 pvsim_scan()

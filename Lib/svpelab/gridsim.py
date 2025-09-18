@@ -43,6 +43,7 @@ import importlib
 
 gridsim_modules = {}
 
+
 def params(info, id=None, label='Grid Simulator', group_name=None, active=None, active_value=None):
     if group_name is None:
         group_name = GRIDSIM_DEFAULT_ID
@@ -55,12 +56,13 @@ def params(info, id=None, label='Grid Simulator', group_name=None, active=None, 
     info.param(name('mode'), label='Mode', default='Disabled', values=['Disabled'])
     info.param(name('auto_config'), label='Configure grid simulator at beginning of test', default='Disabled',
                values=['Enabled', 'Disabled'])
-    for mode, m in gridsim_modules.iteritems():
+    for mode, m in gridsim_modules.items():
         m.params(info, group_name=group_name)
 
 GRIDSIM_DEFAULT_ID = 'gridsim'
 
-def gridsim_init(ts, id=None, group_name=None):
+
+def gridsim_init(ts, id=None, group_name=None, support_interfaces=None):
     """
     Function to create specific grid simulator implementation instances.
 
@@ -75,11 +77,17 @@ def gridsim_init(ts, id=None, group_name=None):
     if id is not None:
         group_name = group_name + '_' + str(id)
     mode = ts.param_value(group_name + '.' + 'mode')
+    # ts.log_debug('group_name, %s, mode: %s' % (group_name, mode))
     sim = None
     if mode != 'Disabled':
         sim_module = gridsim_modules.get(mode)
+        # ts.log_debug('gridsim_module, %s, gridsim_modules: %s' % (sim_module, gridsim_modules))
         if sim_module is not None:
-            sim = sim_module.GridSim(ts, group_name)
+            # ts.log_debug('support_interfaces: %s' % support_interfaces)
+            if support_interfaces is None:
+                sim = sim_module.GridSim(ts, group_name)
+            else:
+                sim = sim_module.GridSim(ts, group_name, support_interfaces=support_interfaces)
         else:
             raise GridSimError('Unknown grid simulation mode: %s' % mode)
 
@@ -100,24 +108,72 @@ class GridSimError(Exception):
 
 class GridSim(object):
     """
-    Template for grid simulator implementations. This class can be used as a base class or
+    Abstract layer for grid simulator implementations. This class can be used as a base class or
     independent grid simulator classes can be created containing the methods contained in this class.
+
+    Methods:
+    - info                                                : Get information about the GridSim object
+    - config                                             : Perform configuration for the simulation
+    - open                                               : Open communications resources
+    - close                                              : Close communications resources
+    - current_max(current=None)                          : Set or get maximum current
+    - freq(freq=None)                                    : Set or get frequency
+    - rocof(rocof=None)                                  : Set or get rate of change of frequency
+    - rocom(rocom=None)                                  : Set or get rate of change of magnitude
+    - profile_load(profile_name=None, v_step=100, 
+            f_step=100, t_step=None, profile=None)       : Load a profile for simulation
+    - profile_start                                      : Start the loaded profile
+    - profile_stop                                       : Stop the running profile
+    - regen(state=None)                                  : Set or get regen mode state
+    - relay(state=None)                                  : Set or get relay state
+    - voltage(voltage=None)                              : Set or get voltage for each phase
+    - voltage_max(voltage=None)                          : Set or get maximum voltage
+    - voltage_min(voltage=None)                          : Set or get minimum voltage
+    - frequency_max(frequency=None)                      : Set or get maximum frequency
+    - frequency_minfrequency=None)                       : Set or get minimum frequency
+    - config_asymmetric_phase_angles(mag=None, angle=None): Configure imbalanced phases
+    - meas_power(ph_list=(1,2,3))                        : Measure power on specified phases
+    - meas_va(ph_list=(1,2,3))                           : Measure apparent power on specified phases
+    - meas_current(ph_list=(1,2,3))                      : Measure current on specified phases
+    - meas_voltage(ph_list=(1,2,3))                      : Measure RMS voltage on specified phases
+    - meas_freq                                          : Measure frequency
+    - meas_pf(ph_list=(1,2,3))                           : Measure power factors on specified phases    
     """
 
-    def __init__(self, ts, group_name, params=None):
+    def __init__(self, ts, group_name, params=None, support_interfaces=None):
         self.ts = ts
         self.group_name = group_name
         self.profile = []
         self.params = params
-
+ 
         if self.params is None:
             self.params = {}
 
         self.auto_config = self._group_param_value('auto_config')
 
+        # optional interfaces to other SVP abstraction layers/device drivers
+        if support_interfaces is not None:
+            if support_interfaces.get('pvsim') is not None:
+                self.dc_measurement_device = support_interfaces.get('pvsim')
+            elif support_interfaces.get('dcsim') is not None:
+                self.dc_measurement_device = support_interfaces.get('dcsim')
+            else:
+                self.dc_measurement_device = None
+            if support_interfaces.get('hil') is not None:
+                self.hil = support_interfaces.get('hil')
+                # ts.log_debug('self.hil: %s' % self.hil)
+            else:
+                self.hil = None
 
     def _group_param_value(self, name):
         return self.ts.param_value(self.group_name + '.' + name)
+
+    def info(self):
+        """
+        Get the information from the GridSim object - typically using *IDN?
+        :return: string with GridSim information
+        """
+        pass
 
     def config(self):
         """
@@ -141,8 +197,9 @@ class GridSim(object):
 
     def current_max(self, current=None):
         """
-        Set the value for max current if provided. If none provided, obtains
-        the value for max current.
+        Set the value for max current if provided. If none provided, obtains the value for max current.
+
+        :param current: current maximum in amps
         """
         if current is not None:
             pass
@@ -152,14 +209,39 @@ class GridSim(object):
 
     def freq(self, freq=None):
         """
-        Set the value for frequency if provided. If none provided, obtains
-        the value for frequency.
+        Set the value for frequency if provided. If none provided, obtains the value for frequency.
+
+        :param freq: frequency in Hz
         """
         if freq is not None:
             pass
         else:
             freq = 0.0
         return freq
+
+    def rocof(self, rocof=None):
+        """
+        Set the rate of change of frequency (ROCOF) if provided. If none provided, obtains the ROCOF.
+
+        :param rocof: ROCOF in Hz/s
+        """
+        if rocof is not None:
+            pass
+        else:
+            rocof = 0.0
+        return rocof
+
+    def rocom(self, rocom=None):
+        """
+        Set the rate of change of magnitude (ROCOM) if provided. If none provided, obtains the ROCOM.
+
+        :param rocom: ROCOM in V/s
+        """
+        if rocom is not None:
+            pass
+        else:
+            rocom = 0.0
+        return rocom
 
     def profile_load(self, profile_name=None, v_step=100, f_step=100, t_step=None, profile=None):
         """
@@ -238,8 +320,106 @@ class GridSim(object):
             voltage = (0.0, 0.0, 0.0)
         return voltage
 
+    def voltage_min(self, voltage=None):
+        """
+        Set the value for min voltage if provided. If none provided, obtains
+        the value for min voltage.
+        """
+        if voltage is not None:
+            pass
+        else:
+            voltage = (0.0, 0.0, 0.0)
+        return voltage
+
+    def frequency_max(self, frequency=None):
+        """
+        Set the value for max frequency if provided. If none provided, obtains
+        the value for max frequency.
+        """
+        if frequency is not None:
+            pass
+        else:
+            frequency = (0.0, 0.0, 0.0)
+        return frequency
+    
+    def frequency_min(self, frequency=None):
+        """
+        Set the value for min frequency if provided. If none provided, obtains
+        the value for min frequency.
+        """
+        if frequency is not None:
+            pass
+        else:
+            frequency = (0.0, 0.0, 0.0)
+        return frequency
+    def config_asymmetric_phase_angles(self, mag=None, angle=None):
+        """
+        Configure grid simulator to have imbalanced phases
+
+        :param mag: list of voltages for the imbalanced test, e.g., [277.2, 277.2, 277.2]
+        :param angle: list of phase angles for the imbalanced test, e.g., [0, 120, -120]
+        :returns: voltage list and phase list
+        """
+        return None, None
+
+    def meas_power(self, ph_list=(1,2,3)):
+        """
+        Measure power
+        :param ph_list: list of phases to be measured
+        :return: power on each phase in W
+        """
+        return None, None, None
+
+    def meas_va(self, ph_list=(1,2,3)):
+        """
+        Measure apparent power
+        :param ph_list: list of phases to be measured
+        :return: apparent power on each phase in VA
+        """
+        return None, None, None
+
+    def meas_current(self, ph_list=(1,2,3)):
+        """
+        Measure current
+        :param ph_list: list of phases to be measured
+        :return: current on each phase in amps
+        """
+        return None, None, None
+
+    def meas_voltage(self, ph_list=(1,2,3)):
+        """
+        Measure RMS voltage on each phase
+        :param ph_list: list of phases to be measured
+        :return: voltage in V on each phase
+        """
+        return None, None, None
+
+    def meas_freq(self):
+        """
+        Measure frequency
+        :return: frequency in Hz on each phase
+        """
+        return None, None, None
+
+    def meas_pf(self, ph_list=(1,2,3)):
+        """
+        Measure power factors
+        :param ph_list: list of phases to be measured
+        :return: power factor on each phase
+        """
+        return None, None, None
 
 def gridsim_scan():
+    """
+    Scan for grid simulator modules on import.
+    
+    This function scans all files in the current directory that match the pattern 'gridsim_*.py' and 
+    imports them. It then extracts the 'gridsim_info' function from each module and stores the module in the 
+    'gridsim_modules' dictionary, keyed by the 'mode' value returned from 'gridsim_info'.
+    
+    If a module does not have a 'gridsim_info' function, or if an exception occurs during the import, the module is 
+    removed from sys.modules to prevent further attempts to import it.
+    """
     global gridsim_modules
     # scan all files in current directory that match gridsim_*.py
     package_name = '.'.join(__name__.split('.')[:-1])
@@ -260,10 +440,10 @@ def gridsim_scan():
             else:
                 if module_name is not None and module_name in sys.modules:
                     del sys.modules[module_name]
-        except Exception, e:
+        except Exception as e:
             if module_name is not None and module_name in sys.modules:
                 del sys.modules[module_name]
-            raise GridSimError('Error scanning module %s: %s' % (module_name, str(e)))
+            print(GridSimError('Error scanning module %s: %s' % (module_name, str(e))))
 
 # scan for gridsim modules on import
 gridsim_scan()

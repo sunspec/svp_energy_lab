@@ -38,7 +38,7 @@ import traceback
 lib_path = os.path.join(os.path.dirname(__file__), '..', 'Lib')
 if lib_path not in sys.path:
     sys.path.append(lib_path)
-print sys.path
+print(sys.path)
 
 # place script library imports here
 from svpelab import das
@@ -54,10 +54,10 @@ def test_run():
     try:
 
         # In the case of measuring HIL data
-        chil = hil.hil_init(ts)
+        hil = hil.hil_init(ts)
 
         # initialize data acquisition system
-        daq = das.das_init(ts)
+        daq = das.das_init(ts,support_interfaces={'hil': hil})
         ts.log('DAS device: %s' % daq.info())
 
         # ts.log('Waiting 30 sec to start inverter')
@@ -81,11 +81,11 @@ def test_run():
         ds.to_csv(ts.result_file_path(filename))
         ts.result_file(filename)
 
-        chil.stop_simulation()
+        hil.stop_simulation()
 
         result = script.RESULT_COMPLETE
 
-    except script.ScriptFail, e:
+    except script.ScriptFail as e:
         reason = str(e)
         if reason:
             ts.log_error(reason)
@@ -114,7 +114,7 @@ def run(test_script):
         if result == script.RESULT_FAIL:
             rc = 1
 
-    except Exception, e:
+    except Exception as e:
         ts.log_error('Test script exception: %s' % traceback.format_exc())
         rc = 1
 

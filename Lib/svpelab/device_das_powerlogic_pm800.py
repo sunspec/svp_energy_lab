@@ -33,12 +33,59 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 Questions can be directed to support@sunspec.org
 """
 
+
+# data_points = [
+#     'TIME',
+#     'DC_V',
+#     'DC_I',
+#     'AC_VRMS_1',
+#     'AC_IRMS_1',
+#     'DC_P',
+#     'AC_S_1',
+#     'AC_P_1',
+#     'AC_Q_1',
+#     'AC_FREQ_1',
+#     'AC_PF_1',
+#     'TRIG',
+#     'TRIG_GRID'
+# ]
+
+data_points = [
+    'TIME',
+    'DC_V',
+    'DC_I',
+    'AC_VRMS_1',
+    'AC_VRMS_2',
+    'AC_VRMS_3',
+    'AC_IRMS_1',
+    'AC_IRMS_2',
+    'AC_IRMS_3',
+    'DC_P',
+    'AC_S_1',
+    'AC_S_2',
+    'AC_S_3',
+    'AC_P_1',
+    'AC_P_2',
+    'AC_P_3',
+    'AC_Q_1',
+    'AC_Q_2',
+    'AC_Q_3',
+    'AC_FREQ_1',
+    'AC_FREQ_2',
+    'AC_FREQ_3',
+    'AC_PF_1',
+    'AC_PF_2',
+    'AC_PF_3',
+    'TRIG',
+    'TRIG_GRID'
+]
+
 import time
 try:
     import sunspec.core.modbus.client as client
     import sunspec.core.util as util
     import binascii
-except Exception, e:
+except Exception as e:
     print('SunSpec or binascii packages did not import!')
 
 
@@ -59,6 +106,13 @@ class Device(object):
             self.ip_timeout = params.get('ip_timeout')
             self.slave_id = params.get('slave_id')
 
+        self.data_points = list(data_points)
+        self.points = None
+        self.point_indexes = []
+
+        self.rec = {}
+        self.recs = []
+
         self.open()
 
     def info(self):
@@ -71,14 +125,14 @@ class Device(object):
         try:
             self.device = client.ModbusClientDeviceTCP(slave_id=self.slave_id, ipaddr=self.ip_addr,
                                                        ipport=self.ip_port, timeout=self.ip_timeout)
-        except Exception, e:
+        except Exception as e:
             raise DeviceError('Cannot connect to PM800: %s' % e)
-
-    def close(self):
-        self.device = None
 
     def data_capture(self, enable=True):
         pass
+
+    def close(self):
+        self.device = None
 
     def data_read(self):
 
@@ -123,7 +177,39 @@ class Device(object):
                           None,
                           None)}
         """
-        return self.bulk_float_read()
+        data_dict = self.bulk_float_read()
+
+        data_points = [
+            data_dict['time'], #'TIME',
+            data_dict['dc'][0], #'DC_V',
+            data_dict['dc'][1], #'DC_I',
+            data_dict['ac_1'][0], #'AC_VRMS_1',
+            data_dict['ac_2'][0], #'AC_VRMS_2',
+            data_dict['ac_3'][0], #'AC_VRMS_3',
+            data_dict['ac_1'][1], #'AC_IRMS_1',
+            data_dict['ac_2'][1], #'AC_IRMS_2',
+            data_dict['ac_3'][1], #'AC_IRMS_3',
+            data_dict['dc'][2], #'DC_P',
+            data_dict['ac_1'][3], #'AC_S_1',
+            data_dict['ac_2'][3], #'AC_S_2',
+            data_dict['ac_3'][3], #'AC_S_3',
+            data_dict['ac_1'][2], #'AC_P_1',
+            data_dict['ac_2'][2], #'AC_P_2',
+            data_dict['ac_3'][2], #'AC_P_3',
+            data_dict['ac_1'][4], #'AC_Q_1',
+            data_dict['ac_2'][4], #'AC_Q_2',
+            data_dict['ac_3'][4], #'AC_Q_3',
+            data_dict['ac_1'][6], #'AC_FREQ_1',
+            data_dict['ac_2'][6], #'AC_FREQ_2',
+            data_dict['ac_3'][6], #'AC_FREQ_3',
+            data_dict['ac_1'][5], #'AC_PF_1',
+            data_dict['ac_2'][5], #'AC_PF_2',
+            data_dict['ac_3'][5], #'AC_PF_3',
+            None, #'TRIG',
+            None, #'TRIG_GRID'
+        ]
+
+        return data_points
 
     def generic_float_read(self, reg_in_lit):
         data = self.device.read(reg_in_lit-1, 2)  # the register is one less than reported in the literature
@@ -162,6 +248,38 @@ class Device(object):
                           None)}
 
         return datarec
+
+
+    def waveform_config(self, params):
+        """
+        Configure waveform capture.
+
+        params: Dictionary with following entries:
+            'sample_rate' - Sample rate (samples/sec)
+            'pre_trigger' - Pre-trigger time (sec)
+            'post_trigger' - Post-trigger time (sec)
+            'trigger_level' - Trigger level
+            'trigger_cond' - Trigger condition - ['Rising_Edge', 'Falling_Edge']
+            'trigger_channel' - Trigger channel - ['AC_V_1', 'AC_V_2', 'AC_V_3', 'AC_I_1', 'AC_I_2', 'AC_I_3', 'EXT']
+            'timeout' - Timeout (sec)
+            'channels' - Channels to capture - ['AC_V_1', 'AC_V_2', 'AC_V_3', 'AC_I_1', 'AC_I_2', 'AC_I_3', 'EXT']
+        """
+        pass
+
+    def waveform_capture(self, enable=True, sleep=None):
+        """
+        Enable/disable waveform capture.
+        """
+        pass
+
+    def waveform_status(self):
+        pass
+
+    def waveform_force_trigger(self):
+        pass
+
+    def waveform_capture_dataset(self):
+        pass
 
 
 def reg_shift(reg):
@@ -225,7 +343,7 @@ These are simple functions for reading individual values.
 
 
 def trace(msg):
-    print msg
+    print(msg)
 
 
 # Reg   Name            Size    Type    Access  NV  Scale   Units       Range
@@ -426,12 +544,12 @@ def readBaudRate():
 def bulk_float_read(device, start=11700, end=11762):
     actual_start = start - 1  # the register is one less than reported in the literature
     actual_length = (end - start) + 2
-    print('Start Reg: %s, Read Length: %s' % (actual_start, actual_length))
+    print(('Start Reg: %s, Read Length: %s' % (actual_start, actual_length)))
 
     data = device.read(actual_start, actual_length)
-    print('Data length: %s' % len(data))
-    print('Start Reg: %s, End Reg: %s' % (reg_shift(11762)[0], reg_shift(11762)[1]))
-    print util.data_to_float(data[reg_shift(11762)[0]:reg_shift(11762)[1]])
+    print(('Data length: %s' % len(data)))
+    print(('Start Reg: %s, End Reg: %s' % (reg_shift(11762)[0], reg_shift(11762)[1])))
+    print(util.data_to_float(data[reg_shift(11762)[0]:reg_shift(11762)[1]]))
 
     datarec = {'time': time.time(),
                'ac_1': (util.data_to_float(data[reg_shift(11720)[0]:reg_shift(11720)[1]]),  # Voltage, A-N
@@ -470,24 +588,24 @@ if __name__ == "__main__":
     if ipaddr:
         device = client.ModbusClientDeviceTCP(slave_id=22, ipaddr=ipaddr, ipport=502, timeout=10) #, trace_func=trace)
 
-        print('%s' % bulk_float_read(device))
+        print(('%s' % bulk_float_read(device)))
 
         readVoltageAB()
 
-        print('Freq is = %s' % readHz())
-        print('Power is = %s' % readPower())
+        print(('Freq is = %s' % readHz()))
+        print(('Power is = %s' % readPower()))
 
-        print('Baud Rate = %s' % readBaudRate())
-        print('Freq Nom = %s' % readFreqNom())
-        print('Freq (float) = %s' % readFloatHz())
-        print('Power (float) = %s' % readFloatPower())
-        print('Power (float) = %s' % readFloatPF())
+        print(('Baud Rate = %s' % readBaudRate()))
+        print(('Freq Nom = %s' % readFreqNom()))
+        print(('Freq (float) = %s' % readFloatHz()))
+        print(('Power (float) = %s' % readFloatPower()))
+        print(('Power (float) = %s' % readFloatPF()))
 
-        print('Scale A = %s' % scaleA())
-        print('Scale B = %s' % scaleB())
-        print('Scale D = %s' % scaleD())
-        print('Scale E = %s' % scaleE())
-        print('Scale F = %s' % scaleF())
+        print(('Scale A = %s' % scaleA()))
+        print(('Scale B = %s' % scaleB()))
+        print(('Scale D = %s' % scaleD()))
+        print(('Scale E = %s' % scaleE()))
+        print(('Scale F = %s' % scaleF()))
 
         # for i in range(100):
         #     print('Power (float) = %s' % readFloatPower())

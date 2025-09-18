@@ -34,6 +34,26 @@ import os
 import glob
 import importlib
 
+
+class HILGenericException(Exception):
+    pass
+
+
+class HILCompileException(Exception):
+    pass
+
+
+class HILModelException(Exception):
+    pass
+
+
+class HILRuntimeException(Exception):
+    pass
+
+
+class HILSimulationException(Exception):
+    pass
+
 # Import all hardware-in-the-loop extensions in current directory.
 # A hil extension has a file name of hil_*.py and contains a function hil_params(info) that contains
 # a dict with the following entries: name, init_func.
@@ -42,29 +62,74 @@ import importlib
 
 hil_modules = {}
 
-def params(info):
-    info.param_group('hil', label='HIL Parameters', glob=True)
-    info.param('hil.mode', label='HIL Environment', default='Disabled', values=['Disabled'])
-    for mode, m in hil_modules.iteritems():
-        m.params(info)
+HIL_DEFAULT_ID = 'hil'
 
+def params(info, id=None, label='HIL', group_name=None, active=None, active_value=None):
+    """
+    Generate a parameter group for the HIL extension.
 
-def hil_init(ts):
+    Parameters
+    ----------
+        info (dict)                 : Information dictionary containing parameter definitions
+        id (str or None)            : Identifier for the HIL group
+        label (str)                 : Label for the HIL group
+        group_name (str or None)    : Name of the parameter group
+        active (str or None)        : Name of the active parameter
+        active_value (any or None)  : Value that activates the group
+        
+    Returns
+    -------
+    None
+    """
+    if group_name is None:
+        group_name = HIL_DEFAULT_ID
+    else:
+        group_name += '.' + HIL_DEFAULT_ID
+    if id is not None:
+        group_name = group_name + '_' + str(id)
+    name = lambda name: group_name + '.' + name
+    info.param_group(group_name, label='%s Parameters' % label, active=active, active_value=active_value, glob=True)
+    info.param(name('mode'), label='Mode', default='Disabled', values=['Disabled'])
+    info.param(name('setup'), label='HIL environment', default='PHIL', values=['SIL', 'PHIL'])
+    for mode, m in hil_modules.items():
+
+        m.params(info, group_name=group_name)
+
+def hil_init(ts, id=None, group_name=None):
     """
     Function to create specific HIL implementation instances.
 
     Each supported HIL type should have an entry in the 'mode' parameter conditional.
     Module import for the simulator is done within the conditional so modules only need to be
     present if used.
+
+    Parameters
+    ----------
+    ts (object)                         : Test script object.
+    id (str or None, optional)          : Identifier for the HIL instance.
+    group_name (str or None, optional)  : Name of the parameter group.
+
+    Returns
+    -------
+    object
+        An instance of the specific HIL implementation.
     """
-    mode = ts.param_value('hil.mode')
+    if group_name is None:
+        group_name = HIL_DEFAULT_ID
+    else:
+        group_name += '.' + HIL_DEFAULT_ID
+    if id is not None:
+        group_name = group_name + '_' + str(id)
+    mode = ts.param_value(group_name + '.' + 'mode')
+    # ts.log_debug('group_name, %s, mode: %s' % (group_name, mode))
     sim = None
     if mode != 'Disabled':
-        hil_module = hil_modules.get(mode)
-        if hil_module is not None:
-            sim = hil_module.HIL(ts)
+        sim_module = hil_modules.get(mode)
+        if sim_module is not None:
+
+            sim = sim_module.HIL(ts, group_name)
         else:
-            raise HILError('Unknown grid simulation mode: %s' % mode)
+            raise HILError('Unknown HIL mode: %s' % mode)
 
     return sim
 
@@ -80,10 +145,26 @@ class HIL(object):
     """
     Template for HIL implementations. This class can be used as a base class or
     independent HIL classes can be created containing the methods contained in this class.
+
+    Methods:
+    - config(): Perform configuration for the simulation.
+    - open(): Open communications resources.
+    - close(): Close communications resources and stop simulation.
+    - info(): Provide information about the HIL.
+    - control_panel_info(): Provide information about the control panel.
+    - load_schematic(): Load the schematic for the simulation.
+    - compile_model(): Compile the simulation model.
+    - load_model_on_hil(): Load the compiled model onto the HIL.
+    - init_sim_settings(): Initialize simulation settings.
+    - init_control_panel(): Initialize the control panel.
+    - voltage(voltage=None): Set or get voltage.
+    - stop_simulation(): Stop the running simulation.
+    - start_simulation(): Start the simulation.
     """
 
-    def __init__(self, ts, params=None):
+    def __init__(self, ts, group_name, params=None):
         self.ts = ts
+        self.group_name = group_name
         self.params = params
 
         if self.params is None:
@@ -140,6 +221,17 @@ class HIL(object):
 
 
 def hil_scan():
+    """
+    Scans for HIL (Hardware-in-the-Loop) modules in the current directory and imports them.
+
+    This function searches for all Python files in the current directory that match the pattern 'hil_*.py', imports them, 
+    and extracts the 'hil_info' function from each module. The 'hil_info' function is expected to return a dictionary containing 
+    information about the HIL module, including the 'mode' key which is used to store the module in the global 'hil_modules' dictionary.
+
+    If a module is successfully imported and has a 'hil_info' function, the module is added to the 'hil_modules' dictionary using the 
+    'mode' value as the key. If a module fails to import or does not have a 'hil_info' function, the module is removed from the 'sys.modules' 
+    dictionary to prevent further attempts to import it.
+    """
     global hil_modules
     # scan all files in current directory that match hil_*.py
     package_name = '.'.join(__name__.split('.')[:-1])
@@ -160,10 +252,11 @@ def hil_scan():
             else:
                 if module_name is not None and module_name in sys.modules:
                     del sys.modules[module_name]
-        except Exception, e:
+        except Exception as e:
             if module_name is not None and module_name in sys.modules:
                 del sys.modules[module_name]
-            raise HILError('Error scanning module %s: %s' % (module_name, str(e)))
+            print(HILError('Error scanning module %s: %s' % (module_name, str(e))))
+
 
 # scan for hil modules on import
 hil_scan()
