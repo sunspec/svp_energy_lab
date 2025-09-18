@@ -35,7 +35,7 @@ import os
 import glob
 import importlib
 
-import dataset
+from . import dataset
 
 '''
 The DAS module supports collecting time series data records in a dataset. Each time series data record is comprised
@@ -83,7 +83,7 @@ WFM_STATUS_ACTIVE = 'inactive'
 WFM_STATUS_COMPLETE = 'complete'
 
 points_default = {
-    'AC': ('VRMS', 'IRMS', 'P', 'S', 'Q', 'PF', 'FREQ'),
+    'AC': ('VRMS', 'IRMS', 'P', 'S', 'Q', 'PF', 'FREQ','INC'),
     'DC': ('V', 'I', 'P')
 }
 
@@ -93,7 +93,23 @@ MINIMUM_SAMPLE_PERIOD = 50
 
 das_modules = {}
 
+DAS_DEFAULT_ID = 'das'
+
 def params(info, id=None, label='Data Acquisition System', group_name=None, active=None, active_value=None):
+    """
+    Defines a function to create parameters for a Data Acquisition System (DAS) instance.
+    
+    The `params()` function is used to define the parameters for a DAS instance. It creates a parameter group with the given `group_name` and adds parameters 
+    for the DAS mode, as well as any additional parameters defined by the specific DAS modules.
+    
+    Args:
+        info (object): The test script information object used to define the parameters.
+        id (int, optional): An optional identifier for the DAS instance.
+        label (str, optional): The label for the parameter group.
+        group_name (str, optional): The name of the parameter group. If not provided, it defaults to `DAS_DEFAULT_ID`.
+        active (str, optional): The name of the parameter that determines if the DAS is active.
+        active_value (any, optional): The value of the `active` parameter that indicates the DAS is active.
+    """
     if group_name is None:
         group_name = DAS_DEFAULT_ID
     else:
@@ -103,12 +119,10 @@ def params(info, id=None, label='Data Acquisition System', group_name=None, acti
     name = lambda name: group_name + '.' + name
     info.param_group(group_name, label='%s Parameters' % label, active=active, active_value=active_value, glob=True)
     info.param(name('mode'), label='Mode', default='Disabled', values=['Disabled'])
-    for mode, m in das_modules.iteritems():
+    for mode, m in das_modules.items():
         m.params(info, group_name=group_name)
 
-DAS_DEFAULT_ID = 'das'
-
-def das_init(ts, id=None, points=None, sc_points=None, group_name=None):
+def das_init(ts, id=None, points=None, sc_points=None, group_name=None, support_interfaces=None):
     """
     Function to create specific das implementation instances.
     """
@@ -123,12 +137,12 @@ def das_init(ts, id=None, points=None, sc_points=None, group_name=None):
     if mode != 'Disabled':
         sim_module = das_modules.get(mode)
         if sim_module is not None:
-            sim = sim_module.DAS(ts, group_name, points=points, sc_points=sc_points)
+            sim = sim_module.DAS(ts, group_name, points=points, sc_points=sc_points,
+                                 support_interfaces=support_interfaces)
         else:
             raise DASError('Unknown data acquisition system mode: %s' % mode)
 
     return sim
-
 
 class DASError(Exception):
     """
@@ -139,11 +153,41 @@ class DASError(Exception):
 
 class DAS(object):
     """
-    Template for grid simulator implementations. This class can be used as a base class or
-    independent grid simulator classes can be created containing the methods contained in this class.
-    """
+    Template for data acquisition system implementations. This class can be used as a base class or
+    independent data acquisition system classes can be created containing the methods contained in 
+    this class.
 
-    def __init__(self, ts, group_name, points=None, sc_points=None):
+    Attributes:
+        ts (object): Test script object.
+
+    Methods:
+        info(): Returns a dictionary with information about the DAS.
+        open(): Opens the DAS.
+        close(): Closes the DAS.
+        data_capture(): Initiates data capture.
+        data_capture_read(): Reads data from the DAS.
+        data_capture_dataset(): Returns a dataset with the captured data.
+        device_data_read(): Reads data from the DAS.
+        data_read(): Reads data from the device.
+        data_sample(): Gets one data sample.
+        waveform_config(params): Configures waveform capture.
+        waveform_capture(enable=True, sleep=None): Captures waveform data.
+        waveform_status(): Gets waveform capture status.
+        waveform_force_trigger(): Forces a waveform trigger.
+        waveform_capture_dataset(): Returns a dataset with the captured waveform.
+        """
+    
+    def __init__(self, ts, group_name, points=None, sc_points=None, support_interfaces=None):
+        """
+        Initialize the DAS object with the following parameters
+
+        ts (object)         : test script with logging capability
+        group_name (str)    : name used when there are multiple instances
+        points (list)       : data points ('AC_P_1', etc.)
+        sc_points (list)    : soft channel points (V_MEAS, etc.)
+        support_interfaces (dict): dictionary with keys 'pvsim', 'gridsim', 'hil', etc.
+        """
+
         self.ts = ts
         self.group_name = group_name
         self.points = points
@@ -157,6 +201,22 @@ class DAS(object):
         self._timer = None
         self._ds = None
         self._last_datarec = []
+
+        # optional interfaces to other SVP abstraction layers/device drivers
+        self.dc_measurement_device = None
+        self.hil = None
+        self.gridsim = None
+        if support_interfaces is not None:
+            if support_interfaces.get('pvsim') is not None:
+                self.dc_measurement_device = support_interfaces.get('pvsim')
+            elif support_interfaces.get('dcsim') is not None:
+                self.dc_measurement_device = support_interfaces.get('dcsim')
+
+            if support_interfaces.get('hil') is not None:
+                self.hil = support_interfaces.get('hil')
+
+            if support_interfaces.get('gridsim') is not None:
+                self.gridsim = support_interfaces.get('gridsim')
 
         if self.points is None:
             self.points = dict(points_default)
@@ -177,28 +237,43 @@ class DAS(object):
             for p in self.sc_data_points:
                 self.data_points.append(p)
                 self.sc[p] = 0
+        # self.ts.log_debug('_init_sc_points datapoints = %s' % self.data_points)
 
-        self._ds = dataset.Dataset(self.data_points)
+        self._ds = dataset.Dataset(self.data_points, ts=self.ts)
 
     def _data_expand(self, data):
         if len(self.data_points) != len(data):
             raise DASError('Data/data point mismatch: %s %s' % (self.data_points, data))
-        return dict(zip(self.data_points, data))
+        return dict(list(zip(self.data_points, data)))
 
     def _timer_timeout(self, arg=None):
         self.data_sample()
 
     def info(self):
         """
-        Return information string for the DAS device.
+
+        Returns:
+        --------
+        str
+            Information string for the DAS device.
+
+        Raises:
+        -------
+        DASError
+            If DAS device is not initialized.
         """
         if self.device is None:
             raise DASError('DAS device not initialized')
         return self.device.info()
-
+    
     def open(self):
         """
         Open communications resources associated with the DAS device.
+
+        Raises:
+        -------
+        DASError
+            If DAS device is not initialized.
         """
         if self.device is None:
             raise DASError('DAS device not initialized')
@@ -207,6 +282,11 @@ class DAS(object):
     def close(self):
         """
         Close any open communications resources associated with the DAS device.
+
+        Raises:
+        -------
+        DASError
+            If DAS device is not initialized.
         """
         if self.device is None:
             raise DASError('DAS device not initialized')
@@ -217,11 +297,25 @@ class DAS(object):
         Enable/disable data capture.
 
         If sample_interval == 0, there will be no autonomous data captures and self.data_sample should be used to add
-        data points to the capture
+        data points to the capture.
+
+        Parameters:
+        -----------
+        enable : bool, optional
+            True to enable data capture, False to disable. Default is True.
+        channels : list, optional
+            List of channels to capture. Default is None.
+
+        Raises:
+        -------
+        DASError
+            If sample period is too small.
         """
+        if self.device is not None:
+            self.sample_interval = self.device.sample_interval
         if enable is True:
             if self._capture is False:
-                self._ds = dataset.Dataset(self.data_points)
+                self._ds = dataset.Dataset(self.data_points, ts=self.ts)
                 self._last_datarec = []
                 if self.sample_interval > 0:
                     if self.sample_interval < MINIMUM_SAMPLE_PERIOD:
@@ -239,7 +333,11 @@ class DAS(object):
 
     def data_capture_read(self):
         """
-        Return the last data sample from the data capture in expanded format.
+
+        Returns:
+        --------
+        dict
+            Dictionary containing the last data sample in expanded format from the data capture.
         """
         rec = []
         if len(self._last_datarec) > 0:
@@ -250,7 +348,11 @@ class DAS(object):
 
     def data_capture_dataset(self):
         """
-        Return dataset (Dataset) created from last data capture.
+
+        Returns:
+        --------
+        Dataset
+            Dataset object containing the captured data.
         """
         return self._ds
 
@@ -258,6 +360,11 @@ class DAS(object):
         """
         Read the current data values directly from the DAS. It does not create a new data sample in the
         data capture, if active.
+
+        Returns:
+        --------
+        data
+            List containing the current data values.
         """
         data = self.device.data_read()
         # add soft channel points
@@ -270,12 +377,20 @@ class DAS(object):
         """
         Read the current data values directly from the DAS. It does not create a new data sample in the
         data capture, if active.
+
+        Returns:
+        --------
+                Dictionary containing the current data values in expanded format.
         """
         return self._data_expand(self.device_data_read())
 
     def data_sample(self):
         """
         Read the current data values directly from the DAS and place in the current dataset.
+
+        Returns:
+        --------
+            List containing the last data record.
         """
         if self._capture is True:
             self._last_datarec = self.device_data_read()
@@ -286,21 +401,47 @@ class DAS(object):
         """
         Configure waveform capture.
 
-        params: Dictionary with following entries:
-            'sample_rate' - Sample rate (samples/sec)
-            'pre_trigger' - Pre-trigger time (sec)
-            'post_trigger' - Post-trigger time (sec)
-            'trigger_level' - Trigger level
-            'trigger_cond' - Trigger condition - ['Rising_Edge', 'Falling_Edge']
-            'trigger_channel' - Trigger channel - ['AC_V_1', 'AC_V_2', 'AC_V_3', 'AC_I_1', 'AC_I_2', 'AC_I_3', 'EXT']
-            'timeout' - Timeout (sec)
-            'channels' - Channels to capture - ['AC_V_1', 'AC_V_2', 'AC_V_3', 'AC_I_1', 'AC_I_2', 'AC_I_3', 'EXT']
+        Parameters:
+        -----------
+        params (dict) :
+            Dictionary with following entries:
+            'sample_rate' : float
+                Sample rate (samples/sec)
+            'pre_trigger' : float
+                Pre-trigger time (sec)
+            'post_trigger' : float
+                Post-trigger time (sec)
+            'trigger_level' : float
+                Trigger level
+            'trigger_cond' : str
+                Trigger condition - ['Rising_Edge', 'Falling_Edge']
+            'trigger_channel' : str
+                Trigger channel - ['AC_V_1', 'AC_V_2', 'AC_V_3', 'AC_I_1', 'AC_I_2', 'AC_I_3', 'EXT']
+            'timeout' : float
+                Timeout (sec)
+            'channels' : list
+                Channels to capture - ['AC_V_1', 'AC_V_2', 'AC_V_3', 'AC_I_1', 'AC_I_2', 'AC_I_3', 'EXT']
+
+        Returns:
+        --------
+            The configuration of thw waveform
         """
         return self.device.waveform_config(params=params)
 
     def waveform_capture(self, enable=True, sleep=None):
         """
         Enable/disable data capture.
+
+        Parameters:
+        -----------
+        enable : bool, optional
+            True to enable data capture, False to disable. Default is True.
+        sleep : float, optional
+            Time to sleep after enabling/disabling capture, in seconds.
+
+        Returns:
+        --------
+        None
         """
         if sleep is None:
             sleep = self.ts.sleep
@@ -309,22 +450,51 @@ class DAS(object):
     def waveform_status(self):
         """
         Get waveform capture status.
+
+        Returns:
+        --------
+        dict
+            A dictionary containing the waveform capture status.
         """
         return self.device.waveform_status()
 
-    def waveform_force_trigger(self):
+    def waveform_force_trigger(self):  
         """
-        Create trigger event
+        Create trigger event.
+
+        Returns:
+        --------
+        dict
+            A dictionary containing the result of forcing the trigger.
         """
         return self.device.waveform_force_trigger()
-
+    
     def waveform_capture_dataset(self):
         """
-        Return dataset (Dataset) created from last waveform capture.
+
+        Returns:
+        --------
+        Dataset
+            Dataset created from last waveform capture.
         """
         return self.device.waveform_capture_dataset()
 
 def das_scan():
+    """
+    Scan for DAS modules in the current directory.
+
+    This function scans all files in the current directory that match the pattern 'das_*.py',
+    imports them, and adds them to the global das_modules dictionary if they have a 'das_info' attribute.
+
+    Returns:
+    --------
+    None
+
+    Raises:
+    -------
+    DASError
+        If there's an error while scanning or importing a module.
+    """
     global das_modules
     # scan all files in current directory that match das_*.py
     package_name = '.'.join(__name__.split('.')[:-1])
@@ -345,12 +515,13 @@ def das_scan():
             else:
                 if module_name is not None and module_name in sys.modules:
                     del sys.modules[module_name]
-        except Exception, e:
+        except Exception as e:
             if module_name is not None and module_name in sys.modules:
                 del sys.modules[module_name]
-            raise DASError('Error scanning module %s: %s' % (module_name, str(e)))
-
+            print(DASError('Error scanning module %s: %s' % (module_name, str(e))))
+            
 # scan for das modules on import
+
 das_scan()
 
 if __name__ == "__main__":

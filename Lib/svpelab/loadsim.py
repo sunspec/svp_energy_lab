@@ -44,12 +44,12 @@ def params(info, id=None, label='Load Simulator', group_name=None, active=None, 
         group_name += '.' + LOADSIM_DEFAULT_ID
     if id is not None:
         group_name = group_name + '_' + str(id)
-    print 'group_name = %s' % group_name
+    print('group_name = %s' % group_name)
     name = lambda name: group_name + '.' + name
     info.param_group(group_name, label='%s Parameters' % label, active=active, active_value=active_value, glob=True)
-    print 'name = %s' % name('mode')
+    print('name = %s' % name('mode'))
     info.param(name('mode'), label='Mode', default='Disabled', values=['Disabled'])
-    for mode, m in loadsim_modules.iteritems():
+    for mode, m in loadsim_modules.items():
         m.params(info, group_name=group_name)
 
 LOADSIM_DEFAULT_ID = 'loadsim'
@@ -87,12 +87,32 @@ class LoadSim(object):
     """
     Template for grid simulator implementations. This class can be used as a base class or
     independent grid simulator classes can be created containing the methods contained in this class.
+
+    Methods:
+    - config(): Configure device
+    - info(): Get device information
+    - open(): Open communications resources
+    - close(): Close communications resources
+    - resistance(r, ph): Set resistance in ohms
+    - inductance(l, ph): Set inductance in henries
+    - capacitance(c, ph): Set capacitance in farads
+    - capacitor_q(q, ph): Set capacitance in vars
+    - inductor_q(q, ph): Set inductance in vars
+    - resistance_p(p, ph): Set resistance in watts
+    - tune_current(i, ph): Adjust load bank to produce a certain level of current
+    - p_q_profile(csv): Setup load banks to run a power profile from a csv file
+    - start_profile(): Trigger p_q_profile to start running
     """
 
     def __init__(self, ts, group_name):
         self.ts = ts
         self.group_name = group_name
 
+    def config(self):
+        """
+        Configure device.
+        """
+        pass
 
     def info(self):
         """
@@ -112,29 +132,76 @@ class LoadSim(object):
         """
         pass
 
-    def resistance(self, r=None, ph = None):
+    def resistance(self, r=None, ph=None):
+        """
+        Set resistance, r, in ohms on phase, ph
+        """
         pass
 
-    def inductance(self, i=None, ph=None):
+    def inductance(self, l=None, ph=None):
+        """
+        Set inductance, l, in henries on phase, ph
+        """
         pass
 
     def capacitance(self, c=None, ph=None):
+        """
+        Set capacitance, c, in farads on phase, ph
+        """
         pass
 
     def capacitor_q(self, q=None, ph=None):
+        """
+        Set capacitance, q, in vars on phase, ph
+        """
         pass
 
     def inductor_q(self, q=None, ph=None):
+        """
+        Set inductance, q, in vars on phase, ph
+        """
         pass
 
     def resistance_p(self, p=None, ph=None):
+        """
+        Set resistance, p, in watts on phase, ph
+        """
         pass
 
     def tune_current(self, i=None, ph=None):
+        """
+        Adjust load bank to produce a certain level of current
+        """
         pass
 
+    def p_q_profile(self, csv=None):
+        """
+        Setup load banks to run a power profile from a csv file
+
+        file format: time (sec), resistance (watts), inductance (var), capacitance (var)
+        """
+        pass
+
+    def start_profile(self):
+        """
+        Trigger p_q_profile to start running
+        """
+        pass
 
 def loadsim_scan():
+    """
+    Scan for loadsim modules on import.
+    
+    This function scans all files in the current directory that match the pattern 'loadsim_*.py' and imports any modules that have a 
+    'loadsim_info' function. The 'loadsim_info' function is expected to return a dictionary with a 'mode' key, which is used to store 
+    the module in the 'loadsim_modules' global dictionary.
+    
+    If a module is successfully imported, its 'loadsim_info' function is called and the returned dictionary is used to store 
+    the module in the 'loadsim_modules' global dictionary. If the 'loadsim_info' function is not present or does not return a 
+    'mode' key, the module is not stored.
+    
+    If an exception occurs during the import or scanning process, the module is removed from 'sys.modules' to prevent any further issues.
+    """
     global loadsim_modules
     # scan all files in current directory that match loadsim_*.py
     package_name = '.'.join(__name__.split('.')[:-1])
@@ -155,7 +222,7 @@ def loadsim_scan():
             else:
                 if module_name is not None and module_name in sys.modules:
                     del sys.modules[module_name]
-        except Exception, e:
+        except Exception as e:
             if module_name is not None and module_name in sys.modules:
                 del sys.modules[module_name]
             raise LoadSimError('Error scanning module %s: %s' % (module_name, str(e)))

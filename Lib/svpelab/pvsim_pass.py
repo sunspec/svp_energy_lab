@@ -31,8 +31,7 @@ Questions can be directed to support@sunspec.org
 """
 
 import os
-
-import pvsim
+from . import pvsim
 
 pass_info = {
     'name': os.path.splitext(os.path.basename(__file__))[0],
@@ -53,8 +52,8 @@ GROUP_NAME = 'pass'
 
 class PVSim(pvsim.PVSim):
 
-    def __init__(self, ts, group_name):
-        pvsim.PVSim.__init__(self, ts, group_name)
+    def __init__(self, ts, group_name, support_interfaces=None):
+        pvsim.PVSim.__init__(self, ts, group_name,support_interfaces=support_interfaces)
 
     def irradiance_set(self, irradiance=1000):
         if self.ts.log('Please change the irradiance to %0.1f W/m^2.' % irradiance) is False:

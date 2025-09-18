@@ -33,8 +33,8 @@ Questions can be directed to support@sunspec.org
 import os
 
 import script
-import device_sandia_dsm
-import das
+from . import device_sandia_dsm
+from . import das
 
 sandia_info = {
     'name': os.path.splitext(os.path.basename(__file__))[0],
@@ -71,8 +71,8 @@ class DAS(das.DAS):
 
     def __init__(self, ts, group_name, points=None, sc_points=None):
         das.DAS.__init__(self, ts, group_name, points=points, sc_points=sc_points)
-        self.sample_interval = self._param_value('sample_interval')
 
+        self.params['sample_interval'] = self._param_value('sample_interval')
         self.params['dsm_method'] = self._param_value('dsm_method')
         self.params['dsm_id'] = self._param_value('node')
         self.params['comp'] = self._param_value('comp')

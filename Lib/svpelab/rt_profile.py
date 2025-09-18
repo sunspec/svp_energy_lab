@@ -101,8 +101,8 @@ def freq_rt_profile(p_n, p_t, t_f, t_h, t_r, t_d, n):
 
     return profile
 
-print voltage_rt_profile(100, 80, 2, 5, 2, 5, 1)
-print freq_rt_profile(100, 80, 2, 5, 2, 5, 3)
+print(voltage_rt_profile(100, 80, 2, 5, 2, 5, 1))
+print(freq_rt_profile(100, 80, 2, 5, 2, 5, 3))
 
 '''
 Each region shall have the applicable ride-through magnitudes and durations verified.

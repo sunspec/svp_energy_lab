@@ -30,13 +30,27 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 Questions can be directed to support@sunspec.org
 """
 
+
+"""
+ROLE OF THIS SCRIPT:
+
+This is a Python module designed to interact with and control solar inverters using the SunSpec 
+communication protocol. 
+
+The main purpose of this code is to allow users to read information from solar inverters and 
+send commands to them. It can do things like check how much power the inverter is producing, 
+set limits on its output, or change its operating mode.
+
+The code doesn't directly take user inputs. Instead, it defines a set of functions that other 
+parts of a program can use. These functions typically need information like the inverter's 
+network address or specific settings you want to change.
+
+"""
+
 import os
-
 import sunspec.core.client as client
-
-import der
+from . import der
 import script
-
 
 sunspec_info = {
     'name': os.path.splitext(os.path.basename(__file__))[0],
@@ -53,30 +67,36 @@ def params(info, group_name):
     info.param_add_value(gname('mode'), mode)
     info.param_group(gname(GROUP_NAME), label='%s Parameters' % mode,
                      active=gname('mode'),  active_value=mode, glob=True)
-    info.param(pname('ifc_type'), label='Interface Type', default=client.RTU, values=[client.RTU, client.TCP, client.MAPPED])
+    info.param(pname('ifc_type'), label='Interface Type', default=client.RTU,
+               values=[client.RTU, client.TCP, client.MAPPED])
     # RTU parameters
-    info.param(pname('ifc_name'), label='Interface Name', default='COM3',  active=pname('ifc_type'), active_value=[client.RTU],
+    info.param(pname('ifc_name'), label='Interface Name', default='COM3',  active=pname('ifc_type'),
+               active_value=[client.RTU],
                desc='Select the communication port from the UMS computer to the EUT.')
     info.param(pname('baudrate'), label='Baud Rate', default=9600, values=[9600, 19200], active=pname('ifc_type'),
                active_value=[client.RTU])
     info.param(pname('parity'), label='Parity', default='N', values=['N', 'E'], active=pname('ifc_type'),
                active_value=[client.RTU])
     # TCP parameters
-    info.param(pname('ipaddr'), label='IP Address', default='192.168.0.170', active=pname('ifc_type'),
+    info.param(pname('ipaddr'), label='IP Address', default='192.168.137.60', active=pname('ifc_type'),
                active_value=[client.TCP])
-    info.param(pname('ipport'), label='IP Port', default=502, active=pname('ifc_type'), active_value=[client.TCP])
-    info.param(pname('tls'), label='TLS Client', default=False, active=pname('ifc_type'), active_value=[client.TCP],
-               desc='Enable TLS (Modbus/TCP Security).')
-    info.param(pname('cafile'), label='CA Certificate', default=None, active=pname('ifc_type'), active_value=[client.TCP],
+    info.param(pname('ipport'), label='IP Port', default=1502, active=pname('ifc_type'), active_value=[client.TCP])
+    info.param(pname('tls'), label='TLS Client', default="False", values=['True', 'False'], active=pname('ifc_type'),
+               active_value=[client.TCP], desc='Enable TLS (Modbus/TCP Security).')
+    info.param(pname('cafile'), label='CA Certificate', default="False", values=['True', 'False'], active=pname('tls'),
+               active_value=['True'],
                desc='Path to certificate authority (CA) certificate to use for validating server certificates.')
-    info.param(pname('certfile'), label='Client TLS Certificate', default=None, active=pname('ifc_type'), active_value=[client.TCP],
+    info.param(pname('certfile'), label='Client TLS Certificate', default="False", values=['True', 'False'],
+               active=pname('tls'), active_value=['True'],
                desc='Path to client TLS certificate to use for client authentication.')
-    info.param(pname('keyfile'), label='Client TLS Key', default=None, active=pname('ifc_type'), active_value=[client.TCP],
+    info.param(pname('keyfile'), label='Client TLS Key', default="False", values=['True', 'False'],
+               active=pname('tls'), active_value=['True'],
                desc='Path to client TLS key to use for client authentication.')
-    info.param(pname('insecure_skip_tls_verify'), label='Skip TLS Verification', default=False, active=pname('ifc_type'), active_value=[client.TCP],
+    info.param(pname('insecure_skip_tls_verify'), label='Skip TLS Verification', default="False",
+               values=['True', 'False'], active=pname('tls'), active_value=['True'],
                desc='Skip Verification of Server TLS Certificate.')
     # Mapped parameters
-    info.param(pname('map_name'), label='Map File', default='mbmap.xml',active=pname('ifc_type'),
+    info.param(pname('map_name'), label='Map File', default='mbmap.xml', active=pname('ifc_type'),
                active_value=[client.MAPPED], ptype=script.PTYPE_FILE)
     info.param(pname('slave_id'), label='Slave Id', default=1)
 
@@ -148,11 +168,63 @@ VOLTVAR_WMAX = 1
 VOLTVAR_VARMAX = 2
 VOLTVAR_VARAVAL = 3
 
+
 class DER(der.DER):
+    """SunSpec-specific implementation of Distributed Energy Resource (DER) control.
+    
+    This class extends der.DER to provide SunSpec protocol compatibility.
+    Parameter:
+    -----------
+    - der.DER: The base DER class from which this class inherits.
+
+    Attributes:
+    -----------
+    - inv: The inverter object.
+    - ts: The Test System object.
+
+    Methods:
+    -----------
+    - param_value(param): Gets the value of a specific parameter.
+    - config(): Configures DER settings.    
+    - open(): Establishes connection with the DER.
+    - close(): Closes the connection with the DER.
+    - info(): Returns DER device information.    
+    - nameplate(): Returns DER device nameplate.
+    - measurements(): Returns DER device measurements.
+    - settings(params=None): Gets/sets DER settings.
+    - conn_status(params=None): Gets DER connection status.
+    - controls_status(params=None): Gets DER controls status.
+    - connect(params=None): Connects the DER to the grid.
+    - fixed_pf(params=None): Gets/sets fixed power factor.
+    - limit_max_power(params=None): Gets/sets maximum power limit.
+    - volt_var(params=None): Gets/sets volt-var curve.
+    - validate_volt_var(params=None): Validates volt-var curve.
+    - volt_var_curve(id, params=None): Get/set volt/var curve
+    - freq_watt(params=None): Gets/sets frequency-watt curve.
+    - freq_watt_curve(id, params=None): Get/set freq/watt curve
+    - freq_watt_param(params=None): Get/set frequency-watt with parameters
+    - volt_watt(params=None): Gets/sets volt-watt curve.
+    - reactive_power(params=None): Gets/sets reactive power.
+    - reactive_power_via_vv(params=None): Gets/sets reactive power via volt-var.
+    - active_power(params=None): Gets/sets active power.
+    - active_power_limit(params=None): Gets/sets active power limit.
+    - storage(params=None): Gets/sets storage parameters.
+    - frt_stay_connected_high(params=None): Gets/sets high frequency ride through (HFRT) settings.
+    - frt_stay_connected_low(params=None): Gets/sets low frequency ride through (LFRT) settings.
+    - frt_trip_high(params=None): Get/set high frequency ride through (must trip curve)
+    - frt_trip_low(params=None): Get/set low frequency ride through (must trip curve)
+    - vrt_stay_connected_high(params=None): Gets/sets high voltage ride through (HVRT) settings.
+    - vrt_stay_connected_low(params=None): Gets/sets low voltage ride through (LVRT) settings.
+    - vrt_trip_high(params=None): Get/set high voltage ride through (must trip curve)
+    - vrt_trip_low( params=None): Get/set low voltage ride through (must trip curve)
+    - ramp_rates(self, params=None): Get/set ramp rate control
+     """
+
 
     def __init__(self, ts, group_name):
         der.DER.__init__(self, ts, group_name)
         self.inv = None
+        self.ts = ts
 
     def param_value(self, name):
         return self.ts.param_value(self.group_name + '.' + GROUP_NAME + '.' + name)
@@ -176,9 +248,18 @@ class DER(der.DER):
         skip_verify = self.param_value('insecure_skip_tls_verify')
         slave_id = self.param_value('slave_id')
 
-        self.inv = client.SunSpecClientDevice(ifc_type, slave_id=slave_id, name=ifc_name, baudrate=baudrate,
-                                              parity=parity, ipaddr=ipaddr, ipport=ipport,
-                                              tls=tls, cafile=cafile, certfile=certfile, keyfile=keyfile, insecure_skip_tls_verify=skip_verify)
+        try:  # attempt to use pysunspec that supports TLS encryption
+            self.inv = client.SunSpecClientDevice(ifc_type, slave_id=slave_id, name=ifc_name, baudrate=baudrate,
+                                                  parity=parity, ipaddr=ipaddr, ipport=ipport,
+                                                  tls=tls, cafile=cafile, certfile=certfile, keyfile=keyfile,
+                                                  insecure_skip_tls_verify=skip_verify)
+        except Exception as e:  # fallback to unencrypted version
+            if self.ts is not None:
+                self.ts.log('Could not create Modbus client with encryption: %s.  Attempted unencrypted option.')
+            else:
+                print('Could not create Modbus client with encryption: %s.  Attempted unencrypted option.')
+            self.inv = client.SunSpecClientDevice(ifc_type, slave_id=slave_id, name=ifc_name, baudrate=baudrate,
+                                                  parity=parity, ipaddr=ipaddr, ipport=ipport)
 
     def close(self):
         if self.inv is not None:
@@ -212,7 +293,7 @@ class DER(der.DER):
                 params['SerialNumber'] = self.inv.common.SN
             else:
                 params = None
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -258,7 +339,7 @@ class DER(der.DER):
                 params['MaxDisChaRte'] = self.inv.nameplate.MaxDisChaRte
             else:
                 params = None
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -311,7 +392,7 @@ class DER(der.DER):
                 params['EvtVnd4'] = self.inv.inverter.EvtVnd4
             else:
                 params = None
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -342,7 +423,7 @@ class DER(der.DER):
         try:
             if 'settings' in self.inv.models:
                 if params is not None:
-                    for key, value in params.iteritems():
+                    for key, value in params.items():
                         self.inv.settings[key] = value
                     self.inv.settings.write()
                 else:
@@ -366,7 +447,7 @@ class DER(der.DER):
                     params['VArAct'] = self.inv.settings.VArAct
             else:
                 params = None
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -399,7 +480,7 @@ class DER(der.DER):
                 params['EPC_Connected'] = (ecp_conn_bitfield & ECPCONN_CONNECTED) == ECPCONN_CONNECTED
             else:
                 params = {}
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -433,7 +514,7 @@ class DER(der.DER):
                 params['HFRT'] = (status_bitfield & STACTCTL_HFRT) == STACTCTL_HFRT
             else:
                 params = {}
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -479,7 +560,7 @@ class DER(der.DER):
                     params['RvrtTms'] = self.inv.controls.Conn_RvrtTms
             else:
                 params = None
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -536,7 +617,7 @@ class DER(der.DER):
                     params['RvrtTms'] = self.inv.controls.OutPFSet_RvrtTms
             else:
                 params = None
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -592,7 +673,7 @@ class DER(der.DER):
                     params['RvrtTms'] = self.inv.controls.WMaxLimPct_RvrtTms
             else:
                 params = None
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -614,11 +695,14 @@ class DER(der.DER):
         """
         if self.inv is None:
             raise der.DERError('DER not initialized')
-
         try:
             if 'volt_var' in self.inv.models:
+                self.inv.volt_var.read()
                 if params is not None:
-                    curve = params.get('curve')  ## Must write curve first because there is a read() in volt_var_curve
+                    curve = params.get('curve')  # Must write curve first because there is a read() in volt_var_curve
+                    act_crv = params.get('ActCrv')
+                    if act_crv is None:
+                        act_crv = 1
                     if curve is not None:
                         self.volt_var_curve(id=act_crv, params=curve)
                     ena = params.get('Ena')
@@ -627,12 +711,12 @@ class DER(der.DER):
                             self.inv.volt_var.ModEna = 1
                         else:
                             self.inv.volt_var.ModEna = 0
-                    act_crv = params.get('ActCrv')
                     if act_crv is not None:
                         self.inv.volt_var.ActCrv = act_crv
                     else:
                         self.inv.volt_var.ActCrv = 1
                     win_tms = params.get('WinTms')
+                    self.ts.log(win_tms)
                     if win_tms is not None:
                         self.inv.volt_var.WinTms = win_tms
                     rmp_tms = params.get('RmpTms')
@@ -642,10 +726,11 @@ class DER(der.DER):
                     if rvrt_tms is not None:
                         self.inv.volt_var.RvrtTms = rvrt_tms
                     self.inv.volt_var.write()
+
                 else:
                     params = {}
                     self.inv.volt_var.read()
-                    if self.inv.volt_var.ModEna == 0:
+                    if self.inv.volt_var.ModEna == 0 or self.inv.volt_var.ModEna is None:
                         params['Ena'] = False
                     else:
                         params['Ena'] = True
@@ -655,14 +740,48 @@ class DER(der.DER):
                     params['WinTms'] = self.inv.volt_var.WinTms
                     params['RmpTms'] = self.inv.volt_var.RmpTms
                     params['RvrtTms'] = self.inv.volt_var.RvrtTms
-                    if self.inv.volt_var.ActCrv != 0:
-                        params['curve'] = self.volt_var_curve(id=self.inv.volt_var.ActCrv)
+
+                    act_crv = self.inv.volt_var.ActCrv
+                    if act_crv != 0:
+                        if act_crv is not None:
+                            params['curve'] = self.volt_var_curve(id=act_crv)
+                        else:
+                            params['curve'] = self.volt_var_curve(id=1)  # use 1 as default
+
             else:
                 params = None
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
+
+    def validate_volt_var(self, params=None):
+        """ validate volt/var curve data.
+            v [] - List of voltage curve points
+            var [] - List of var curve points based on DeptRef
+
+        :param params: Dictionary of parameters; we only use the v[] and var[].
+        """
+        if params is None:
+            return
+
+        v = params['v']
+        var = params['var']
+
+        # Simple check to validate length correspondence betwee points.
+        if len(v) != len(var):
+            raise der.DERError('Unaligned v/var point totals; (%d) v and (%d) var' % (len(v), len(var)))
+
+        # We validate quadrant of each v/var pair; the origin starts at (100, 0).
+        for idx in range(len(v)):
+            v_measure = v[idx] #The values are pu, so it is necessary multiplicate per 100 to validate the test
+            var_measure = var[idx] #The values are pu, so it is necessary multiplicate per 100 to validate the test
+
+            if (v_measure > 100 and var_measure > 0) or (v_measure < 100 and var_measure < 0):
+                raise der.DERError(
+                    'Unsecure quadrant location for power system operations @ index %d; (%d) v and (%d) var' 
+                    % (idx, v_measure, var_measure)
+                )
 
     def volt_var_curve(self, id, params=None):
         """ Get/set volt/var curve
@@ -682,11 +801,15 @@ class DER(der.DER):
         try:
             if 'volt_var' in self.inv.models:
                 self.inv.volt_var.read()
-                if int(id) > int(self.inv.volt_var.NCrv):
-                    raise der.DERError('Curve id out of range: %s' % (id))
+                n_crv = self.inv.volt_var.NCrv
+                self.ts.log(n_crv)
+                if n_crv is not None:
+                    if int(id) > int(n_crv):
+                        raise der.DERError('Curve id out of range: %s' % (id))
                 curve = self.inv.volt_var.curve[id]
 
                 if params is not None:
+                    self.validate_volt_var(params=params)
                     dept_ref = params.get('DeptRef')
                     if dept_ref is not None:
                         dept_ref_id = volt_var_dept_ref.get(dept_ref)
@@ -704,14 +827,16 @@ class DER(der.DER):
                     if rmp_inc_tmm is not None:
                         curve.RmpIncTmm = rmp_inc_tmm
 
-                    n_pt = int(self.inv.volt_var.NPt)
+                    n_pt = self.inv.volt_var.NPt
+                    if n_pt is None:
+                        n_pt = 4  # Assume 4 points in the curve
                     # set voltage points
                     v = params.get('v')
                     if v is not None:
                         v_len = len(v)
-                        if v_len > n_pt:
+                        if v_len > int(n_pt):
                             raise der.DERError('Voltage point count out of range: %d' % (v_len))
-                        for i in xrange(v_len):  # SunSpec point index starts at 1
+                        for i in range(v_len):  # SunSpec point index starts at 1
                             v_point = 'V%d' % (i + 1)
                             setattr(curve, v_point, v[i])
                     # set var points
@@ -720,7 +845,7 @@ class DER(der.DER):
                         var_len = len(var)
                         if var_len > n_pt:
                             raise der.DERError('VAr point count out of range: %d' % (var_len))
-                        for i in xrange(var_len):  # SunSpec point index starts at 1
+                        for i in range(var_len):  # SunSpec point index starts at 1
                             var_point = 'VAr%d' % (i + 1)
                             setattr(curve, var_point, var[i])
 
@@ -730,7 +855,7 @@ class DER(der.DER):
                     act_pt = curve.ActPt
                     dept_ref = volt_var_dept_ref.get(curve.DeptRef)
                     if dept_ref is None:
-                        raise der.DERError('DeptRef out of range: %s' % (dept_ref))
+                        der.DERError('DeptRef out of range: %s' % (dept_ref))
                     params['DeptRef'] = dept_ref
                     params['RmpTms'] = curve.RmpTms
                     params['RmpDecTmm'] = curve.RmpDecTmm
@@ -739,17 +864,18 @@ class DER(der.DER):
 
                     v = []
                     var = []
-                    for i in xrange(1, act_pt + 1):  # SunSpec point index starts at 1
-                        v_point = 'V%d' % i
-                        var_point = 'VAr%d' % i
-                        v.append(getattr(curve, v_point))
-                        var.append(getattr(curve, var_point))
+                    if act_pt is not None:
+                        for i in range(1, act_pt + 1):  # SunSpec point index starts at 1
+                            v_point = 'V%d' % i
+                            var_point = 'VAr%d' % i
+                            v.append(getattr(curve, v_point))
+                            var.append(getattr(curve, var_point))
                     params['v'] = v
                     params['var'] = var
             else:
                 params = None
 
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -765,6 +891,21 @@ class DER(der.DER):
             WinTms - Randomized start time delay in seconds
             RmpTms - Ramp time in seconds to updated output level
             RvrtTms - Reversion time in seconds
+            curve - dict of curve parameters:
+                hz [] - List of frequency curve points
+                w [] - List of power curve points
+                CrvNam - Optional description for curve. (Max 16 chars)
+                RmpPT1Tms - The time of the PT1 in seconds (time to accomplish a change of 95%).
+                RmpDecTmm - Ramp decrement timer
+                RmpIncTmm - Ramp increment timer
+                RmpRsUp - The maximum rate at which the power may be increased after releasing the frozen value of
+                          snap shot function.
+                SnptW - 1=enable snapshot/capture mode
+                WRef - Reference active power (default = WMax).
+                WRefStrHz - Frequency deviation from nominal frequency at the time of the snapshot to start constraining
+                            power output.
+                WRefStopHz - Frequency deviation from nominal frequency at which to release the power output.
+                ReadOnly - 0 = READWRITE, 1 = READONLY
 
         :param params: Dictionary of parameters to be updated.
         :return: Dictionary of active settings for freq/watt control.
@@ -817,13 +958,13 @@ class DER(der.DER):
                         params['curve'] = self.freq_watt_curve(id=self.inv.freq_watt.ActCrv)
             else:
                 params = None
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
 
     def freq_watt_curve(self, id, params=None):
-        """ Get/set volt/var curve
+        """ Get/set freq/watt curve
             hz [] - List of frequency curve points
             w [] - List of power curve points
             CrvNam - Optional description for curve. (Max 16 chars)
@@ -891,7 +1032,7 @@ class DER(der.DER):
                         hz_len = len(hz)
                         if hz_len > n_pt:
                             raise der.DERError('Freq point count out of range: %d' % (hz_len))
-                        for i in xrange(hz_len):  # SunSpec point index starts at 1
+                        for i in range(hz_len):  # SunSpec point index starts at 1
                             hz_point = 'Hz%d' % (i + 1)
                             setattr(curve, hz_point, hz[i])
                     # set watt points
@@ -900,7 +1041,7 @@ class DER(der.DER):
                         w_len = len(w)
                         if w_len > n_pt:
                             raise der.DERError('Watt point count out of range: %d' % (w_len))
-                        for i in xrange(w_len):  # SunSpec point index starts at 1
+                        for i in range(w_len):  # SunSpec point index starts at 1
                             w_point = 'W%d' % (i + 1)
                             setattr(curve, w_point, w[i])
 
@@ -921,9 +1062,9 @@ class DER(der.DER):
                     params['id'] = id  #also store the curve number
                     hz = []
                     w = []
-                    for i in xrange(1, act_pt + 1):  # SunSpec point index starts at 1
+                    for i in range(1, act_pt + 1):  # SunSpec point index starts at 1
                         hz_point = 'Hz%d' % i
-                        w_point = 'VAr%d' % i
+                        w_point = 'W%d' % i
                         hz.append(getattr(curve, hz_point))
                         w.append(getattr(curve, w_point))
                     params['hz'] = hz
@@ -931,7 +1072,7 @@ class DER(der.DER):
             else:
                 params = None
 
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -941,7 +1082,7 @@ class DER(der.DER):
 
         Params:
             Ena - Enabled (True/False)
-            HysEna - Enable hysterisis (True/False)
+            HysEna - Enable hysteresis (True/False)
             WGra - The slope of the reduction in the maximum allowed watts output as a function of frequency.
             HzStr - The frequency deviation from nominal frequency (ECPNomHz) at which a snapshot of the instantaneous
                     power output is taken to act as the CAPPED power level (PM) and above which reduction in power
@@ -1005,11 +1146,16 @@ class DER(der.DER):
             else:
                 params = None
 
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
 
+    def soft_start_ramp_rate(self, params=None):
+        pass
+
+    def ramp_rate(self, params=None):
+        pass
 
     def volt_watt(self, params=None):
         """ Get/set volt/watt control
@@ -1031,7 +1177,7 @@ class DER(der.DER):
                     RmpIncTmm - Ramp increment timer
 
         :param params: Dictionary of parameters to be updated.
-        :return: Dictionary of active settings for volt/var control.
+        :return: Dictionary of active settings for volt/watt control.
         """
         if self.inv is None:
             raise der.DERError('DER not initialized')
@@ -1064,6 +1210,7 @@ class DER(der.DER):
                     curve = params.get('curve')
                     if curve is not None:
                         # curve paramaters
+                        id = self.inv.volt_watt.ActCrv
                         if int(id) > int(self.inv.volt_watt.NCrv):
                             raise der.DERError('Curve id out of range: %s' % (id))
                         curve = self.inv.volt_watt.curve[id]
@@ -1072,7 +1219,6 @@ class DER(der.DER):
                             dept_ref_id = volt_watt_dept_ref.get(dept_ref)
                             if dept_ref_id is None:
                                 raise der.DERError('Unsupported DeptRef: %s' % (dept_ref))
-
                             curve.DeptRef = dept_ref_id
                         rmp_tms = params.get('RmpTms')
                         if rmp_tms is not None:
@@ -1091,7 +1237,7 @@ class DER(der.DER):
                             v_len = len(v)
                             if v_len > n_pt:
                                 raise der.DERError('Voltage point count out of range: %d' % (v_len))
-                            for i in xrange(v_len):  # SunSpec point index starts at 1
+                            for i in range(v_len):  # SunSpec point index starts at 1
                                 v_point = 'V%d' % (i + 1)
                                 setattr(curve, v_point, v[i])
                         # set watt points
@@ -1100,7 +1246,7 @@ class DER(der.DER):
                             watt_len = len(watt)
                             if watt_len > n_pt:
                                 raise der.DERError('W point count out of range: %d' % (watt_len))
-                            for i in xrange(watt_len):  # SunSpec point index starts at 1
+                            for i in range(watt_len):  # SunSpec point index starts at 1
                                 watt_point = 'W%d' % (i + 1)
                                 setattr(curve, watt_point, watt[i])
 
@@ -1110,6 +1256,7 @@ class DER(der.DER):
                     params = {}
                     c_params = {}
                     self.inv.volt_watt.read()
+                    id = self.inv.volt_watt.ActCrv
                     curve = self.inv.volt_watt.curve[id]
                     if self.inv.volt_watt.ModEna == 0:
                         params['Ena'] = False
@@ -1126,26 +1273,25 @@ class DER(der.DER):
                         # curve parameters
                         act_pt = curve.ActPt
                         dept_ref = volt_watt_dept_ref.get(curve.DeptRef)
-                        if dept_ref is None:
-                            raise der.DERError('DeptRef out of range: %s' % (dept_ref))
                         c_params['DeptRef'] = dept_ref
-                        c_params['RmpTms'] = curve.RmpTms
-                        c_params['RmpDecTmm'] = curve.RmpDecTmm
-                        c_params['RmpIncTmm'] = curve.RmpIncTmm
+                        # c_params['RmpTms'] = curve.RmpTms
+                        # c_params['RmpDecTmm'] = curve.RmpDecTmm
+                        # c_params['RmpIncTmm'] = curve.RmpIncTmm
                         c_params['id'] = id  # also store the curve number
                         v = []
-                        var = []
-                        for i in xrange(1, act_pt + 1):  # SunSpec point index starts at 1
+                        w = []
+                        for i in range(1, act_pt + 1):  # SunSpec point index starts at 1
                             v_point = 'V%d' % i
-                            var_point = 'VAr%d' % i
+                            w_point = 'W%d' % i
                             v.append(getattr(curve, v_point))
-                            var.append(getattr(curve, var_point))
+                            w.append(getattr(curve, w_point))
                         c_params['v'] = v
-                        c_params['var'] = var
+                        c_params['w'] = w
                         params['curve'] = c_params
             else:
                 params = None
-        except Exception, e:
+
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -1156,10 +1302,10 @@ class DER(der.DER):
         Params:
             Ena - Enabled (True/False)
             VArPct_Mod - Reactive power mode
-                    # 'None' : 0,
-                    # 'WMax': 1,
-                    # 'VArMax': 2,
-                    # 'VArAval': 3,
+                    'None' : 0,
+                    'WMax': 1,
+                    'VArMax': 2,
+                    'VArAval': 3,
             VArWMaxPct - Reactive power in percent of WMax.
             VArMaxPct - Reactive power in percent of VArMax.
             VArAvalPct - Reactive power in percent of VArAval.
@@ -1205,7 +1351,7 @@ class DER(der.DER):
                 params['VArMaxPct'] = self.inv.controls.VArMaxPct
                 params['VArAvalPct'] = self.inv.controls.VArAvalPct
 
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -1278,7 +1424,7 @@ class DER(der.DER):
                     params['curve'] = self.volt_var_curve(id=self.inv.volt_var.ActCrv)
                 params['Q'] = self.inv.volt_var_curve.var[0]
 
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -1339,7 +1485,7 @@ class DER(der.DER):
                 params['RmpTms'] = storage_params['InOutWRte_RmpTms']
                 params['RvrtTms'] = storage_params['InOutWRte_RvrtTms']
 
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -1427,7 +1573,7 @@ class DER(der.DER):
                 params['InOutWRte_RvrtTms'] = self.inv.volt_var.InOutWRte_RvrtTms
                 params['InOutWRte_RmpTms'] = self.inv.volt_var.InOutWRte_RmpTms
 
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -1472,7 +1618,7 @@ class DER(der.DER):
                 rvrt_tms = params.get('RvrtTms')
                 if rvrt_tms is not None:
                     self.inv.hfrt.RvrtTms = rvrt_tms
-                for i in xrange(1, params['NPt'] + 1):  # Uses the SunSpec indexing rules (start at 1)
+                for i in range(1, params['NPt'] + 1):  # Uses the SunSpec indexing rules (start at 1)
                     time_point = 'Tms%d' % i
                     param_time_point = params.get(time_point)
                     curve_num = self.inv.hfrt.ActCrv  # assume the active curve is the one being changed
@@ -1499,7 +1645,7 @@ class DER(der.DER):
                 params['RmpTms'] = self.inv.hfrt.RmpTms
                 params['RvrtTms'] = self.inv.hfrt.RvrtTms
 
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -1544,7 +1690,7 @@ class DER(der.DER):
                 rvrt_tms = params.get('RvrtTms')
                 if rvrt_tms is not None:
                     self.inv.lfrt.RvrtTms = rvrt_tms
-                for i in xrange(1, params['NPt'] + 1):  # Uses the SunSpec indexing rules (start at 1)
+                for i in range(1, params['NPt'] + 1):  # Uses the SunSpec indexing rules (start at 1)
                     time_point = 'Tms%d' % i
                     param_time_point = params.get(time_point)
                     curve_num = self.inv.lfrt.ActCrv  # assume the active curve is the one being changed
@@ -1571,7 +1717,7 @@ class DER(der.DER):
                 params['RmpTms'] = self.inv.lfrt.RmpTms
                 params['RvrtTms'] = self.inv.lfrt.RvrtTms
 
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -1602,7 +1748,7 @@ class DER(der.DER):
             else:
                 params = {}
 
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -1634,7 +1780,7 @@ class DER(der.DER):
             else:
                 params = {}
 
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -1679,7 +1825,7 @@ class DER(der.DER):
                 rvrt_tms = params.get('RvrtTms')
                 if rvrt_tms is not None:
                     self.inv.hvrtc.RvrtTms = rvrt_tms
-                for i in xrange(1, params['NPt'] + 1):  # Uses the SunSpec indexing rules (start at 1)
+                for i in range(1, params['NPt'] + 1):  # Uses the SunSpec indexing rules (start at 1)
                     time_point = 'Tms%d' % i
                     param_time_point = params.get(time_point)
                     curve_num = self.inv.hvrtc.ActCrv  # assume the active curve is the one being changed
@@ -1706,7 +1852,7 @@ class DER(der.DER):
                 params['RmpTms'] = self.inv.hvrtc.RmpTms
                 params['RvrtTms'] = self.inv.hvrtc.RvrtTms
 
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -1752,7 +1898,7 @@ class DER(der.DER):
                 rvrt_tms = params.get('RvrtTms')
                 if rvrt_tms is not None:
                     self.inv.lvrtc.RvrtTms = rvrt_tms
-                for i in xrange(1, params['NPt'] + 1):  # Uses the SunSpec indexing rules (start at 1)
+                for i in range(1, params['NPt'] + 1):  # Uses the SunSpec indexing rules (start at 1)
                     time_point = 'Tms%d' % i
                     param_time_point = params.get(time_point)
                     curve_num = self.inv.lvrtc.ActCrv  # assume the active curve is the one being changed
@@ -1779,7 +1925,7 @@ class DER(der.DER):
                 params['RmpTms'] = self.inv.lvrtc.RmpTms
                 params['RvrtTms'] = self.inv.lvrtc.RvrtTms
 
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
@@ -1824,7 +1970,7 @@ class DER(der.DER):
                 rvrt_tms = params.get('RvrtTms')
                 if rvrt_tms is not None:
                     self.inv.hvrtd.RvrtTms = rvrt_tms
-                for i in xrange(1, params['NPt'] + 1):  # Uses the SunSpec indexing rules (start at 1)
+                for i in range(1, params['NPt'] + 1):  # Uses the SunSpec indexing rules (start at 1)
                     time_point = 'Tms%d' % i
                     param_time_point = params.get(time_point)
                     curve_num = self.inv.hvrtd.ActCrv  # assume the active curve is the one being changed
@@ -1851,11 +1997,10 @@ class DER(der.DER):
                 params['RmpTms'] = self.inv.hvrtd.RmpTms
                 params['RvrtTms'] = self.inv.hvrtd.RvrtTms
 
-        except Exception, e:
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params
-
 
     def vrt_trip_low(self, params=None):
         """ Get/set low voltage ride through (must trip curve)
@@ -1897,7 +2042,7 @@ class DER(der.DER):
                 rvrt_tms = params.get('RvrtTms')
                 if rvrt_tms is not None:
                     self.inv.lvrtd.RvrtTms = rvrt_tms
-                for i in xrange(1, params['NPt'] + 1):  # Uses the SunSpec indexing rules (start at 1)
+                for i in range(1, params['NPt'] + 1):  # Uses the SunSpec indexing rules (start at 1)
                     time_point = 'Tms%d' % i
                     param_time_point = params.get(time_point)
                     curve_num = self.inv.lvrtd.ActCrv  # assume the active curve is the one being changed
@@ -1924,7 +2069,38 @@ class DER(der.DER):
                 params['RmpTms'] = self.inv.lvrtd.RmpTms
                 params['RvrtTms'] = self.inv.lvrtd.RvrtTms
 
-        except Exception, e:
+        except Exception as e:
+            raise der.DERError(str(e))
+
+        return params
+
+    def ramp_rates(self, params=None):
+        """ Get/set ramp rate control
+
+        :param params: Dictionary of parameters to be updated.
+        :return: Dictionary of active settings for ramp rate control.
+        """
+        if self.inv is None:
+            raise der.DERError('DER not initialized')
+
+        try:
+            if 'ext_settings' in self.inv.models:
+                if params is not None:
+                    rr = params.get('ramp_rate')
+                    ss = params.get('soft_start')
+                    if rr is not None:
+                        self.inv.ext_settings.NomRmpUpRte = rr
+                    if ss is not None:
+                        self.inv.ext_settings.ConnRmpUpRte = ss
+                    self.inv.ext_settings.write()
+                else:
+                    params = {}
+                    self.inv.ext_settings.read()
+                    params['ramp_rate'] = self.inv.ext_settings.NomRmpUpRte
+                    params['soft_start'] = self.inv.ext_settings.ConnRmpUpRte
+            else:
+                params = None
+        except Exception as e:
             raise der.DERError(str(e))
 
         return params

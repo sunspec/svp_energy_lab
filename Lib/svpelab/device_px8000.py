@@ -32,7 +32,7 @@ Questions can be directed to support@sunspec.org
 
 import time
 
-import vxi11
+from . import vxi11
 
 '''
 data_query_str = (
@@ -81,6 +81,29 @@ query_points = {
 }
 
 
+def pf_scan(points, pf_points):
+    for i in range(len(points)):
+        if points[i].startswith('AC_PF'):
+            label = points[i][5:]
+            try:
+                p_index = points.index('AC_P%s' % (label))
+                q_index = points.index('AC_Q%s' % (label))
+                pf_points.append((i, p_index, q_index))
+            except ValueError:
+                pass
+
+def pf_adjust_sign(data, pf_idx, p_idx, q_idx):
+    """
+    Power factor sign is the opposite sign of the product of active power and reactive power
+    """
+    pq = data[p_idx] * data[q_idx]
+    # sign should be opposite of product of p and q
+    pf = abs(data[pf_idx])
+    if pq >= 0:
+        pf = pf * -1
+    return pf
+
+
 class DeviceError(Exception):
     """
     Exception to wrap all das generated exceptions.
@@ -95,6 +118,7 @@ class Device(object):
         self.params = params
         self.channels = params.get('channels')
         self.data_points = ['TIME']
+        self.pf_points = []
 
         # create query string for configured channels
         query_chan_str = ''
@@ -122,6 +146,8 @@ class Device(object):
 
         self.query_str = ':NUMERIC:FORMAT ASCII\nNUMERIC:NORMAL:NUMBER %d\n' % (item) + query_chan_str
 
+        pf_scan(self.data_points, self.pf_points)
+
         self.vx = vxi11.Instrument(self.params['ip_addr'])
 
         # clear any error conditions
@@ -143,13 +169,13 @@ class Device(object):
             if len(resp) > 0:
                 if resp[0] != '0':
                     raise DeviceError(resp)
-        except Exception, e:
+        except Exception as e:
             raise DeviceError('PX8000 communication error: %s' % str(e))
 
     def query(self, cmd_str):
         try:
             resp = self.vx.ask(cmd_str)
-        except Exception, e:
+        except Exception as e:
             raise DeviceError('PX8000 communication error: %s' % str(e))
 
         return resp
@@ -161,8 +187,11 @@ class Device(object):
         self.capture(enable)
 
     def data_read(self):
-        data = [float(i) for i in self.query(self.query_str).split(',')]
+        q = self.query(self.query_str)
+        data = [float(i) for i in q.split(',')]
         data.insert(0, time.time())
+        for p in self.pf_points:
+            data[p[0]] = pf_adjust_sign(data, *p)
         return data
 
     def capture(self, enable=None):
@@ -245,17 +274,32 @@ if __name__ == "__main__":
     except:
         pass
 
+    points_default = {
+        'AC': ('VRMS', 'IRMS', 'P', 'S', 'Q', 'PF', 'FREQ'),
+        'DC': ('V', 'I', 'P')
+    }
+    points = dict(points_default)
+
+    channels = [None]
+    for i in range(1, 5):
+        chan_type = self._param_value('chan_%d' % (i))
+        chan_label = self._param_value('chan_%d_label' % (i))
+        if chan_label == 'None':
+            chan_label = ''
+        chan = {'type': chan_type, 'points': self.points.get(chan_type), 'label': chan_label}
+        channels.append(chan)
+
     d = Device(params=params)
-    print d.info()
+    print(d.info())
 
     # initialize temp directory
     d.cmd('FILE:DRIV SD')
     path = d.query('FILE:PATH?')
     if path != ':FILE:PATH "Path = SD"':
-        print 'Drive not found: %s' % 'SD'
+        print('Drive not found: %s' % 'SD')
     try:
         d.cmd('FILE:DEL "SVP_WAVEFORM";*WAI')
-        print 'deleted SVP temp directory'
+        print('deleted SVP temp directory')
     except:
         pass
     '''
@@ -277,19 +321,19 @@ if __name__ == "__main__":
     # capture waveform
     # POS 50?
     d.cmd('TRIG:MODE SING;HYST LOW;LEV 6.00000E-03;SLOP FALL;SOUR P2')
-    print d.query('TRIG:MODE?')
-    print d.query('TRIG:SIMP?')
-    print d.query('ACQ?')
+    print(d.query('TRIG:MODE?'))
+    print(d.query('TRIG:SIMP?'))
+    print(d.query('ACQ?'))
     d.cmd('ACQ:CLOC INT; COUN INF; MODE NORM; RLEN 250000')
-    print d.query('ACQ?')
+    print(d.query('ACQ?'))
     d.cmd('TIM:SOUR INT; TDIV 500.0E-03')
-    print d.query('TIM?')
+    print(d.query('TIM?'))
     d.cmd(':STAR')
     running = True
     while running:
         cond = int(d.query('STAT:COND?'))
         if cond & COND_RUNNING == COND_RUNNING:
-            print 'still waiting (%s) ...\r' % cond,
+            print('still waiting (%s) ...\r' % cond, end=' ')
             time.sleep(1)
         else:
             running = False
@@ -297,7 +341,7 @@ if __name__ == "__main__":
 
     # save waveform
     d.cmd('FILE:SAVE:ANAM OFF;NAME "svp_waveform"')
-    print 'saving'
+    print('saving')
     d.cmd('FILE:SAVE:ASC:EXEC')
 
     # transfer waveform
